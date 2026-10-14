@@ -7,3 +7,5 @@ venv/
 ket_qua/**/*.parquet
 ket_qua/**/lon_*
 ket_qua/rq1_tohop/
+# bản nháp bài báo của B, không đưa lên git
+ket_qua/ban_nhap/
