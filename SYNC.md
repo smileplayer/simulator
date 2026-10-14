@@ -29,8 +29,10 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
   - `agents/arb.py` — `Arbitrageur` kéo giá về `P_e` bằng `sqrt_price_limit`, có cờ `bat` để tắt ở pha Attack.
   - `agents/victim.py` — `l_v_sao` (Lemma 4) + `VictimToanTri`: vào tick chứa giá, mỗi bước chỉnh L về `L_V*` (lệch > 1%), `L_A` = mọi thanh khoản khác đang hoạt động; giá ra ngoài khoảng thì giữ nguyên.
   - `agents/attacker.py` — `Attacker`: dựng tường theo lịch `[(bước, tỷ lệ)]` ở tick chứa giá, rút (burn + collect) ở `t_0` hoặc khi L nạn nhân ≥ `nguong_victim·L_A`, xả token0 qua `so_buoc_xa` bước tới `z₂` (dừng ở `z̄ = √(c_A/(1−f))`, hết kho, hoặc hết thanh khoản); `dang_xa(t)` để bộ chạy tắt arb.
+  - `scenarios/run.py` — `run(config, seed) -> EventLog` (meta ở `log.meta`), `run_frame(...)` → DataFrame có `df.attrs["meta"]` (gồm cả config: `c_A`, `t_m`, `t_rut`, `wall_tick`…), `nap_config("co_so")`. Config cơ sở `scenarios/configs/co_so.json` (240 bước, tường 4e8 dựng 48/72, rút 168, xả 2 bước). **Đã đáp ứng 2 yêu cầu của B**: collect mọi vị thế có phí ở bước cuối; `c_A` có trong meta. Giá ngoài `ThiTruongKichBan`: neo giữa tick tường khi Prep (vol 0), đi theo bể khi xả, vol 1%/h sau đó.
+  - **Kết quả cơ sở seed 0 (đo bằng `metrics.report.summarize`):** victim mint đúng `L_V = L_A = 4e8` ✓; farmer đạt trần 72k/ngày khi có tường, ~27k/ngày khi không ✓; lift Prep 1,78 (trade 1,38), Attack 7,1; RV Prep 0,02 < Before 0,09 < Post 0,28 ✓; giá −34% sau 2 bước; victim lỗ 1.879, phí victim nhận 937. **Chưa đạt: lift Post 1,08 (bài gốc: dưới nền)** — trong mô hình nền và farmer trở về như trước tường; cần cơ chế (LP nền rút / trader rời đi sau sập) — để bàn với Đức.
   - Test trên **engine thật**: farmer khớp Theorem 1 (sai 1e-8), victim đạt `L_V*/L_A = 1` tại `L_A = fQ/(4c_V)`, arb về đúng `P_e`.
-- **Đang làm:** chưa mở việc mới. Việc kế: `scenarios/run.py` + config JSON cơ sở (trả thưởng theo cửa sổ, ghi `subsidy`/`step` bằng `pool.log.append`). Đáp ứng yêu cầu của B trong bộ chạy: `collect` cuối kịch bản cho mọi LP; ghi `c_A` vào config/meta. Sau đó: victim thích nghi.
+- **Đang làm:** chưa mở việc mới. Việc kế: victim thích nghi (`VictimThichNghi`: ước lượng lợi suất phí từ quá khứ, tối ưu như Lemma 4 với V ước lượng), rồi bộ chạy nhiều seed (`scenarios/batch.py`) và các biện pháp GĐ2 trong `defenses/`.
 - **Cần từ vai khác:** —
 
 ---
@@ -39,6 +41,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 19:50 | C | Thêm `scenarios/run.py` + `configs/co_so.json`: **GĐ1 chạy trọn trên engine thật** (đủ 5 loại tác nhân, trợ cấp, collect cuối, meta có `c_A`). B: dùng `run_frame(nap_config("co_so"), seed)` | toàn repo 154 qua (tests/agents 36 qua) |
 | 14/10/2026 20:05 | A | Móc GĐ3 `fee_weight = φ(w)` (feeGrowth trên L·φ, tổng phí giữ nguyên) + 7 test; đo tốc độ engine (~7 µs/lệnh) | toàn repo 147 qua (tests/engine 52 qua) |
 | 14/10/2026 19:50 | A | Kiểm chéo engine với `_BeGia` (trùng < 1e-8), test `tick_spacing=10`, `liquidity_at` sau nhiều lần qua tick, chạm biên rồi đổi chiều; export gói `engine` | toàn repo 134 qua (tests/engine 45 qua) |
 | 14/10/2026 19:39 | C | Thêm `agents/attacker.py` (Lemma 5: ba điều kiện dừng, rút theo `t_0` hoặc ngưỡng victim, xả nhiều bước) + 6 test trên engine | toàn repo 140 qua (tests/agents 29 qua) |
