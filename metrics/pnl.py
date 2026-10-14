@@ -120,11 +120,13 @@ def attacker_profit(df: pd.DataFrame, ph: dict, end: str = "t_b", attackers: set
 
     `paper` = Σ token1 nhận từ swap chiều sập trong `[t_0, t_end]` (đúng §5 bài gốc).
     `net_cash1` = dòng token1 ròng về attacker trong `[t_m, t_end]` (mint/burn/swap/collect/subsidy).
-    `full` = net_cash1 + Δtoken0 × `alpha_cost` (mặc định giá bể cuối bước `t_0 − 1`, tức giá vốn cơ hội của alpha).
+    `full` = net_cash1 + Δtoken0 × `alpha_cost` (mặc định `c_A` trong `df.attrs["meta"]`; không có thì giá bể cuối bước `t_0 − 1`).
     """
     te = _t_end(ph, end)
     if attackers is None:
         attackers = identify_roles(df, ph, end)["attackers"]
+    if alpha_cost is None:
+        alpha_cost = df.attrs.get("meta", {}).get("c_A")
     if alpha_cost is None:
         s = df[df["kind"] == "step"].groupby("t")["sqrt_price_after"].last()
         alpha_cost = float(s[ph["t_0"] - 1] ** 2)

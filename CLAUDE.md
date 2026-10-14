@@ -33,6 +33,14 @@ Khi chưa biết mình là vai nào (chưa có lệnh `/vai`), **hỏi Đức tr
 - Mỗi hàm công khai có docstring tiếng Việt một-hai dòng, ghi đơn vị (token0/token1, tick, bước thời gian).
 - Kết quả chạy (CSV, PNG) để trong `ket_qua/`; file lớn > 5 MB không commit.
 
+## Lệnh chạy lâu — Đức tự chạy, không để Claude chạy
+
+- **Trước khi chạy** một lệnh có thể lâu (quét tham số, nhiều seed, benchmark lớn, kịch bản dài): chạy bản nhỏ trước (ít bước / ít seed / `--nhanh`), đo thời gian, rồi **ước lượng thời gian bản đầy đủ**.
+- Nếu ước lượng **> 5 phút**: **không chạy**. Dừng lại và báo Đức đúng 4 dòng: lệnh chạy (copy-dán được, chạy từ thư mục `04_Simulator`), thời gian ước lượng, kết quả ghi vào file nào, và cách chạy tiếp nếu bị ngắt. Đồng thời ghi một dòng **"Chờ Đức chạy: …"** vào mục của vai mình trong `SYNC.md`.
+- Script chạy lâu phải: ghi kết quả **dần dần** (mỗi ô xong ghi ngay một dòng CSV vào `ket_qua/`), **chạy lại thì bỏ qua phần đã xong**, in tiến độ ngắn gọn (vài dòng), có tùy chọn `--nhanh` để thử.
+- Không dùng lệnh chạy nền rồi kiểm tra đi kiểm tra lại để chờ việc dài; không tự đặt `/loop` hay lịch hẹn giờ khi Đức chưa yêu cầu.
+- Khi Đức báo đã chạy xong, đọc **file kết quả** (tóm tắt bằng pandas), không in toàn bộ file vào hội thoại.
+
 ## Quyết định đã chốt — không đi ngược khi chưa hỏi Đức
 
 Xem mục "Quyết định kỹ thuật đã chốt" trong `../CLAUDE.md` (cross-tick ngay từ đầu; `w` là tham số tác nhân; victim tối ưu theo Lemma 4; `MC(v)` từ bể thật; range-aware = chia lại phí có trọng số; thử cả trợ cấp tuyến tính và log). Công thức, checklist, tiêu chuẩn kiểm định: `../03_Ghi_chu_nghien_cuu/03_Ke_hoach_simulator.md`. Việc + yêu cầu cần đạt + hạn của từng vai: `../03_Ghi_chu_nghien_cuu/05_Phan_cong.md`.

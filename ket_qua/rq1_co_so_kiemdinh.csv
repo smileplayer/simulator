@@ -1,0 +1,15 @@
+﻿dau_hieu,loai,tieu_chuan,gia_tri,ty_le_vu,ket_qua
+Có cú sập ≥ 10%,chính,mọi vụ breached,1.0,1.0,Đạt
+Chuẩn bị theo ngày,chính,trung vị Δbuild ≥ 24 giờ,120.0,1.0,Đạt
+Thu hoạch theo giờ,chính,trung vị Δextract < 24 giờ,0.0,1.0,Đạt
+Khối lượng Prep vừa phải,chính,"trung vị lift_Prep ∈ [1.0, 1.5]",1.8157118691518301,0.0,Không đạt
+Khối lượng Prep vừa phải,phụ,"như trên, trên vol_trade",1.5401160128969915,0.4,Không đạt
+Khối lượng Attack bùng,chính,có vụ lift_Attack > 5.0×,8.50013074872552,1.0,Đạt
+Khối lượng Post dưới nền,chính,trung vị lift_Post < 1.0,1.148157631666534,0.0,Không đạt
+Khối lượng Post dưới nền,phụ,"như trên, trên vol_trade",1.2415359959690064,0.0,Không đạt
+Biến động Prep thấp hơn Attack,chính,trung vị RV_Attack / RV_Prep > 1,10.97431380944062,1.0,Đạt
+Biến động Post cao nhất,chính,"trung vị RV_Post / max(RV_Prep, RV_Attack) ≥ 1",1.5971184128789555,1.0,Đạt
+Giá ghim quanh t_m,chính,trung vị |before_price_change| < 10%,0.00808990075389763,1.0,Đạt
+Giá sập sau rút,chính,trung vị attack_price_change ≤ -10%,-0.10405955654781775,1.0,Đạt
+Tường cạn tại t_b,chính,trung vị drop_at_tb ≥ 80%,0.5000000156210955,0.0,Không đạt
+Victim toàn tri khớp lý thuyết,chính,L_V*/L_A ≈ 1 tại L_A = fQ/(4c_V) (kiểm ở tests/agents của C),,,Chưa đo
