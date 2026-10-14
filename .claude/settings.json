@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "additionalDirectories": ["D:/Đức/Đồ án Blockchain"],
+    "allow": [
+      "Bash(python -m pytest *)",
+      "Bash(py -m pytest *)",
+      "Bash(pytest *)",
+      "Bash(python -m scenarios *)",
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git add engine *)",
+      "Bash(git add metrics *)",
+      "Bash(git add agents *)",
+      "Bash(git add SYNC.md *)",
+      "Bash(git commit *)",
+      "PowerShell(python -m pytest *)",
+      "PowerShell(git status *)",
+      "PowerShell(git log *)",
+      "PowerShell(git diff *)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)",
+      "PowerShell(git push *)"
+    ]
+  }
+}
