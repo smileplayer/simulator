@@ -5,10 +5,15 @@ rộng bất kỳ — không giả định một tick. Phí cộng dồn theo fe
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import bisect
+import math
+from dataclasses import dataclass
 
 from .log import EventLog
-from .tick_math import amounts_for_liquidity, sqrt_price_at_tick, tick_at_sqrt_price
+from .tick_math import (
+    MAX_TICK, MIN_TICK, amount0_delta, amount1_delta, amounts_for_liquidity, sqrt_price_at_tick,
+    tick_at_sqrt_price,
+)
 
 
 @dataclass
@@ -50,6 +55,11 @@ class _PositionState:
     owed1: float = 0.0
 
 
+def _clean(L: float, scale: float) -> float:
+    """Đưa L_active về 0 khi chỉ còn sai số float so với lượng vừa trừ (và không cho âm)."""
+    return 0.0 if L <= 1e-9 * abs(scale) else L
+
+
 class Pool:
     """Bể một cặp token0/token1 với thanh khoản tập trung, swap cross-tick."""
 
@@ -68,6 +78,7 @@ class Pool:
         self.t = 0                               # bước thời gian, bộ chạy đặt
         self.log = EventLog()
         self._ticks: dict[int, _Tick] = {}
+        self._sorted_ticks: list[int] = []       # các tick đã khởi tạo, tăng dần
         self._positions: dict[int, _PositionState] = {}
         self._next_id = 1
 
@@ -89,10 +100,12 @@ class Pool:
                 info.fee_growth_outside0 = self.fee_growth_global0
                 info.fee_growth_outside1 = self.fee_growth_global1
             self._ticks[i] = info
+            bisect.insort(self._sorted_ticks, i)
         info.liquidity_gross += dL
         info.liquidity_net += -dL if upper else dL
         if info.liquidity_gross <= 1e-12 * max(1.0, abs(dL)):
             del self._ticks[i]
+            self._sorted_ticks.pop(bisect.bisect_left(self._sorted_ticks, i))
 
     def _fee_growth_inside(self, lo: int, hi: int) -> tuple[float, float]:
         """feeGrowth trong khoảng [lo, hi) (token0, token1 trên mỗi đơn vị L)."""
@@ -163,7 +176,7 @@ class Pool:
                                        sqrt_price_at_tick(p.tick_upper), L)
         if L > 0:
             if self._in_range(p):
-                self.liquidity = max(self.liquidity - L, 0.0)
+                self.liquidity = _clean(self.liquidity - L, L)
             self._update_tick(p.tick_lower, -L, upper=False)
             self._update_tick(p.tick_upper, -L, upper=True)
             p.liquidity -= L
@@ -182,13 +195,111 @@ class Pool:
 
     def swap(self, owner: str, zero_for_one: bool, amount_in: float | None = None,
              sqrt_price_limit: float | None = None) -> SwapResult:
-        """Swap cross-tick (chưa cài — việc kế tiếp của vai A)."""
-        raise NotImplementedError("swap cross-tick: việc kế tiếp của vai A")
+        """Swap cross-tick. amount_in (token vào, đã gồm phí) và/hoặc sqrt_price_limit; dừng ở điều
+        kiện đến trước hoặc khi hết thanh khoản. zero_for_one=True: bán token0, giá giảm."""
+        res = self._swap_core(zero_for_one, amount_in, sqrt_price_limit, commit=True)
+        if zero_for_one:
+            self._log("swap", owner, amount0=res.amount_in, amount1=-res.amount_out, fee0=res.fee)
+        else:
+            self._log("swap", owner, amount0=-res.amount_out, amount1=res.amount_in, fee1=res.fee)
+        return res
 
     def quote_swap(self, zero_for_one: bool, amount_in: float | None = None,
                    sqrt_price_limit: float | None = None) -> SwapResult:
-        """Như swap nhưng không đổi trạng thái (chưa cài — việc kế tiếp của vai A)."""
-        raise NotImplementedError("quote_swap: việc kế tiếp của vai A")
+        """Như swap nhưng KHÔNG đổi trạng thái, không ghi log — để farmer tính trượt giá MC(v)."""
+        return self._swap_core(zero_for_one, amount_in, sqrt_price_limit, commit=False)
+
+    def _next_initialized(self, zero_for_one: bool, tick: int) -> int | None:
+        """Tick đã khởi tạo kế tiếp theo chiều swap: ≤ tick nếu đi xuống, > tick nếu đi lên."""
+        ts = self._sorted_ticks
+        if zero_for_one:
+            k = bisect.bisect_right(ts, tick) - 1
+            return ts[k] if k >= 0 else None
+        k = bisect.bisect_right(ts, tick)
+        return ts[k] if k < len(ts) else None
+
+    def _swap_core(self, zero_for_one: bool, amount_in: float | None,
+                   sqrt_price_limit: float | None, commit: bool) -> SwapResult:
+        """Vòng lặp swap kiểu v3 trên biến cục bộ; commit=True mới ghi trạng thái vào bể."""
+        if amount_in is None and sqrt_price_limit is None:
+            raise ValueError("cần amount_in hoặc sqrt_price_limit")
+        if amount_in is not None and amount_in < 0:
+            raise ValueError("amount_in phải ≥ 0")
+        down = zero_for_one
+        if sqrt_price_limit is None:
+            limit = sqrt_price_at_tick(MIN_TICK if down else MAX_TICK)
+        else:
+            limit = float(sqrt_price_limit)
+        z, tick, L = self.sqrt_price, self.tick, self.liquidity
+        z0, tick0 = z, tick
+        g = self.fee_growth_global0 if down else self.fee_growth_global1
+        remaining = math.inf if amount_in is None else float(amount_in)
+        total_in = total_out = total_fee = 0.0
+        crossed: list[tuple[int, float]] = []          # (tick, feeGrowthGlobal lúc qua)
+        gamma = 1.0 - self.fee
+
+        while remaining > 0 and (z > limit if down else z < limit):
+            nxt = self._next_initialized(down, tick)
+            if nxt is None:
+                if L <= 0:
+                    break                                  # hết thanh khoản theo chiều này
+                z_tick = None
+                target = limit
+            else:
+                z_tick = sqrt_price_at_tick(nxt)
+                target = max(z_tick, limit) if down else min(z_tick, limit)
+
+            if L > 0:
+                net_max = amount0_delta(target, z, L) if down else amount1_delta(z, target, L)
+                gross_max = net_max / gamma
+                if remaining >= gross_max:
+                    z_new, net, step_in = target, net_max, gross_max
+                else:
+                    step_in = remaining
+                    net = step_in * gamma
+                    z_new = 1.0 / (1.0 / z + net / L) if down else z + net / L
+                    z_new = max(z_new, target) if down else min(z_new, target)
+                out = amount1_delta(z_new, z, L) if down else amount0_delta(z, z_new, L)
+                fee_amt = step_in - net
+                g += fee_amt / L
+                total_in += step_in
+                total_out += out
+                total_fee += fee_amt
+                if remaining != math.inf:
+                    remaining = 0.0 if step_in == remaining else remaining - step_in
+            else:
+                z_new = target                             # khoảng trống: nhảy giá, không tốn gì
+
+            z = z_new
+            if z_tick is not None and z == z_tick:         # chạm tick đã khởi tạo → qua tick
+                net_L = self._ticks[nxt].liquidity_net
+                crossed.append((nxt, g))
+                if down:
+                    L -= net_L
+                    tick = nxt - 1
+                else:
+                    L += net_L
+                    tick = nxt
+                L = _clean(L, net_L)
+            else:
+                tick = tick_at_sqrt_price(z)
+
+        if commit:
+            for i, g_at in crossed:                        # lật feeGrowthOutside như v3
+                info = self._ticks[i]
+                if down:
+                    info.fee_growth_outside0 = g_at - info.fee_growth_outside0
+                    info.fee_growth_outside1 = self.fee_growth_global1 - info.fee_growth_outside1
+                else:
+                    info.fee_growth_outside0 = self.fee_growth_global0 - info.fee_growth_outside0
+                    info.fee_growth_outside1 = g_at - info.fee_growth_outside1
+            if down:
+                self.fee_growth_global0 = g
+            else:
+                self.fee_growth_global1 = g
+            self.sqrt_price, self.tick, self.liquidity = z, tick, L
+        return SwapResult(total_in, total_out, total_fee, zero_for_one, z0, z, tick0, tick,
+                          abs(tick - tick0))
 
     # ---------- đọc trạng thái ----------
     def position_amounts(self, position_id: int) -> tuple[float, float]:
