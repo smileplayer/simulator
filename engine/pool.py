@@ -2,11 +2,16 @@
 
 Cấu trúc dữ liệu tổng quát theo tick (liquidity_net/gross, feeGrowthOutside) nên vị thế có độ
 rộng bất kỳ — không giả định một tick. Phí cộng dồn theo feeGrowth + checkpoint như v3.
+
+GĐ3: `fee_weight = φ(w)` chia lại phí theo L_i·φ(w_i) / Σ L_j·φ(w_j) trong số vị thế đang hoạt động
+(tổng phí giữ nguyên). Cài bằng cách tính feeGrowth trên mỗi đơn vị "thanh khoản có trọng số"
+L·φ(w) thay vì L; giá vẫn đi theo L thật. φ = None ⇔ φ ≡ 1 ⇔ pro-rata như v3.
 """
 from __future__ import annotations
 
 import bisect
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from .log import EventLog
@@ -42,6 +47,7 @@ class SwapResult:
 class _Tick:
     liquidity_gross: float = 0.0
     liquidity_net: float = 0.0           # cộng vào L_active khi giá đi lên qua tick này
+    weighted_net: float = 0.0            # như trên nhưng với L·φ(w)
     fee_growth_outside0: float = 0.0     # token0 trên mỗi đơn vị L, phía "bên kia" tick
     fee_growth_outside1: float = 0.0
 
@@ -49,6 +55,7 @@ class _Tick:
 @dataclass
 class _PositionState:
     pos: Position
+    weight: float = 1.0                  # φ(w) của vị thế
     fee_growth_inside0_last: float = 0.0
     fee_growth_inside1_last: float = 0.0
     owed0: float = 0.0
@@ -63,7 +70,8 @@ def _clean(L: float, scale: float) -> float:
 class Pool:
     """Bể một cặp token0/token1 với thanh khoản tập trung, swap cross-tick."""
 
-    def __init__(self, fee: float, sqrt_price: float, tick_spacing: int = 1):
+    def __init__(self, fee: float, sqrt_price: float, tick_spacing: int = 1,
+                 fee_weight: Callable[[int], float] | None = None):
         if not 0 <= fee < 1:
             raise ValueError("fee phải trong [0, 1)")
         if tick_spacing < 1:
@@ -73,7 +81,9 @@ class Pool:
         self.sqrt_price = float(sqrt_price)
         self.tick = tick_at_sqrt_price(self.sqrt_price)
         self.liquidity = 0.0                     # L_active
-        self.fee_growth_global0 = 0.0            # token0 trên mỗi đơn vị L
+        self.fee_weight = fee_weight             # φ(w), w tính bằng số tick; None = pro-rata
+        self.liquidity_weighted = 0.0            # Σ L·φ(w) của vị thế đang hoạt động
+        self.fee_growth_global0 = 0.0            # token0 trên mỗi đơn vị L·φ(w)
         self.fee_growth_global1 = 0.0
         self.t = 0                               # bước thời gian, bộ chạy đặt
         self.log = EventLog()
@@ -91,7 +101,7 @@ class Pool:
         sqrt_price_at_tick(tick_lower)
         sqrt_price_at_tick(tick_upper)
 
-    def _update_tick(self, i: int, dL: float, upper: bool) -> None:
+    def _update_tick(self, i: int, dL: float, dLw: float, upper: bool) -> None:
         """Cộng dL vào tick i (biên dưới nếu upper=False). Khởi tạo feeGrowthOutside như v3."""
         info = self._ticks.get(i)
         if info is None:
@@ -103,6 +113,7 @@ class Pool:
             bisect.insort(self._sorted_ticks, i)
         info.liquidity_gross += dL
         info.liquidity_net += -dL if upper else dL
+        info.weighted_net += -dLw if upper else dLw
         if info.liquidity_gross <= 1e-12 * max(1.0, abs(dL)):
             del self._ticks[i]
             self._sorted_ticks.pop(bisect.bisect_left(self._sorted_ticks, i))
@@ -125,8 +136,9 @@ class Pool:
         """Chuyển phí phát sinh từ checkpoint trước vào owed của vị thế."""
         p = st.pos
         in0, in1 = self._fee_growth_inside(p.tick_lower, p.tick_upper)
-        st.owed0 += p.liquidity * (in0 - st.fee_growth_inside0_last)
-        st.owed1 += p.liquidity * (in1 - st.fee_growth_inside1_last)
+        Lw = p.liquidity * st.weight
+        st.owed0 += Lw * (in0 - st.fee_growth_inside0_last)
+        st.owed1 += Lw * (in1 - st.fee_growth_inside1_last)
         st.fee_growth_inside0_last, st.fee_growth_inside1_last = in0, in1
 
     def _in_range(self, p: Position) -> bool:
@@ -148,15 +160,20 @@ class Pool:
         self._check_range(tick_lower, tick_upper)
         if liquidity <= 0:
             raise ValueError("liquidity phải dương")
-        self._update_tick(tick_lower, liquidity, upper=False)
-        self._update_tick(tick_upper, liquidity, upper=True)
+        weight = 1.0 if self.fee_weight is None else float(self.fee_weight(tick_upper - tick_lower))
+        if not weight > 0:
+            raise ValueError(f"φ(w) phải dương, nhận {weight}")
+        Lw = liquidity * weight
+        self._update_tick(tick_lower, liquidity, Lw, upper=False)
+        self._update_tick(tick_upper, liquidity, Lw, upper=True)
         pid = self._next_id
         self._next_id += 1
         pos = Position(pid, owner, tick_lower, tick_upper, float(liquidity))
         in0, in1 = self._fee_growth_inside(tick_lower, tick_upper)
-        self._positions[pid] = _PositionState(pos, in0, in1)
+        self._positions[pid] = _PositionState(pos, weight, in0, in1)
         if self._in_range(pos):
             self.liquidity += liquidity
+            self.liquidity_weighted += Lw
         a0, a1 = amounts_for_liquidity(self.sqrt_price, sqrt_price_at_tick(tick_lower),
                                        sqrt_price_at_tick(tick_upper), liquidity)
         self._log("mint", owner, position_id=pid, tick_lower=tick_lower, tick_upper=tick_upper,
@@ -175,10 +192,14 @@ class Pool:
         a0, a1 = amounts_for_liquidity(self.sqrt_price, sqrt_price_at_tick(p.tick_lower),
                                        sqrt_price_at_tick(p.tick_upper), L)
         if L > 0:
+            Lw = L * st.weight
             if self._in_range(p):
                 self.liquidity = _clean(self.liquidity - L, L)
-            self._update_tick(p.tick_lower, -L, upper=False)
-            self._update_tick(p.tick_upper, -L, upper=True)
+                self.liquidity_weighted = _clean(self.liquidity_weighted - Lw, Lw)
+                if self.liquidity == 0 or self.liquidity_weighted == 0:
+                    self.liquidity = self.liquidity_weighted = 0.0
+            self._update_tick(p.tick_lower, -L, -Lw, upper=False)
+            self._update_tick(p.tick_upper, -L, -Lw, upper=True)
             p.liquidity -= L
         self._log("burn", p.owner, position_id=p.id, tick_lower=p.tick_lower,
                   tick_upper=p.tick_upper, liquidity=L, amount0=-a0, amount1=-a1)
@@ -230,7 +251,7 @@ class Pool:
             limit = sqrt_price_at_tick(MIN_TICK if down else MAX_TICK)
         else:
             limit = float(sqrt_price_limit)
-        z, tick, L = self.sqrt_price, self.tick, self.liquidity
+        z, tick, L, Lw = self.sqrt_price, self.tick, self.liquidity, self.liquidity_weighted
         z0, tick0 = z, tick
         g = self.fee_growth_global0 if down else self.fee_growth_global1
         remaining = math.inf if amount_in is None else float(amount_in)
@@ -261,7 +282,7 @@ class Pool:
                     z_new = max(z_new, target) if down else min(z_new, target)
                 out = amount1_delta(z_new, z, L) if down else amount0_delta(z, z_new, L)
                 fee_amt = step_in - net
-                g += fee_amt / L
+                g += fee_amt / Lw
                 total_in += step_in
                 total_out += out
                 total_fee += fee_amt
@@ -272,15 +293,19 @@ class Pool:
 
             z = z_new
             if z_tick is not None and z == z_tick:         # chạm tick đã khởi tạo → qua tick
-                net_L = self._ticks[nxt].liquidity_net
+                net_L, net_w = self._ticks[nxt].liquidity_net, self._ticks[nxt].weighted_net
                 crossed.append((nxt, g))
                 if down:
                     L -= net_L
+                    Lw -= net_w
                     tick = nxt - 1
                 else:
                     L += net_L
+                    Lw += net_w
                     tick = nxt
-                L = _clean(L, net_L)
+                L, Lw = _clean(L, net_L), _clean(Lw, net_w)
+                if L == 0 or Lw == 0:                      # hai cái cùng về 0, tránh chia cho 0
+                    L = Lw = 0.0
             else:
                 tick = tick_at_sqrt_price(z)
 
@@ -297,7 +322,7 @@ class Pool:
                 self.fee_growth_global0 = g
             else:
                 self.fee_growth_global1 = g
-            self.sqrt_price, self.tick, self.liquidity = z, tick, L
+            self.sqrt_price, self.tick, self.liquidity, self.liquidity_weighted = z, tick, L, Lw
         return SwapResult(total_in, total_out, total_fee, zero_for_one, z0, z, tick0, tick,
                           abs(tick - tick0))
 
@@ -313,8 +338,9 @@ class Pool:
         st = self._state(position_id)
         p = st.pos
         in0, in1 = self._fee_growth_inside(p.tick_lower, p.tick_upper)
-        return (st.owed0 + p.liquidity * (in0 - st.fee_growth_inside0_last),
-                st.owed1 + p.liquidity * (in1 - st.fee_growth_inside1_last))
+        Lw = p.liquidity * st.weight
+        return (st.owed0 + Lw * (in0 - st.fee_growth_inside0_last),
+                st.owed1 + Lw * (in1 - st.fee_growth_inside1_last))
 
     def positions(self, owner: str | None = None) -> list[Position]:
         """Các vị thế còn thanh khoản > 0 (bản sao), lọc theo owner nếu có."""
