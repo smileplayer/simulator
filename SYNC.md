@@ -20,8 +20,8 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 - **Kết quả RQ1 LẦN CUỐI (150 log có `bg_tail`, sau commit C `b847b1e`)**: **Đạt 13/13** tiêu chí đo được (victim lý thuyết: Chưa đo, nằm ở test của C). Tỷ lệ mô phỏng / bài gốc: sập ≥ 10% 99% / 100% (L27_18 seed 1 không sập); Δbuild ≥ 1 ngày 100% / 55%; Δextract < 24 h 97% / 62%; Attack ≥ 1× 100% / 59%; Attack > 5× 17% / 14%; **Post < 1× 81% / 79%** (phụ trade 77%); RV Prep < Attack 98%; RV Post cao nhất 95%; giá ghim |·| < 10% 100% / 79%; **giá sập < −10% VWAP 59% / 69%** (phụ trước burn 79%); tường cạn ≥ 80% 100% / 86%. Trung vị: lift Prep 1,77 · Attack 3,47 · Post 0,855; drop 0,895; victim loss full 180; lợi nhuận paper 14.400; trợ cấp 4.700; rò rỉ 3,1×. Khác bài gốc đáng ghi: Prep không vụ nào < 1× (bài gốc 9/29); Post dồn vào < 1× và 1–1,5× (bài gốc có đuôi > 2×); drop dồn 80–99% (bài gốc 18/29 ở 100% — victim còn kẹt).
 - **Hình RQ1:** `plots/hinh.py` (`ve_timeline`: giá bể + P_e, L tick tường theo kẻ tấn công/nạn nhân, khối lượng theo vai, tô 4 pha, vạch mốc; `ve_hop_rv` như Hình 2; `ve_bang4`, `ve_bang7` cột mô phỏng cạnh bài gốc). Một lệnh: `python -m plots.ve_rq1` (≈ 2 s, đọc `ket_qua/rq1/*.csv` + chạy lại `co_so` seed 0) → `ket_qua/rq1/hinh/{timeline_co_so,hop_rv,bang4_lift,bang7_drop}.png`.
 - **Bản nháp bài báo (local, không commit):** `ket_qua/ban_nhap/muc5_phuong_phap_do_luong.md` (mục 5 sửa cho khớp `metrics/`) và `muc6_ket_qua_RQ1.md` (mục 6: bảng kiểm định, 4 hình, Bảng 4/6/7, bốn chỉ số, giới hạn). Thư mục đã thêm vào `.gitignore` theo yêu cầu Đức. Mục 5.5 (số seed, bootstrap) chờ Đức quyết.
-- **Đang làm:** chưa mở việc. Việc kế: bản đồ nhiệt `(σ, Q)` GĐ2 khi C có lưới quét.
-- **Cần từ vai khác:** — (C đã đáp ứng `collect` cuối và `c_A`).
+- **Đang làm:** không có việc dở (mọi code đã commit). Việc kế: (1) bản đồ nhiệt `(σ, Q)` GĐ2 khi C có lưới quét (`ket_qua/gd2/` đang chưa commit, của C); (2) khi Đức chốt 5.5 (số seed, bootstrap): chạy lại `python -m metrics.chay_rq1` + `python -m plots.ve_rq1`, nếu cần bootstrap thì thêm vào `metrics/validate.py`.
+- **Cần từ vai khác:** Đức — chốt mục 5.5 (số seed mỗi cấu hình, bootstrap). C — báo khi có lưới quét `(σ, Q)` GĐ2.
 
 ## Vai C — Tác nhân, thí nghiệm
 - **Trạng thái:** `INTERFACE.md` ĐÃ CHỐT 14/10, sửa cùng ngày (ĐỔI INTERFACE): **farmer chỉ mua**, `arb:0` bán ngược lại cuối bước; thêm `Pool.fee`. Đã có:
@@ -57,6 +57,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 20:37 | B | Chốt phiên: không đổi code từ lần trước; cập nhật việc kế (heatmap GĐ2, chạy lại RQ1 khi chốt 5.5) | toàn repo 175 qua (tests/metrics 68 qua) |
 | 14/10/2026 20:40 | B | Bản nháp mục 5 + 6 bài báo trong `ket_qua/ban_nhap/` (không commit); thêm thư mục đó vào `.gitignore` | toàn repo không đổi code |
 | 14/10/2026 20:35 | A | Chốt phiên: tắt loop, không đổi code; cập nhật việc kế (rà agents của C + chạy thử kịch bản cơ sở trên engine) | toàn repo 175 qua (tests/engine 52 qua) |
 | 14/10/2026 20:30 | C | Nhật ký hiệu chỉnh RQ1; `VictimThichNghi`; `defenses/thuong.py` (cap, delay); `scenarios/quet_gd2.py` (ước 10 phút → chờ Đức chạy) | toàn repo 175 qua (tests/agents 49 qua) |
