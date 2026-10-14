@@ -1,6 +1,6 @@
 # INTERFACE — hợp đồng giữa ba vai
 
-> **Trạng thái: DỰ THẢO (14/10/2026).** Vai C rà và chốt trước **18/10**, rồi đổi dòng này thành "ĐÃ CHỐT ngày …". Sau khi chốt, mọi thay đổi phải ghi "ĐỔI INTERFACE" trong nhật ký `SYNC.md`. Chỉ vai C sửa file này.
+> **Trạng thái: ĐÃ CHỐT ngày 14/10/2026** (vai C, Đức duyệt). Từ nay mọi thay đổi phải ghi "ĐỔI INTERFACE" trong nhật ký `SYNC.md`. Chỉ vai C sửa file này.
 
 ## 1. Quy ước chung
 
@@ -11,7 +11,7 @@
 | Giá | `P` = token1 trên mỗi token0; `z = √P`; `P(i) = 1.0001^i` |
 | Tick | số nguyên; `tick_spacing` mặc định 1 |
 | Phí | `fee` = tỷ lệ (ví dụ `0.0025`), thu trên **token đi vào**, cộng dồn cho LP theo `feeGrowth` |
-| Thời gian | bước nguyên `t = 0, 1, 2, …`; **1 bước = 1 giờ** (đề xuất — C chốt) |
+| Thời gian | bước nguyên `t = 0, 1, 2, …`; **1 bước = 1 giờ** (đã chốt). Thứ tự trong một bước theo cột `seq` — B dùng `seq` khi cần độ phân giải dưới 1 giờ (pha thu hoạch) |
 | Số | `float` (không mô phỏng Q64.96) |
 | Chủ sở hữu | chuỗi `"<vai>:<số>"`: `attacker:0`, `victim:3`, `farmer:12`, `bg:0` (giao dịch nền), `arb:0`, `platform` (bên trả trợ cấp). Vai = phần trước dấu `:` |
 | Dấu lượng token | trong log, **dương = đi vào bể**, âm = ra khỏi bể (nhìn từ phía bể) |
@@ -87,7 +87,14 @@ def run(config: dict, seed: int) -> "EventLog":   # scenarios/run.py
     """Chạy một kịch bản từ đầu tới cuối, trả về log sự kiện."""
 ```
 
-Cấu hình kịch bản là `dict` (đọc từ JSON trong `scenarios/configs/`), tối thiểu có: `fee`, `sigma`, `Q`, `subsidy_form` (`"linear"` | `"log"`), `steps`, `L_A`, `c_V`, `n_farmers`, `victim_type` (`"omniscient"` | `"adaptive"`), `defense` (`null` hoặc tên + tham số).
+Cấu hình kịch bản là `dict` (đọc từ JSON trong `scenarios/configs/`), tối thiểu có: `fee`, `sigma`, `Q`, `subsidy_form` (`"linear"` | `"log"`), `subsidy_window` (số bước, mặc định `24`), `steps`, `L_A`, `c_V`, `n_farmers`, `victim_type` (`"omniscient"` | `"adaptive"`), `defense` (`null` hoặc tên + tham số).
+
+**Thứ tự trong mỗi bước `t`** (bộ chạy đảm bảo): đặt `pool.t = t` → giao dịch nền `bg:*` → farmer → victim → attacker → `arb:0` → (nếu `t+1` chia hết cho `subsidy_window`) nền tảng ghi các dòng `subsidy` → dòng `step`.
+
+**Quy ước tác nhân (đã chốt 14/10):**
+- **Arbitrageur `arb:0`** là tác nhân riêng, hành động **cuối** mỗi bước (trước dòng `step`): swap kéo giá bể về `P_e(t)` bằng `sqrt_price_limit`. Hết thanh khoản thì dừng ở đó. Khối lượng của `arb:*` được ghi log như mọi swap, B có thể lọc theo `role`.
+- **Farmer** giao dịch **khứ hồi trong cùng bước**: mua (`zero_for_one=False`) lượng `v/2` rồi bán lại ngay (`zero_for_one=True`) đúng lượng token0 vừa nhận. Giá quay về gần chỗ cũ nên vẫn nằm trong tick; chi phí = phí hai chiều + trượt giá, `MC(v)` tính bằng `quote_swap` trên trạng thái bể thật. Khối lượng `v` tính bằng token1, cộng cả hai chiều. Với trợ cấp `log`, chỉ chiều **mua** được tính điểm.
+- **Trợ cấp** cộng dồn theo cửa sổ `subsidy_window` bước (mặc định 24 = 1 ngày): cuối mỗi cửa sổ, mỗi farmer nhận `σ·min{v_win, Q}` (tuyến tính) hoặc theo luật log, ghi một dòng `subsidy` (`owner` = farmer, `amount1` = tiền thưởng). Biện pháp "trả trễ" chỉ dời thời điểm ghi dòng này.
 
 ## 4. Log sự kiện — đầu ra mà vai B đọc
 
@@ -103,8 +110,8 @@ Cấu hình kịch bản là `dict` (đọc từ JSON trong `scenarios/configs/`
 | `position_id` | int / NaN | với mint, burn, collect |
 | `tick_lower`, `tick_upper` | int / NaN | với mint, burn |
 | `liquidity` | float / NaN | `L` của mint/burn |
-| `amount0`, `amount1` | float | dấu theo mục 1 (dương = vào bể). Với `subsidy`: `amount1` = tiền trợ cấp trả cho farmer (ghi **dương**, không đi qua bể) |
-| `fee0`, `fee1` | float | phí của swap (theo token vào), hoặc phí thu được ở `collect` |
+| `amount0`, `amount1` | float | dấu theo mục 1 (dương = vào bể): mint dương, burn âm, swap token vào dương / token ra âm (lượng vào **đã gồm phí**). Với `collect`: `0`. Với `subsidy`: `amount0 = 0`, `amount1` = tiền trợ cấp trả cho farmer (ghi **dương**, không đi qua bể). Với `step`: `0` |
+| `fee0`, `fee1` | float | **luôn ≥ 0**: phí của swap (theo token vào, chiều kia = 0), hoặc phí LP rút ra ở `collect`. Dòng khác: `0` |
 | `sqrt_price_after`, `tick_after` | float, int | trạng thái bể sau sự kiện |
 | `liquidity_active_after` | float | `L_active` sau sự kiện |
 | `external_price` | float / NaN | chỉ ở dòng `step` |
@@ -129,9 +136,11 @@ def validate_rq1(dfs: list) -> "pd.DataFrame"   # bảng Đạt / Không đạt 
 
 `scenarios/fake_log.py` (vai C viết trước 18/10): `make_fake_log(seed) -> pd.DataFrame` sinh một vụ tấn công "giả" đúng định dạng mục 4 (dựng tường → farmer giao dịch → victim mint → rút tường → xả → post), số liệu không cần đúng mô hình, chỉ cần đúng cột và đúng trình tự. B dùng file này để viết và test `metrics/` trước khi có engine thật.
 
-## 7. Câu hỏi còn mở (C quyết khi chốt)
+## 7. Các câu hỏi đã chốt (14/10/2026)
 
-- 1 bước = 1 giờ hay 1 block?
-- Arbitrageur có phải tác nhân riêng (`arb:*`) kéo giá bể về `P_e` mỗi bước không?
-- Farmer giao dịch hai chiều thế nào để khối lượng lớn mà giá vẫn trong tick?
-- Trợ cấp trả theo cửa sổ dài bao nhiêu bước?
+| Câu hỏi | Quyết định | Lý do ngắn |
+|---|---|---|
+| 1 bước = 1 giờ hay 1 block? | **1 giờ** | Dữ liệu bài gốc theo giờ (giá Alpha, cửa sổ `t_b` 2 giờ, VWAP 1 giờ); 1 block (3 s trên BSC) làm số bước gấp 1200 lần mà không thêm thông tin. Thứ tự trong giờ đã có `seq` |
+| Arbitrageur có phải tác nhân riêng? | **Có**, `arb:0`, kéo giá về `P_e` cuối mỗi bước | Tách khối lượng chênh giá khỏi khối lượng farmer/nền, B lọc được theo `role`. Lưu ý: arb kéo giá bể về `P_e`, nên trong kịch bản tấn công `Market` phải cho `P_e` tụt theo cú xả (hoặc tắt arb trong pha Attack) — C xử lý khi viết kịch bản |
+| Farmer giao dịch hai chiều thế nào? | **Mua rồi bán ngay trong cùng bước** | Khối lượng lớn mà giá gần như không đổi, ở lại trong tick tường; chi phí là phí + trượt giá thật |
+| Trợ cấp trả theo cửa sổ dài bao nhiêu? | **24 bước** (1 ngày), tham số `subsidy_window` | Khớp chu kỳ ngày của Binance Alpha; luật log dùng cửa sổ trượt 15 ngày = 360 bước khi cần |
