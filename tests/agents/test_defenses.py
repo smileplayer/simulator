@@ -53,3 +53,15 @@ def test_delay_tra_sau_D_buoc_va_ghi_khoan_treo():
     W = cfg_nho()["subsidy_window"]
     assert not sub.empty and set((sub.t - D + 1) % W) == {0}
     assert df.attrs["meta"]["subsidy_pending"] > 0      # khoản chốt ở cửa sổ cuối chưa tới hạn
+
+
+def test_quet_gd2_ghi_dan_va_bo_qua(tmp_path):
+    import pandas as pd
+    from scenarios.quet_gd2 import BIEN_PHAP, LOAI_VICTIM, chay
+    out = tmp_path / "tomtat.csv"
+    chay(1, out, nhanh=True)
+    d = pd.read_csv(out)
+    assert len(d) == 2 * len(BIEN_PHAP) * len(LOAI_VICTIM)
+    assert {"victim_loss_full", "attacker_profit_paper", "subsidy_total", "LV_chia_LA"} <= set(d.columns)
+    chay(1, out, nhanh=True)                          # chạy lại: không thêm dòng
+    assert len(pd.read_csv(out)) == len(d)
