@@ -68,16 +68,33 @@ def vwap(df: pd.DataFrame) -> pd.Series:
     return vw.fillna(P).rename("vwap")
 
 
+def _gia_truoc_burn(df: pd.DataFrame, ph: dict) -> float:
+    """Giá bể (token1/token0) ngay trước dòng `burn` đầu tiên trên khoảng tường từ `t_0`; không có → NaN."""
+    lo, hi = ph["wall_tick_lower"], ph["wall_tick_upper"]
+    ev = df.sort_values(["t", "seq"]).reset_index(drop=True)
+    b = ev.index[(ev["kind"] == "burn") & (ev["t"] >= ph["t_0"]) & (ev["tick_lower"] == lo)
+                 & (ev["tick_upper"] == hi)]
+    if len(b) == 0 or b[0] == 0:
+        return float("nan")
+    return float(ev.loc[b[0] - 1, "sqrt_price_after"]) ** 2
+
+
 def price_changes(df: pd.DataFrame, ph: dict) -> dict:
-    """Độ dời giá theo VWAP (§6.2.3): `before_price_change` quanh `t_m`, `attack_price_change` từ `t_0` tới sau `t_b`."""
+    """Độ dời giá (§6.2.3). Chính (bài gốc, VWAP theo giờ): `before_price_change` = (P(t_m) − P(t_m−1))/P(t_m),
+    `attack_price_change` = (P̄(t_b) − P(t_0))/P(t_0) với P̄(t_b) = trung bình VWAP giờ t_b và t_b+1.
+    Phụ (đề nghị của C): `attack_price_change_preburn` — cùng tử số, mốc là giá bể ngay trước burn tường đầu tiên
+    (VWAP giờ t_0 đã gồm cú xả nên ước thấp độ sập)."""
     P = vwap(df)
     t_m, t_0, t_b = ph["t_m"], ph["t_0"], ph["t_b"]
     before = (P[t_m] - P[t_m - 1]) / P[t_m] if t_m - 1 in P.index else float("nan")
-    attack = float("nan")
+    attack = preburn = float("nan")
     if t_b is not None:
         P_b = (P[t_b] + P.get(t_b + 1, P[t_b])) / 2
         attack = (P_b - P[t_0]) / P[t_0]
-    return dict(before_price_change=float(before), attack_price_change=float(attack))
+        p0 = _gia_truoc_burn(df, ph)
+        preburn = (P_b - p0) / p0
+    return dict(before_price_change=float(before), attack_price_change=float(attack),
+                attack_price_change_preburn=float(preburn))
 
 
 def _rv_theo_pha(df: pd.DataFrame, ph: dict) -> pd.DataFrame:

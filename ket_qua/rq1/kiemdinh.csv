@@ -1,0 +1,15 @@
+﻿dau_hieu,loai,phat_bieu,so_vu,ty_le_mo_phong,ty_le_bai_goc,trung_vi,ket_qua
+Có cú sập ≥ 10%,chính,vụ có t_b (giá ≤ 90% tick tường),150,0.9933333333333333,1.0,1.0,Đạt
+Chuẩn bị theo ngày,chính,Δbuild ≥ 1 ngày,150,1.0,0.5517241379310345,120.0,Đạt
+Thu hoạch theo giờ,chính,Δextract < 24 giờ,149,0.9731543624161074,0.6206896551724138,0.0,Đạt
+Khối lượng Attack trên nền,chính,lift_Attack ≥ 1×,149,1.0,0.5862068965517241,3.465351160797836,Đạt
+Khối lượng Attack bùng,chính,có vụ lift_Attack > 5×,149,0.174496644295302,0.13793103448275862,3.465351160797836,Đạt
+Khối lượng Post dưới nền,chính,lift_Post < 1×,149,0.8120805369127517,0.7931034482758621,0.8548243122060769,Đạt
+Khối lượng Post dưới nền,phụ,lift_trade_Post < 1× (bỏ arb),149,0.7651006711409396,,0.8909889650998012,Đạt
+Biến động Prep thấp hơn Attack,chính,RV_Prep < RV_Attack,149,0.9798657718120806,,10.267733297083087,Đạt
+Biến động Post cao nhất,chính,"RV_Post ≥ max(RV_Prep, RV_Attack)",149,0.9463087248322147,,3.333655998384342,Đạt
+Giá ghim quanh t_m,chính,|before_price_change| < 10%,150,1.0,0.7931034482758621,0.0053502850510014,Đạt
+Giá sập sau rút,chính,"attack_price_change < −10% (VWAP, bài gốc)",149,0.5906040268456376,0.6896551724137931,-0.10439397100996282,Đạt
+Giá sập sau rút,phụ,"như trên, mốc = giá trước burn tường",149,0.7919463087248322,,-0.14808947792009416,Đạt
+Tường cạn tại t_b,chính,drop_at_tb ≥ 80%,149,1.0,0.8620689655172413,0.8946168862074656,Đạt
+Victim toàn tri khớp lý thuyết,chính,L_V*/L_A ≈ 1 tại L_A = fQ/(4c_V) (kiểm ở tests/agents của C),0,,,,Chưa đo
