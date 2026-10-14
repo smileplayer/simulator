@@ -65,3 +65,50 @@ def test_quet_gd2_ghi_dan_va_bo_qua(tmp_path):
     assert {"victim_loss_full", "attacker_profit_paper", "subsidy_total", "LV_chia_LA"} <= set(d.columns)
     chay(1, out, nhanh=True)                          # chạy lại: không thêm dòng
     assert len(pd.read_csv(out)) == len(d)
+
+
+def test_clawback_chi_huy_khoan_cua_LP_khi_sap():
+    lich = LichTraThuong(D=48, don_vi="token0", clawback=0.10)
+    lich.chot(23, "attacker:0", 100.0, gia=1.0)
+    lich.chot(23, "farmer:0", 100.0, gia=1.0)
+    assert lich.thu_hoi(gia=1.0, chu_lp={"attacker:0"}) == []        # đánh dấu, chưa sập
+    assert lich.thu_hoi(gia=0.95, chu_lp=set()) == []                # sập 5% < ngưỡng
+    assert lich.thu_hoi(gia=0.85, chu_lp=set()) == [("attacker:0", pytest.approx(85.0))]   # đã rút tường vẫn bị hủy
+    assert lich.da_thu_hoi == pytest.approx(85.0)
+    assert lich.den_han(71, gia=0.85) == [("farmer:0", pytest.approx(85.0))]               # farmer thuần vẫn nhận
+    assert LichTraThuong(D=5).thu_hoi(gia=0.1, chu_lp={"farmer:0"}) == []                 # không bật clawback
+
+
+def test_attacker_farm_share_ghi_thuong_cho_attacker_va_clawback():
+    d = {"name": "delay", "D": 30, "don_vi": "token0", "chiet_khau": 0.995}
+    df0 = run_frame(cfg_nho(attacker_farm_share=0.0, defense=d), 0)
+    df = run_frame(cfg_nho(attacker_farm_share=0.5, defense=d), 0)
+    dfc = run_frame(cfg_nho(attacker_farm_share=0.5, defense=dict(d, clawback=0.10)), 0)
+    assert df.attrs["meta"]["attacker_farm_accounts"] == pytest.approx(3.0)       # s/(1−s)·n_farmers
+    mua = df[(df.kind == "swap") & (df.owner == "attacker:0") & (df.amount1 > 0)]
+    assert not mua.empty and mua.t.max() < 240
+    assert (df0[df0.kind == "subsidy"].owner == "attacker:0").sum() == 0
+    sub, subc = df[df.kind == "subsidy"], dfc[dfc.kind == "subsidy"]
+    assert sub[sub.owner == "attacker:0"].amount1.sum() > 0
+    assert dfc.attrs["meta"]["subsidy_clawed"] > 0                                # có khoản treo qua cú sập
+    assert subc[subc.owner == "attacker:0"].amount1.sum() < sub[sub.owner == "attacker:0"].amount1.sum()
+    # farmer thuần không bị thu hồi: cùng seed, cùng hành vi → cùng thưởng
+    assert subc[subc.role == "farmer"].amount1.sum() == pytest.approx(sub[sub.role == "farmer"].amount1.sum())
+    with pytest.raises(ValueError):
+        run_frame(cfg_nho(attacker_farm_share=1.0), 0)
+
+
+def test_quet_gd2_che_do_farm(tmp_path):
+    import pandas as pd
+    from scenarios.quet_gd2 import BIEN_PHAP_FARM, LOAI_VICTIM, chay
+    out = tmp_path / "farm.csv"
+    chay(1, out, nhanh=True, farm=True)
+    d = pd.read_csv(out)
+    so_bp = 4 + 2 * len(BIEN_PHAP_FARM)                   # s = 0: không claw
+    assert len(d) == 2 * so_bp * len(LOAI_VICTIM)
+    assert {"farm_share", "farm_share_thuc", "sub_att", "sub_att_treo", "chi_phi_farm_att",
+            "subsidy_clawed"} <= set(d.columns)
+    assert (d.sub_att_treo <= d.subsidy_pending + 1e-9).all()
+    assert (d[d.farm_share == 0].vol_farm_att == 0).all()
+    chay(1, out, nhanh=True, farm=True)
+    assert len(pd.read_csv(out)) == len(d)

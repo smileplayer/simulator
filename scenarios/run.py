@@ -1,7 +1,7 @@
 """Bộ chạy kịch bản (INTERFACE mục 3): ghép bể engine thật + giao dịch nền + farmer + victim + attacker + arb.
 
-Thứ tự trong mỗi bước t: đặt pool.t → giao dịch nền bg:0 → farmer → victim → attacker → arb:0 (tắt khi
-attacker đang xả) → trả trợ cấp cuối cửa sổ → dòng `step`. Bước cuối: collect phí cho mọi vị thế LP.
+Thứ tự trong mỗi bước t: đặt pool.t → giao dịch nền bg:0 → farmer (+ farmer của kẻ tấn công) → victim → attacker → arb:0 (tắt khi
+attacker đang xả) → chốt trợ cấp cuối cửa sổ → thu hồi (clawback) → trả khoản tới hạn → dòng `step`. Bước cuối: collect phí cho mọi vị thế LP.
 
 Chạy: `python -m scenarios.run scenarios/configs/co_so.json [seed] [duong_dan.csv]`.
 """
@@ -112,7 +112,13 @@ def run(config: dict, seed: int) -> EventLog:
     v_buoc = Q_eff / W                                    # farmer rải đều trần qua cửa sổ
     farmers = [Farmer(f"farmer:{k}", thuong_farmer, Q_tran, window=W, v_tran=v_buoc)
                for k in range(cfg["n_farmers"])]
-    V_ky_vong = cfg["n_farmers"] * Q_eff                  # victim toàn tri: biết luật (kể cả trần mới)
+    # kẻ tấn công cũng săn trợ cấp (CH-6 (b)): m tài khoản ảo, phần khối lượng farmer của kẻ tấn công = s khi
+    # mọi tài khoản chạm trần; gộp thành một tác nhân owner = attacker, thưởng m·thưởng(v/m) (đúng cả dạng log)
+    s_att = cfg.get("attacker_farm_share", 0.0)
+    if not 0.0 <= s_att < 1.0:
+        raise ValueError("attacker_farm_share phải trong [0, 1)")
+    m_att = s_att / (1 - s_att) * cfg["n_farmers"]
+    V_ky_vong = (cfg["n_farmers"] + m_att) * Q_eff        # victim toàn tri: biết luật (kể cả trần mới)
 
     def tao_victim(k: int):
         chung = dict(c_V=cfg["c_V"], w=cfg.get("w_victim", 1), t_vao=cfg["t_m"] + cfg["victim_delay"] * (k + 1))
@@ -126,6 +132,14 @@ def run(config: dict, seed: int) -> EventLog:
                    c_A=cfg["c_A"], w=cfg.get("w_attacker", 1), dung_tuong=lich, t_0=cfg.get("t_0"),
                    nguong_victim=cfg.get("withdraw_victim_ratio"), so_buoc_xa=cfg["dump_steps"])
     arb = Arbitrageur()
+    if m_att > 0:
+        thuong_att = lambda v: m_att * thuong(v / m_att)
+        thuong_att_cam = (lambda v: he_so * thuong_att(v)) if he_so != 1.0 else thuong_att
+        farm_att = Farmer(att.owner, thuong_att_cam, None if Q_tran is None else m_att * Q_tran, window=W,
+                          v_tran=m_att * v_buoc)
+        san_tro_cap = farmers + [farm_att]
+    else:
+        thuong_att, san_tro_cap = None, farmers
 
     for t in range(T):
         pool.t = t
@@ -138,7 +152,7 @@ def run(config: dict, seed: int) -> EventLog:
                 pool.swap("bg:0", zero_for_one=False, amount_in=v)
             else:
                 pool.swap("bg:0", zero_for_one=True, amount_in=v / pool.sqrt_price ** 2)
-        for a in farmers:
+        for a in san_tro_cap:
             a.act(t, pool, tt)
         for a in victims:
             a.act(t, pool, tt)
@@ -153,9 +167,11 @@ def run(config: dict, seed: int) -> EventLog:
         else:
             arb.act(t, pool, tt)
         if (t + 1) % W == 0:                                  # chốt thưởng cuối cửa sổ
-            for a in farmers:
+            for a in san_tro_cap:
                 if a.v_cua_so > 0:
-                    lich_tra.chot(t, a.owner, thuong(a.v_cua_so), pool.sqrt_price ** 2)
+                    ham = thuong_att if a.owner == att.owner else thuong
+                    lich_tra.chot(t, a.owner, ham(a.v_cua_so), pool.sqrt_price ** 2)
+        lich_tra.thu_hoi(pool.sqrt_price ** 2, {p.owner for p in pool.positions()})   # clawback (nếu có)
         for owner, gia_tri in lich_tra.den_han(t, pool.sqrt_price ** 2):   # trả khoản tới hạn
             pool.log.append(t, "subsidy", owner, amount1=gia_tri, sqrt_price_after=pool.sqrt_price,
                             tick_after=pool.tick, liquidity_active_after=pool.liquidity)
@@ -167,8 +183,11 @@ def run(config: dict, seed: int) -> EventLog:
                         sqrt_price_after=pool.sqrt_price, tick_after=pool.tick,
                         liquidity_active_after=pool.liquidity)
 
-    pool.log.meta = dict(cfg, seed=seed, Q_eff=Q_eff, subsidy_pending=lich_tra.con_treo(pool.sqrt_price ** 2), t_rut=att.t_rut, wall_tick=att.tick_lower,
-                         attacker_inventory_left=att.kho, P0=z0 ** 2)
+    P_cuoi = pool.sqrt_price ** 2
+    pool.log.meta = dict(cfg, seed=seed, Q_eff=Q_eff, subsidy_pending=lich_tra.con_treo(P_cuoi),
+                         subsidy_pending_attacker=lich_tra.con_treo(P_cuoi, att.owner),
+                         subsidy_clawed=lich_tra.da_thu_hoi, attacker_farm_accounts=m_att, t_rut=att.t_rut,
+                         wall_tick=att.tick_lower, attacker_inventory_left=att.kho, P0=z0 ** 2)
     return pool.log
 
 

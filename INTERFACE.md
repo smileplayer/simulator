@@ -90,12 +90,13 @@ def run(config: dict, seed: int) -> "EventLog":   # scenarios/run.py
 
 Cấu hình kịch bản là `dict` (đọc từ JSON trong `scenarios/configs/`), tối thiểu có: `fee`, `sigma`, `Q`, `subsidy_form` (`"linear"` | `"log"`), `subsidy_window` (số bước, mặc định `24`), `steps`, `L_A`, `c_V`, `n_farmers`, `victim_type` (`"omniscient"` | `"adaptive"`), `defense` (`null` hoặc tên + tham số).
 
-**Thứ tự trong mỗi bước `t`** (bộ chạy đảm bảo): đặt `pool.t = t` → giao dịch nền `bg:*` → farmer → victim → attacker → `arb:0` → (nếu `t+1` chia hết cho `subsidy_window`) nền tảng ghi các dòng `subsidy` → dòng `step`.
+**Thứ tự trong mỗi bước `t`** (bộ chạy đảm bảo): đặt `pool.t = t` → giao dịch nền `bg:*` → farmer (gồm farmer của `attacker:0` nếu `attacker_farm_share` > 0) → victim → attacker → `arb:0` → (nếu `t+1` chia hết cho `subsidy_window`) nền tảng chốt thưởng → thu hồi (clawback, nếu có) → ghi các dòng `subsidy` tới hạn → dòng `step`.
 
 **Quy ước tác nhân (đã chốt 14/10):**
 - **Arbitrageur `arb:0`** là tác nhân riêng, hành động **cuối** mỗi bước (trước dòng `step`): swap kéo giá bể về `P_e(t)` bằng `sqrt_price_limit`. Hết thanh khoản thì dừng ở đó. Khối lượng của `arb:*` được ghi log như mọi swap, B có thể lọc theo `role`.
 - **Farmer chỉ mua** (`zero_for_one=False`, đưa `v` token1 vào bể), token0 nhận về được định giá theo `P_e(t)` — như Theorem 1 bài gốc (bài gốc đo được chỉ 0,0038% swap của farmer là khứ hồi). Lợi ích một bước: `U(v) = thưởng(v) − [v − P_e·x(v)]`, trong đó `x(v)` lấy từ `quote_swap` trên bể thật; phần `v − P_e·x(v)` = phí `f·v` + `MC(v)` (trượt giá so với giá ngoài). Khối lượng `v` tính bằng token1. **Không dùng khứ hồi trong bể**: khứ hồi gần như thuận nghịch nên chi phí không phụ thuộc `L`, làm tường `L_A` mất tác dụng. Giá được kéo về tick tường nhờ `arb:0` bán token0 ngược lại cuối bước.
-- **Trợ cấp** cộng dồn theo cửa sổ `subsidy_window` bước (mặc định 24 = 1 ngày): cuối mỗi cửa sổ, mỗi farmer nhận `σ·min{v_win, Q}` (tuyến tính) hoặc theo luật log, ghi một dòng `subsidy` (`owner` = farmer, `amount1` = tiền thưởng). Biện pháp "trả trễ" chỉ dời thời điểm ghi dòng này.
+- **Trợ cấp** cộng dồn theo cửa sổ `subsidy_window` bước (mặc định 24 = 1 ngày): cuối mỗi cửa sổ, mỗi farmer nhận `σ·min{v_win, Q}` (tuyến tính) hoặc theo luật log, ghi một dòng `subsidy` (`owner` = farmer, `amount1` = tiền thưởng). Biện pháp "trả trễ" chỉ dời thời điểm ghi dòng này; biến thể `clawback` hủy khoản treo (không có dòng `subsidy`, tổng ở `meta["subsidy_clawed"]`).
+- **Kẻ tấn công cũng là farmer (14/10, CH-6):** config `attacker_farm_share` = s ∈ [0, 1) (mặc định 0). Khi s > 0, `attacker:0` có thêm **lệnh mua** (swap `zero_for_one=False`, `amount1 > 0`) như farmer và nhận dòng `subsidy` với `owner = "attacker:0"`. Token0 mua được **không** cộng vào kho xả (định giá theo `P_e` như farmer). Meta thêm `attacker_farm_accounts` (số tài khoản ảo m = s/(1−s)·n_farmers), `subsidy_pending_attacker`, `subsidy_clawed`.
 
 ## 4. Log sự kiện — đầu ra mà vai B đọc
 
