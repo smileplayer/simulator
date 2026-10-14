@@ -28,8 +28,9 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
   - `agents/farmer.py` — `Farmer` tối ưu `U(v) = thưởng(v) − [v − P_e·x(v)]` bằng **chia đôi trên `U'(v)`** (giá biên từ `sqrt_price_after`, chính xác ~1e-8, đúng cả khi xuyên tick); `thuong_tuyen_tinh`, `thuong_log` (`σ·Q·log₂(1+v/Q)` — giả định, cần đối chiếu Binance).
   - `agents/arb.py` — `Arbitrageur` kéo giá về `P_e` bằng `sqrt_price_limit`, có cờ `bat` để tắt ở pha Attack.
   - `agents/victim.py` — `l_v_sao` (Lemma 4) + `VictimToanTri`: vào tick chứa giá, mỗi bước chỉnh L về `L_V*` (lệch > 1%), `L_A` = mọi thanh khoản khác đang hoạt động; giá ra ngoài khoảng thì giữ nguyên.
+  - `agents/attacker.py` — `Attacker`: dựng tường theo lịch `[(bước, tỷ lệ)]` ở tick chứa giá, rút (burn + collect) ở `t_0` hoặc khi L nạn nhân ≥ `nguong_victim·L_A`, xả token0 qua `so_buoc_xa` bước tới `z₂` (dừng ở `z̄ = √(c_A/(1−f))`, hết kho, hoặc hết thanh khoản); `dang_xa(t)` để bộ chạy tắt arb.
   - Test trên **engine thật**: farmer khớp Theorem 1 (sai 1e-8), victim đạt `L_V*/L_A = 1` tại `L_A = fQ/(4c_V)`, arb về đúng `P_e`.
-- **Đang làm:** chưa mở việc mới. Việc kế: `agents/attacker.py` (dựng tường, rút toàn bộ, xả tới `z₂` — Lemma 5) rồi `scenarios/run.py` + config JSON cơ sở (trả thưởng theo cửa sổ, ghi `subsidy`/`step` bằng `pool.log.append`). Đáp ứng yêu cầu của B trong bộ chạy: `collect` cuối kịch bản cho mọi LP; ghi `c_A` vào config/meta. Sau đó: victim thích nghi.
+- **Đang làm:** chưa mở việc mới. Việc kế: `scenarios/run.py` + config JSON cơ sở (trả thưởng theo cửa sổ, ghi `subsidy`/`step` bằng `pool.log.append`). Đáp ứng yêu cầu của B trong bộ chạy: `collect` cuối kịch bản cho mọi LP; ghi `c_A` vào config/meta. Sau đó: victim thích nghi.
 - **Cần từ vai khác:** —
 
 ---
@@ -38,6 +39,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 19:39 | C | Thêm `agents/attacker.py` (Lemma 5: ba điều kiện dừng, rút theo `t_0` hoặc ngưỡng victim, xả nhiều bước) + 6 test trên engine | toàn repo 140 qua (tests/agents 29 qua) |
 | 14/10/2026 19:38 | B | Thêm `metrics/report.py` (`derived`: hiệu quả chi tiêu, tỷ lệ rò rỉ; `summarize`, `summarize_many`) + test | toàn repo 133 qua (tests/metrics 60 qua) |
 | 14/10/2026 19:31 | C | Thêm `agents/arb.py`, `agents/victim.py` (toàn tri, Lemma 4); farmer đổi sang chia đôi trên đạo hàm; test arb/victim/farmer trên engine thật | toàn repo 122 qua (tests/agents 23 qua) |
 | 14/10/2026 19:31 | B | Thêm `metrics/pnl.py` (suy vai như bài gốc, thiệt hại nạn nhân nonalpha/full, lợi nhuận kẻ tấn công paper/net/full) + test | toàn repo 122 qua (tests/metrics 56 qua) |
