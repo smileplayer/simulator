@@ -1,11 +1,5 @@
+# Chỉ bỏ qua cache Python (tự sinh lại khi chạy; commit sẽ gây xung đột giữa các phiên).
+# Mọi kết quả, log, bản nháp đều đưa lên git để các phiên cloud dùng chung.
 __pycache__/
 *.pyc
 .pytest_cache/
-.venv/
-venv/
-.claude/settings.local.json
-ket_qua/**/*.parquet
-ket_qua/**/lon_*
-ket_qua/rq1_tohop/
-# bản nháp bài báo của B, không đưa lên git
-ket_qua/ban_nhap/

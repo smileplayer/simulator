@@ -1,6 +1,6 @@
 # Simulator — tấn công thanh khoản do khuyến khích trong CLMM
 
-Git repo của phần mã nguồn. Thiết kế: `../03_Ghi_chu_nghien_cuu/03_Ke_hoach_simulator.md`. Phân công: `../03_Ghi_chu_nghien_cuu/05_Phan_cong.md`.
+Git repo của phần mã nguồn. Thiết kế: `tai_lieu_do_an/03_Ghi_chu_nghien_cuu/03_Ke_hoach_simulator.md`. Phân công: `tai_lieu_do_an/03_Ghi_chu_nghien_cuu/05_Phan_cong.md`.
 
 | File | Để làm gì |
 |---|---|
