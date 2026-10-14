@@ -17,13 +17,15 @@
       "PowerShell(python -m pytest *)",
       "PowerShell(git status *)",
       "PowerShell(git log *)",
-      "PowerShell(git diff *)"
+      "PowerShell(git diff *)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(git fetch *)"
     ],
     "deny": [
-      "Bash(git push *)",
       "Bash(git reset --hard *)",
       "Bash(git clean *)",
-      "PowerShell(git push *)"
+      "Bash(git push --force *)"
     ]
   }
 }
