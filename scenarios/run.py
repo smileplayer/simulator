@@ -19,7 +19,7 @@ from agents.arb import Arbitrageur
 from agents.attacker import Attacker
 from agents.farmer import Farmer, thuong_log, thuong_tuyen_tinh
 from agents.victim import VictimToanTri
-from engine import EventLog, Pool, sqrt_price_at_tick
+from engine import EventLog, Pool, sqrt_price_at_tick, tick_at_sqrt_price
 
 THU_MUC_CONFIG = Path(__file__).parent / "configs"
 
@@ -56,6 +56,20 @@ def nap_config(ten: str | Path) -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def dai_nen(P0: float, band: float, n: int) -> list[tuple[int, int]]:
+    """n khoảng lồng nhau quanh P0: khoảng k phủ giá [P0·(1−band·k/n), P0·(1+band·k/n)] (tick).
+
+    Mỗi khoảng nhận L_bg/n nên mật độ thanh khoản cao nhất ở giữa, bằng 0 ngoài ±band.
+    """
+    ds = []
+    for k in range(1, n + 1):
+        r = band * k / n
+        lo = tick_at_sqrt_price(math.sqrt(P0 * (1 - r)))
+        hi = tick_at_sqrt_price(math.sqrt(P0 * (1 + r))) + 1
+        ds.append((lo, hi))
+    return ds
+
+
 def _tao_thuong(cfg: dict):
     if cfg["subsidy_form"] == "linear":
         return thuong_tuyen_tinh(cfg["sigma"], cfg["Q"]), cfg["Q"]
@@ -79,7 +93,12 @@ def run(config: dict, seed: int) -> EventLog:
     tt = ThiTruongKichBan(z0 ** 2, cfg["vol_pre"], rng)
 
     pool.t = 0
-    pool.mint("bg:1", -cfg["bg_range"], cfg["bg_range"], cfg["L_bg"])
+    if cfg.get("bg_band") is not None:                    # nền hữu hạn: vài vị thế lồng nhau trong ±bg_band
+        n_bg = cfg.get("bg_n", 5)
+        for k, (lo, hi) in enumerate(dai_nen(z0 ** 2, cfg["bg_band"], n_bg)):
+            pool.mint(f"bg:{k + 1}", lo, hi, cfg["L_bg"] / n_bg)
+    else:                                                 # nền phủ đều ±bg_range tick (cách cũ)
+        pool.mint("bg:1", -cfg["bg_range"], cfg["bg_range"], cfg["L_bg"])
 
     thuong, Q_tran = _tao_thuong(cfg)
     v_buoc = cfg["Q"] / W                                 # farmer rải đều trần qua cửa sổ
@@ -100,6 +119,8 @@ def run(config: dict, seed: int) -> EventLog:
         # giao dịch nền: số lệnh Poisson, cỡ log-chuẩn (token1), mua/bán đều
         for _ in range(rng.poisson(cfg["bg_rate"])):
             v = cfg["bg_size"] * rng.lognormal(0.0, 0.5)
+            if pool.liquidity <= 0:                           # bể cạn ở giá này → trader nền không vào
+                continue
             if rng.random() < 0.5:
                 pool.swap("bg:0", zero_for_one=False, amount_in=v)
             else:

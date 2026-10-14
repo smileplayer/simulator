@@ -1,4 +1,6 @@
 """Bộ chạy kịch bản trên engine thật: đúng thứ tự, đúng định dạng log, khớp mốc Lemma 4."""
+import math
+
 import pytest
 
 from scenarios.run import nap_config, run, run_frame
@@ -6,7 +8,8 @@ from scenarios.run import nap_config, run, run_frame
 
 def cfg_nho(**sua):
     cfg = nap_config("co_so")
-    cfg.update(steps=120, t_m=24, wall_schedule=[[24, 0.6], [36, 0.4]], t_0=96, victim_delay=12)
+    cfg.update(steps=120, t_m=24, wall_schedule=[[24, 0.6], [36, 0.4]], t_0=96, victim_delay=12,
+               bg_band=0.2)                          # dải nền rộng để chắc chắn sập > 10% trong test
     cfg.update(sua)
     return cfg
 
@@ -33,11 +36,32 @@ def test_tro_cap_cuoi_cua_so_va_khong_vuot_Q(df):
     assert (theo_cua_so <= cfg["Q"] * (1 + 1e-9)).all()
 
 
-def test_victim_khop_lemma4(df):
+def _L_victim(df):
+    """L ròng của nạn nhân ngay trước khi rút tường (mint − burn, victim có thể rút bớt khi tường dày lên)."""
+    v = df[(df.role == "victim") & (df.t < df.attrs["meta"]["t_rut"])]
+    return v[v.kind == "mint"].liquidity.sum() - v[v.kind == "burn"].liquidity.sum()
+
+
+def test_victim_khop_lemma4_cau_hinh_co_so(df):
     cfg = cfg_nho()
-    L_v = df[(df.kind == "mint") & (df.role == "victim")].liquidity.sum()
     L_khac = cfg["L_A"] + cfg["L_bg"]
-    assert L_v / L_khac == pytest.approx(1.0, rel=0.02)    # c_V chọn ở mốc L_A = fV/(4c_V)
+    k = cfg["c_V"] * L_khac / (cfg["fee"] * cfg["n_farmers"] * cfg["Q"])
+    assert 0.64 <= k < 1                                   # miền tường chiếm ≥ 80%
+    assert _L_victim(df) / L_khac == pytest.approx(1 / math.sqrt(k) - 1, rel=0.02)
+
+
+def test_victim_moc_LA_bang_fV_chia_4cV():
+    cfg = cfg_nho(steps=60, t_0=50)
+    L_khac = cfg["L_A"] + cfg["L_bg"]
+    cfg["c_V"] = cfg["fee"] * cfg["n_farmers"] * cfg["Q"] / (4 * L_khac)
+    assert _L_victim(run_frame(cfg, 0)) / L_khac == pytest.approx(1.0, rel=0.02)
+
+
+def test_nen_huu_han_trong_dai():
+    from scenarios.run import dai_nen
+    ds = dai_nen(1.0, 0.10, 5)
+    assert len(ds) == 5 and all(a[0] > b[0] and a[1] < b[1] for a, b in zip(ds, ds[1:]))
+    assert ds[-1][0] == pytest.approx(-1054, abs=1) and ds[-1][1] == pytest.approx(954, abs=1)
 
 
 def test_tan_cong_rut_roi_xa_arb_nghi(df):
