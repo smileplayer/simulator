@@ -16,9 +16,9 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 - **Cần từ vai khác:** —
 
 ## Vai B — Đo lường, kiểm định
-- **Trạng thái:** đã nhận vai 14/10, chưa có code (`metrics/`, `plots/`, `tests/metrics/` còn trống). Related Work đã có bản nháp trong Claude Docs, xem `../CLAUDE.md`.
-- **Đang làm:** chưa mở việc. Việc kế: `metrics/timeseries.py` — chuỗi thời gian theo bước (giá, `L_active`, `P_e` từ dòng `step`; khối lượng theo `role`; biến động) + test trên `make_fake_log` trong `tests/metrics/`. Sau đó: `phases()` (mốc `t_m → t_b`, đối chiếu `df.attrs["meta"]`).
-- **Cần từ vai khác:** — (log giả của C đã có).
+- **Trạng thái:** có `metrics/timeseries.py`: `step_frame` (giá, tick, `L_active`, `p_ext` từ dòng `step`), `swap_volume` (khối lượng mỗi bước theo `role`, đo bằng |amount1| token1), `build_timeseries` (gộp + `vol_total`, `vol_trade` = bỏ arb, `n_swap`, `ret` log-return, `abs_ret`, `rv` std trượt 24 bước). Test `tests/metrics/test_timeseries.py` (5) trên `make_fake_log`. Related Work đã có bản nháp trong Claude Docs.
+- **Đang làm:** chưa mở việc. Việc kế: `metrics/phases.py` — `phases(df)` tìm `t_m`, `t_50`, `t_peak`, `t_0`, `t_oot`, `t_b` (giá −10%) và ranh giới Prep/Attack/Post; test đối chiếu `df.attrs["meta"]` (`t_m`=48, `t_0`=144).
+- **Cần từ vai khác:** —
 
 ## Vai C — Tác nhân, thí nghiệm
 - **Trạng thái:** `INTERFACE.md` **ĐÃ CHỐT 14/10** (1 bước = 1 giờ; `arb:0` kéo giá về `P_e` cuối mỗi bước; farmer khứ hồi trong cùng bước; trợ cấp theo cửa sổ `subsidy_window` = 24 bước). `scenarios/fake_log.py` đã xong: `make_fake_log(seed)` trả DataFrame đúng mục 4, mốc thật ở `df.attrs["meta"]` (`t_m`=48, `t_0`=144, `wall_tick`, …). Trong log giả: Prep ≈ 1,05–1,2× khối lượng nền, Attack > 10×, Post < nền; giá giảm ≈ 30% trong 2 bước sau `t_0`. Dòng `step` có `owner="platform"`.
@@ -31,6 +31,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 19:10 | B | Thêm `metrics/timeseries.py` (chuỗi thời gian theo bước: giá, `L_active`, khối lượng theo role, log-return, biến động trượt) + test | toàn repo 18 qua (tests/metrics 5 qua) |
 | 14/10/2026 19:09 | A | Nhận vai, rà SYNC/INTERFACE/phân công; chưa viết code | toàn repo 13 qua; tests/engine chưa có test |
 | 14/10/2026 19:09 | B | Nhận vai, rà SYNC/INTERFACE/phân công; chưa viết code | toàn repo 13 qua; tests/metrics chưa có test |
 | 14/10/2026 18:56 | C | **ĐỔI INTERFACE → ĐÃ CHỐT** (trả lời 4 câu hỏi mở, thêm thứ tự trong bước, `subsidy_window`, quy ước dấu cho collect/subsidy/step, phí luôn ≥ 0). Thêm `scenarios/fake_log.py` cho B | toàn repo 13 qua (tests/agents 7 qua) |
