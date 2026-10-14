@@ -1,0 +1,272 @@
+[
+ {
+  "id": "L27_00",
+  "subsidy_form": "linear",
+  "L_A": 200000000.0,
+  "k": 0.64,
+  "sigma": 0.005,
+  "Q": 12000,
+  "bg_band": 0.15
+ },
+ {
+  "id": "L27_01",
+  "subsidy_form": "linear",
+  "L_A": 200000000.0,
+  "k": 0.64,
+  "sigma": 0.01,
+  "Q": 24000,
+  "bg_band": 0.15
+ },
+ {
+  "id": "L27_02",
+  "subsidy_form": "linear",
+  "L_A": 200000000.0,
+  "k": 0.64,
+  "sigma": 0.02,
+  "Q": 48000,
+  "bg_band": 0.15
+ },
+ {
+  "id": "L27_03",
+  "subsidy_form": "linear",
+  "L_A": 200000000.0,
+  "k": 0.8,
+  "sigma": 0.005,
+  "Q": 24000,
+  "bg_band": 0.4
+ },
+ {
+  "id": "L27_04",
+  "subsidy_form": "linear",
+  "L_A": 200000000.0,
+  "k": 0.8,
+  "sigma": 0.01,
+  "Q": 48000,
+  "bg_band": 0.4
+ },
+ {
+  "id": "L27_05",
+  "subsidy_form": "linear",
+  "L_A": 200000000.0,
+  "k": 0.8,
+  "sigma": 0.02,
+  "Q": 12000,
+  "bg_band": 0.4
+ },
+ {
+  "id": "L27_06",
+  "subsidy_form": "linear",
+  "L_A": 200000000.0,
+  "k": 0.95,
+  "sigma": 0.005,
+  "Q": 48000,
+  "bg_band": 0.25
+ },
+ {
+  "id": "L27_07",
+  "subsidy_form": "linear",
+  "L_A": 200000000.0,
+  "k": 0.95,
+  "sigma": 0.01,
+  "Q": 12000,
+  "bg_band": 0.25
+ },
+ {
+  "id": "L27_08",
+  "subsidy_form": "linear",
+  "L_A": 200000000.0,
+  "k": 0.95,
+  "sigma": 0.02,
+  "Q": 24000,
+  "bg_band": 0.25
+ },
+ {
+  "id": "L27_09",
+  "subsidy_form": "linear",
+  "L_A": 400000000.0,
+  "k": 0.64,
+  "sigma": 0.005,
+  "Q": 24000,
+  "bg_band": 0.25
+ },
+ {
+  "id": "L27_10",
+  "subsidy_form": "linear",
+  "L_A": 400000000.0,
+  "k": 0.64,
+  "sigma": 0.01,
+  "Q": 48000,
+  "bg_band": 0.25
+ },
+ {
+  "id": "L27_11",
+  "subsidy_form": "linear",
+  "L_A": 400000000.0,
+  "k": 0.64,
+  "sigma": 0.02,
+  "Q": 12000,
+  "bg_band": 0.25
+ },
+ {
+  "id": "L27_12",
+  "subsidy_form": "linear",
+  "L_A": 400000000.0,
+  "k": 0.8,
+  "sigma": 0.005,
+  "Q": 48000,
+  "bg_band": 0.15
+ },
+ {
+  "id": "L27_13",
+  "subsidy_form": "linear",
+  "L_A": 400000000.0,
+  "k": 0.8,
+  "sigma": 0.01,
+  "Q": 12000,
+  "bg_band": 0.15
+ },
+ {
+  "id": "L27_14",
+  "subsidy_form": "linear",
+  "L_A": 400000000.0,
+  "k": 0.8,
+  "sigma": 0.02,
+  "Q": 24000,
+  "bg_band": 0.15
+ },
+ {
+  "id": "L27_15",
+  "subsidy_form": "linear",
+  "L_A": 400000000.0,
+  "k": 0.95,
+  "sigma": 0.005,
+  "Q": 12000,
+  "bg_band": 0.4
+ },
+ {
+  "id": "L27_16",
+  "subsidy_form": "linear",
+  "L_A": 400000000.0,
+  "k": 0.95,
+  "sigma": 0.01,
+  "Q": 24000,
+  "bg_band": 0.4
+ },
+ {
+  "id": "L27_17",
+  "subsidy_form": "linear",
+  "L_A": 400000000.0,
+  "k": 0.95,
+  "sigma": 0.02,
+  "Q": 48000,
+  "bg_band": 0.4
+ },
+ {
+  "id": "L27_18",
+  "subsidy_form": "linear",
+  "L_A": 800000000.0,
+  "k": 0.64,
+  "sigma": 0.005,
+  "Q": 48000,
+  "bg_band": 0.4
+ },
+ {
+  "id": "L27_19",
+  "subsidy_form": "linear",
+  "L_A": 800000000.0,
+  "k": 0.64,
+  "sigma": 0.01,
+  "Q": 12000,
+  "bg_band": 0.4
+ },
+ {
+  "id": "L27_20",
+  "subsidy_form": "linear",
+  "L_A": 800000000.0,
+  "k": 0.64,
+  "sigma": 0.02,
+  "Q": 24000,
+  "bg_band": 0.4
+ },
+ {
+  "id": "L27_21",
+  "subsidy_form": "linear",
+  "L_A": 800000000.0,
+  "k": 0.8,
+  "sigma": 0.005,
+  "Q": 12000,
+  "bg_band": 0.25
+ },
+ {
+  "id": "L27_22",
+  "subsidy_form": "linear",
+  "L_A": 800000000.0,
+  "k": 0.8,
+  "sigma": 0.01,
+  "Q": 24000,
+  "bg_band": 0.25
+ },
+ {
+  "id": "L27_23",
+  "subsidy_form": "linear",
+  "L_A": 800000000.0,
+  "k": 0.8,
+  "sigma": 0.02,
+  "Q": 48000,
+  "bg_band": 0.25
+ },
+ {
+  "id": "L27_24",
+  "subsidy_form": "linear",
+  "L_A": 800000000.0,
+  "k": 0.95,
+  "sigma": 0.005,
+  "Q": 24000,
+  "bg_band": 0.15
+ },
+ {
+  "id": "L27_25",
+  "subsidy_form": "linear",
+  "L_A": 800000000.0,
+  "k": 0.95,
+  "sigma": 0.01,
+  "Q": 48000,
+  "bg_band": 0.15
+ },
+ {
+  "id": "L27_26",
+  "subsidy_form": "linear",
+  "L_A": 800000000.0,
+  "k": 0.95,
+  "sigma": 0.02,
+  "Q": 12000,
+  "bg_band": 0.15
+ },
+ {
+  "id": "LOG_0",
+  "subsidy_form": "log",
+  "L_A": 400000000.0,
+  "k": 0.8,
+  "sigma": 0.01,
+  "Q": 24000,
+  "bg_band": 0.25
+ },
+ {
+  "id": "LOG_1",
+  "subsidy_form": "log",
+  "L_A": 200000000.0,
+  "k": 0.64,
+  "sigma": 0.005,
+  "Q": 12000,
+  "bg_band": 0.15
+ },
+ {
+  "id": "LOG_2",
+  "subsidy_form": "log",
+  "L_A": 800000000.0,
+  "k": 0.95,
+  "sigma": 0.02,
+  "Q": 48000,
+  "bg_band": 0.4
+ }
+]
