@@ -40,8 +40,10 @@ def test_cap_ha_khoi_luong_farmer_va_V_victim():
     theo_cua_so = mua.groupby([mua.owner, mua.t // cfg["subsidy_window"]]).amount1.sum()
     assert theo_cua_so.max() <= 0.5 * cfg["Q"] * (1 + 1e-9)
     assert df.attrs["meta"]["Q_eff"] == 0.5 * cfg["Q"]
-    # c_V của co_so đặt k = 0,75 với Q gốc; trần 0,5Q → k_eff = 1,5 ≥ 1 → victim toàn tri không vào
-    assert df[(df.role == "victim") & (df.kind == "mint")].empty
+    # c_V của co_so đặt k = 0,75 với Q gốc; trần 0,5Q → k_eff = 1,5 ≥ 1 → khi tường đủ, victim toàn tri rút hết
+    # (có thể vào tạm lúc tường mới 60%: k_eff = 0,9 < 1)
+    from scenarios.hieu_chinh import LV_chia_LA
+    assert LV_chia_LA(df) == pytest.approx(0.0, abs=1e-9)
 
 
 def test_delay_tra_sau_D_buoc_va_ghi_khoan_treo():
