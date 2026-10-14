@@ -47,8 +47,8 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
   - `defenses/thuong.py`: `cap` (`ty_le` hoặc `Q_cap`: farmer, `v_tran`, `V` của victim toàn tri đều theo `Q_eff`) và `delay` (chốt cuối cửa sổ, trả sau D bước; `don_vi` token1/token0; farmer chiết khấu `δ^D`; khoản chưa tới hạn khi hết kịch bản ghi ở `meta["subsidy_pending"]`, **không** có dòng `subsidy`).
   - Thử nhanh co_so (3 seed): cap 75/50/25% → victim thích nghi `L_V/L_A` 0,73/0,53/0,34, thiệt hại 2.640/1.890/700 (từ 3.300); victim toàn tri về 0 ngay từ cap 75% (co_so k = 0,75 nằm sát ngưỡng). **delay gần như không tác động lên victim** (L, thiệt hại giữ nguyên) — chỉ giảm chi phí trợ cấp vì trả bằng token0 sau sập + khoản treo. Lợi nhuận kẻ tấn công (paper) vẫn ≈ 9.600 khi không có nạn nhân: phần lớn là tiền xả kho vào thanh khoản nền, không phải bóc nạn nhân.
   - `scenarios/quet_gd2.py`: 30 vụ × 7 bp (khong, cap75/50/25, delay24/72/168) × 2 victim × seed, ghi dần `ket_qua/gd2/tomtat.csv`, bỏ qua lượt đã có. Đo: 0,14 s/lượt.
-  - **Chờ Đức chạy:** `python -m scenarios.quet_gd2 --seeds 10` (4.200 lượt ≈ 10 phút) → `ket_qua/gd2/tomtat.csv`.
-- **Đang làm:** chờ kết quả quét GĐ2 để làm bảng đánh đổi mỗi biện pháp và `Q*` thực nghiệm. Việc kế khi chưa có kết quả: biện pháp cảnh báo rủi ro (tăng `c_V`) và trần động (§7.3, §7.4).
+  - **Quét GĐ2 đã chạy xong** (Đức chạy 14/10 20:32–20:42): `ket_qua/gd2/tomtat.csv` đủ 4.200 dòng (300 mỗi bp × victim), 3,7 MB, **chưa commit** (thư mục `ket_qua/` của B — B hoặc Đức quyết commit).
+- **Đang làm:** chưa mở việc. Việc kế: phân tích `ket_qua/gd2/tomtat.csv` — bảng đánh đổi mỗi biện pháp (giảm thiệt hại / lợi nhuận kẻ tấn công vs mất khối lượng, thanh khoản; cặp phản thực cùng vụ + seed với `bp = khong`, ≥ 10 seed), tách theo victim toàn tri / thích nghi và trợ cấp tuyến tính / log; `Q*` thực nghiệm. **Chờ Đức quyết** mô hình trả trễ: (a) thu hồi thưởng khi giá sập trước hạn hay (b) attacker cũng là farmer — hiện delay gần như không tác động lên victim. Sau đó: cảnh báo rủi ro (tăng `c_V`), trần động (§7.3–7.4).
 - **Cần từ vai khác:** B — (1) `subsidy_cost` nên cộng `meta["subsidy_pending"]` (khoản trả trễ chưa tới hạn), nếu không delay sẽ trông rẻ giả tạo; (2) RQ2 cần chỉ số **lợi nhuận tăng thêm của tấn công** so với "bán thẳng kho" (Theorem 6) — `attacker_profit_paper` hiện gồm cả phần xả kho vào nền, nên ≈ 9.600 kể cả khi không có nạn nhân.
 
 ---
@@ -57,6 +57,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 20:45 | C | Chốt phiên: quét GĐ2 đã đủ 4.200 dòng (Đức chạy); việc kế là bảng đánh đổi + `Q*`; chờ Đức quyết mô hình trả trễ | toàn repo 175 qua (tests/agents 49 qua) |
 | 14/10/2026 20:37 | B | Chốt phiên: không đổi code từ lần trước; cập nhật việc kế (heatmap GĐ2, chạy lại RQ1 khi chốt 5.5) | toàn repo 175 qua (tests/metrics 68 qua) |
 | 14/10/2026 20:40 | B | Bản nháp mục 5 + 6 bài báo trong `ket_qua/ban_nhap/` (không commit); thêm thư mục đó vào `.gitignore` | toàn repo không đổi code |
 | 14/10/2026 20:35 | A | Chốt phiên: tắt loop, không đổi code; cập nhật việc kế (rà agents của C + chạy thử kịch bản cơ sở trên engine) | toàn repo 175 qua (tests/engine 52 qua) |
