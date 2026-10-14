@@ -16,8 +16,9 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 - **Cần từ vai khác:** —
 
 ## Vai B — Đo lường, kiểm định
-- **Trạng thái:** có `metrics/timeseries.py` (`step_frame`, `swap_volume` theo `role` bằng |amount1|, `build_timeseries`: `vol_total`, `vol_trade` = bỏ arb, `n_swap`, `ret`, `abs_ret`, `rv` trượt 24 bước) và `metrics/phases.py` (`wall_liquidity` phát lại mint/burn một tick; `phases(df)` → `t_m, t_50, t_peak, t_0` (tụt < 95% đỉnh, §6.1.1), `t_0_burn` (burn lớn nhất, §5), `t_oot`+`seq_oot`, `t_b` (giá ≤ 90% biên dưới tick tường), `delta_*`, cửa sổ Before/Prep/Attack/Post W=24 theo §6.2; `label_phases(ts, ph)`). Định nghĩa đã đối chiếu nguyên văn bài gốc. Test: `tests/metrics/` 23 qua trên log giả seed 0–2. Related Work đã có bản nháp trong Claude Docs.
-- **Đang làm:** chưa mở việc. Việc kế: `metrics/indicators.py` — `subsidy_cost`, `pool_liquidity` (trung bình `L_active` Before vs `(t_b, t_b+24]`), chỉ số theo pha (volume lift `μ_s/μ_Before`, RV = √Σr² từ tick giữa các swap liên tiếp như bài gốc, độ dời giá). Sau đó `victim_loss` (full / nonalpha) và `attacker_profit`.
+- **Trạng thái:** có `metrics/timeseries.py` (chuỗi theo bước: giá, `L_active`, `p_ext`, `vol_<role>`, `vol_total`, `vol_trade` = bỏ arb, `ret`, `rv`), `metrics/phases.py` (`phases(df)`: tường, `t_m, t_50, t_peak, t_0, t_0_burn, t_oot, t_b`, cửa sổ Before/Prep/Attack/Post W=24 theo §6.1–6.2; `label_phases`), `metrics/indicators.py` (`subsidy_cost`; `pool_liquidity`: `L_active` Before vs Post + `drop_at_tb` §6.2.4; `vwap`; `price_changes` §6.2.3; `phase_stats`: lift, lift_trade, RV √Σr² theo Δtick như bài gốc + `RV_price`). **Quy ước Đức chốt 14/10: volume lift chính trên `vol_total` (gồm arb), `vol_trade` là chỉ số phụ.** Test `tests/metrics/` 41 qua (log giả seed 0–2). Related Work có bản nháp trong Claude Docs.
+- **Lưu ý cho C (không bắt buộc sửa):** trên log giả, lift Post theo `vol_total` = 1,06–1,28 (> nền) vì `P_e` pha post dao động 0,015/giờ so với 0,002 ở nền → arb giao dịch nhiều hơn; `lift_trade` Post = 0,77–0,83 (< nền). Khi viết kịch bản thật, độ biến động `P_e` pha post quyết định dấu hiệu "Post dưới nền" theo chỉ số chính.
+- **Đang làm:** chưa mở việc. Việc kế: `metrics/pnl.py` — `attacker_profit` (dòng tiền token1 ròng của role=attacker trong `[t_0, t_b]` + phí collect, đo độc lập) và `victim_loss` (full / nonalpha, alpha còn lại định giá VWAP `[t_b, t_b+1]`).
 - **Cần từ vai khác:** —
 
 ## Vai C — Tác nhân, thí nghiệm
@@ -31,6 +32,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 19:26 | B | Thêm `metrics/indicators.py` (trợ cấp, thanh khoản bể, VWAP, độ dời giá, bảng theo pha: lift chính trên `vol_total`, RV) + test | toàn repo 96 qua (tests/metrics 41 qua) |
 | 14/10/2026 19:40 | A | `Pool.swap` + `quote_swap` cross-tick (feeGrowth, lật outside, khoảng trống, hết thanh khoản) + 17 test swap. **C dùng được `quote_swap` trên `engine.Pool`** | toàn repo 78 qua (tests/engine 37 qua) |
 | 14/10/2026 19:18 | B | Thêm `metrics/phases.py` (mốc `t_m→t_b`, cửa sổ 4 pha theo §6.1–6.2 bài gốc) + test | toàn repo 61 qua (tests/metrics 23 qua) |
 | 14/10/2026 19:13 | C | **ĐỔI INTERFACE:** farmer chỉ mua (bỏ khứ hồi), thêm `Pool.fee`; log giả cập nhật theo. Thêm `agents/base.py`, `agents/farmer.py` (trợ cấp tuyến tính + log) | toàn repo 43 qua (tests/agents 12 qua) |
