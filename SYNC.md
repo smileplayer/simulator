@@ -33,8 +33,14 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
   - `scenarios/run.py` — `run(config, seed) -> EventLog` (meta ở `log.meta`), `run_frame(...)` → DataFrame có `df.attrs["meta"]` (gồm cả config: `c_A`, `t_m`, `t_rut`, `wall_tick`…), `nap_config("co_so")`. Config cơ sở `scenarios/configs/co_so.json` (240 bước, tường 4e8 dựng 48/72, rút 168, xả 2 bước). **Đã đáp ứng 2 yêu cầu của B**: collect mọi vị thế có phí ở bước cuối; `c_A` có trong meta. Giá ngoài `ThiTruongKichBan`: neo giữa tick tường khi Prep (vol 0), đi theo bể khi xả, vol 1%/h sau đó.
   - **Kết quả cơ sở seed 0 (đo bằng `metrics.report.summarize`):** victim mint đúng `L_V = L_A = 4e8` ✓; farmer đạt trần 72k/ngày khi có tường, ~27k/ngày khi không ✓; lift Prep 1,78 (trade 1,38), Attack 7,1; RV Prep 0,02 < Before 0,09 < Post 0,28 ✓; giá −34% sau 2 bước; victim lỗ 1.879, phí victim nhận 937. **Chưa đạt: lift Post 1,08 (bài gốc: dưới nền)** — trong mô hình nền và farmer trở về như trước tường; cần cơ chế (LP nền rút / trader rời đi sau sập) — để bàn với Đức.
   - Test trên **engine thật**: farmer khớp Theorem 1 (sai 1e-8), victim đạt `L_V*/L_A = 1` tại `L_A = fQ/(4c_V)`, arb về đúng `P_e`.
-- **Đang làm:** chưa mở việc mới. Việc kế: victim thích nghi (`VictimThichNghi`: ước lượng lợi suất phí từ quá khứ, tối ưu như Lemma 4 với V ước lượng), rồi bộ chạy nhiều seed (`scenarios/batch.py`) và các biện pháp GĐ2 trong `defenses/`.
-- **Cần từ vai khác:** —
+- **Cập nhật 14/10 20:06 (theo yêu cầu RQ1 của Đức):**
+  - **Nền hữu hạn:** `bg_band` (mặc định 0,10) + `bg_n` = 5 vị thế `bg:1..5` lồng nhau trong ±bg_band quanh giá đầu (`dai_nen` trong `run.py`); ngoài dải L = 0. Trader nền bỏ lệnh khi bể cạn. Cách cũ `bg_range` vẫn dùng được nếu không có `bg_band`.
+  - **co_so:** `c_V` = 3,375e-7 → `L_A = 0,75·fV/c_V` (V = n_farmers·Q) → `L_V*/L_A = 1/√0,75 − 1 ≈ 0,155`, tường ≈ 87%. Mốc `fV/(4c_V)` chỉ còn trong test.
+  - **co_so 5 seed:** lift Post **0,005–0,21 (dưới nền ✓)**, tường cạn 86,6% ✓. Nhưng độ sập chỉ 9,3–11,5% (2/5 seed < 10%): cú xả dừng đúng ở **sàn thanh khoản `P = 0,9·P₀`** (Lemma 5, `z_floor`), attacker còn dư ~50k token0 → độ sập ≈ `bg_band` − độ trôi giá trước tường. Không cần bước (b) LP rút theo lợi suất vì Post đã < 1.
+  - **Bộ tổ hợp RQ1:** `scenarios/batch.py` + `scenarios/configs/rq1_tohop.json` — 30 vụ = mảng trực giao L27 (L_A ∈ {2,4,8}e8; k ∈ {0,64; 0,80; 0,95} → c_V = k·fV/L_A; σ ∈ {0,005; 0,01; 0,02}; Q ∈ {12k, 24k, 48k}; bg_band ∈ {0,15; 0,25; 0,40}) + 3 vụ trợ cấp log. Mức bg_band 0,05 đã thử và bỏ: sàn −5% thì không vụ nào sập ≥ 10% (bài gốc lọc vụ theo điều kiện này). Chạy `python -m scenarios.batch --seeds 5` (≈ 11 s, 150 log ≈ 30 MB trong `ket_qua/rq1_tohop/`, **không commit log**); đọc lại bằng `doc_ket_qua(...)` (gắn meta).
+  - **validate_rq1 trên 150 log:** Đạt — sập ≥ 10% (100% vụ), chuẩn bị theo ngày, thu hoạch theo giờ, Attack bùng (51% vụ > 5×), **Post dưới nền (0,19; 100% vụ)**, RV Prep < Attack, giá ghim quanh t_m, **tường cạn ≥ 80% (100% vụ)**, Prep phụ (vol_trade) 1,47. Không đạt — Prep chính 1,81 (tăng theo Q: 1,31 / 1,81 / 2,94 → Q nhỏ khớp bài gốc hơn); RV Post cao nhất 0,65 (sau sập bể gần cạn, ít swap); giá sập sau rút trung vị −9,5% (xem đề nghị cho B).
+- **Đang làm:** chưa mở việc mới. Việc kế: victim thích nghi, rồi biện pháp GĐ2 (`defenses/`).
+- **Cần từ vai khác:** B — (1) `attack_price_change` lấy VWAP của **cả bước t_0**, gồm luôn cú xả (khối lượng lớn ở giá đang rơi) nên ước thấp độ sập; đề nghị lấy giá tham chiếu trước dòng `burn` đầu tiên của tường (hoặc giá `step` ở t_0−1). (2) Phân tích `ket_qua/rq1_tohop/` bằng `doc_ket_qua` rồi commit bảng tóm tắt, không commit log. Đức — có nên thêm `ket_qua/rq1_tohop/` vào `.gitignore` (file chung).
 
 ---
 
@@ -42,6 +48,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 20:06 | C | Nền hữu hạn ±bg_band; co_so L_A = 0,75·fV/c_V; bộ tổ hợp RQ1 30 vụ (L27 + log) + `scenarios/batch.py`; chạy 150 log: Post dưới nền ✓, sập ≥ 10% ✓, tường cạn ≥ 80% ✓; còn hỏng Prep chính 1,81, RV Post, giá sập (VWAP) | toàn repo 163 qua (tests/agents 41 qua) |
 | 14/10/2026 19:53 | B | Thêm `metrics/validate.py` (`validate_rq1`, 14 tiêu chí) + test; chạy RQ1 lần đầu trên engine thật `co_so` 5 seed: Đạt 8/13, hỏng Prep 1,8×, Post trên nền, tường cạn 50% | toàn repo 158 qua (tests/metrics 64 qua) |
 | 14/10/2026 19:50 | C | Thêm `scenarios/run.py` + `configs/co_so.json`: **GĐ1 chạy trọn trên engine thật** (đủ 5 loại tác nhân, trợ cấp, collect cuối, meta có `c_A`). B: dùng `run_frame(nap_config("co_so"), seed)` | toàn repo 154 qua (tests/agents 36 qua) |
 | 14/10/2026 20:05 | A | Móc GĐ3 `fee_weight = φ(w)` (feeGrowth trên L·φ, tổng phí giữ nguyên) + 7 test; đo tốc độ engine (~7 µs/lệnh) | toàn repo 147 qua (tests/engine 52 qua) |
