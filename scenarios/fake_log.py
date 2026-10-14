@@ -1,7 +1,7 @@
 """Log giả đúng định dạng INTERFACE mục 4, để vai B viết `metrics/` trước khi có engine thật.
 
-Kịch bản (1 bước = 1 giờ): nền 48 bước → dựng tường một tick (t_m) → farmer giao dịch khứ hồi,
-victim mint dần vào tick tường → rút tường (t_0) → xả xuyên nhiều tick → pha sau tấn công.
+Kịch bản (1 bước = 1 giờ): nền 48 bước → dựng tường một tick (t_m) → farmer chỉ mua
+(arb bán ngược lại), victim mint dần vào tick tường → rút tường (t_0) → xả xuyên nhiều tick → post.
 Số liệu chỉ cần hợp lý về hình dạng, không theo mô hình cân bằng của bài gốc.
 
 Giá/tick/L_active trong log được tính bằng một bể giả cross-tick đơn giản (`_BeGia`), không
@@ -195,14 +195,12 @@ def make_fake_log(seed: int = 0) -> pd.DataFrame:
         if t == t_dinh:
             tuong.append(be.mint("attacker:0", wall_tick, wall_tick + 1, 0.4 * L_A))
 
-        # farmer khứ hồi trong cùng bước
+        # farmer chỉ mua (arb bán ngược lại cuối bước)
         if pha == "prep":
             for ten in v_cua_so:
-                v = 900 * rng.lognormal(0, 0.3)
-                be.swap(ten, zero_for_one=False, amount_in=v / 2)
-                x_nhan = -be.dong[-1]["amount0"]
-                be.swap(ten, zero_for_one=True, amount_in=x_nhan)
-                v_cua_so[ten] += v / 2 + (-be.dong[-1]["amount1"])
+                v = 600 * rng.lognormal(0, 0.3)
+                be.swap(ten, zero_for_one=False, amount_in=v)
+                v_cua_so[ten] += v
 
         # victim mint vào tick tường
         for k, tv in enumerate(t_victim):

@@ -42,6 +42,7 @@ class SwapResult:
 class Pool:
     def __init__(self, fee: float, sqrt_price: float, tick_spacing: int = 1): ...
     # trạng thái đọc được
+    fee: float                            # tỷ lệ phí (farmer cần để tính chi phí)
     sqrt_price: float
     tick: int
     liquidity: float                      # thanh khoản đang hoạt động L_active
@@ -93,7 +94,7 @@ Cấu hình kịch bản là `dict` (đọc từ JSON trong `scenarios/configs/`
 
 **Quy ước tác nhân (đã chốt 14/10):**
 - **Arbitrageur `arb:0`** là tác nhân riêng, hành động **cuối** mỗi bước (trước dòng `step`): swap kéo giá bể về `P_e(t)` bằng `sqrt_price_limit`. Hết thanh khoản thì dừng ở đó. Khối lượng của `arb:*` được ghi log như mọi swap, B có thể lọc theo `role`.
-- **Farmer** giao dịch **khứ hồi trong cùng bước**: mua (`zero_for_one=False`) lượng `v/2` rồi bán lại ngay (`zero_for_one=True`) đúng lượng token0 vừa nhận. Giá quay về gần chỗ cũ nên vẫn nằm trong tick; chi phí = phí hai chiều + trượt giá, `MC(v)` tính bằng `quote_swap` trên trạng thái bể thật. Khối lượng `v` tính bằng token1, cộng cả hai chiều. Với trợ cấp `log`, chỉ chiều **mua** được tính điểm.
+- **Farmer chỉ mua** (`zero_for_one=False`, đưa `v` token1 vào bể), token0 nhận về được định giá theo `P_e(t)` — như Theorem 1 bài gốc (bài gốc đo được chỉ 0,0038% swap của farmer là khứ hồi). Lợi ích một bước: `U(v) = thưởng(v) − [v − P_e·x(v)]`, trong đó `x(v)` lấy từ `quote_swap` trên bể thật; phần `v − P_e·x(v)` = phí `f·v` + `MC(v)` (trượt giá so với giá ngoài). Khối lượng `v` tính bằng token1. **Không dùng khứ hồi trong bể**: khứ hồi gần như thuận nghịch nên chi phí không phụ thuộc `L`, làm tường `L_A` mất tác dụng. Giá được kéo về tick tường nhờ `arb:0` bán token0 ngược lại cuối bước.
 - **Trợ cấp** cộng dồn theo cửa sổ `subsidy_window` bước (mặc định 24 = 1 ngày): cuối mỗi cửa sổ, mỗi farmer nhận `σ·min{v_win, Q}` (tuyến tính) hoặc theo luật log, ghi một dòng `subsidy` (`owner` = farmer, `amount1` = tiền thưởng). Biện pháp "trả trễ" chỉ dời thời điểm ghi dòng này.
 
 ## 4. Log sự kiện — đầu ra mà vai B đọc
@@ -142,5 +143,5 @@ def validate_rq1(dfs: list) -> "pd.DataFrame"   # bảng Đạt / Không đạt 
 |---|---|---|
 | 1 bước = 1 giờ hay 1 block? | **1 giờ** | Dữ liệu bài gốc theo giờ (giá Alpha, cửa sổ `t_b` 2 giờ, VWAP 1 giờ); 1 block (3 s trên BSC) làm số bước gấp 1200 lần mà không thêm thông tin. Thứ tự trong giờ đã có `seq` |
 | Arbitrageur có phải tác nhân riêng? | **Có**, `arb:0`, kéo giá về `P_e` cuối mỗi bước | Tách khối lượng chênh giá khỏi khối lượng farmer/nền, B lọc được theo `role`. Lưu ý: arb kéo giá bể về `P_e`, nên trong kịch bản tấn công `Market` phải cho `P_e` tụt theo cú xả (hoặc tắt arb trong pha Attack) — C xử lý khi viết kịch bản |
-| Farmer giao dịch hai chiều thế nào? | **Mua rồi bán ngay trong cùng bước** | Khối lượng lớn mà giá gần như không đổi, ở lại trong tick tường; chi phí là phí + trượt giá thật |
+| Farmer giao dịch thế nào? | **Chỉ mua trong bể, `arb:0` bán ngược lại** (sửa 14/10, bỏ phương án khứ hồi) | Khớp Theorem 1 và số đo bài gốc; khứ hồi trong bể có chi phí không phụ thuộc `L` nên tường mất tác dụng (trái quyết định chốt số 4) |
 | Trợ cấp trả theo cửa sổ dài bao nhiêu? | **24 bước** (1 ngày), tham số `subsidy_window` | Khớp chu kỳ ngày của Binance Alpha; luật log dùng cửa sổ trượt 15 ngày = 360 bước khi cần |
