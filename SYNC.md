@@ -22,9 +22,15 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 - **Cần từ vai khác:** C — (1) cuối kịch bản cho victim/attacker `collect` để phí LP hiện trong log (phí chưa collect không đọc được từ log); (2) ghi giá vốn alpha của attacker `c_A` vào `df.attrs["meta"]` hoặc config để `attacker_profit(..., alpha_cost=c_A)` dùng thay mặc định.
 
 ## Vai C — Tác nhân, thí nghiệm
-- **Trạng thái:** `INTERFACE.md` ĐÃ CHỐT 14/10, **sửa lại cùng ngày (ĐỔI INTERFACE): farmer chỉ mua**, không khứ hồi (khứ hồi gần như thuận nghịch nên chi phí không phụ thuộc `L` → tường mất tác dụng; bài gốc đo được 0,0038% swap farmer là khứ hồi). Token0 farmer nhận được định giá theo `P_e`; `arb:0` bán ngược lại cuối bước. Thêm `fee` vào trạng thái đọc được của `Pool` (engine của A đã có). `scenarios/fake_log.py`: log giả đúng mục 4, farmer chỉ mua; mốc thật ở `df.attrs["meta"]`. `agents/base.py`: Protocol `Agent`, `Market`, `ThiTruongCoDinh`, `role()`. `agents/farmer.py`: `Farmer` tối ưu `U(v) = thưởng(v) − [v − P_e·x(v)]` (tìm kiếm tỷ lệ vàng trên `quote_swap`), `thuong_tuyen_tinh(σ,Q)`, `thuong_log(σ,Q)` = `σ·Q·log₂(1+v/Q)` (giả định, cần đối chiếu luật Binance); test khớp Theorem 1 (`V*` < 1e-5 tương đối), không vượt `Q`, `V* ∝ L`.
-- **Đang làm:** chưa mở việc mới. Việc kế: `agents/arb.py` (kéo giá về `P_e` bằng `sqrt_price_limit`) + `agents/victim.py` loại toàn tri (Lemma 4: `L_V* = max{0, √(fQL_A/c_V) − L_A}`, kiểm `L_V*/L_A ≈ 1` tại `L_A = fQ/(4c_V)`). Farmer mới test trên bể L hằng; khi A có `swap`/`quote_swap` thì thêm test trên `engine.Pool`.
-- **Cần từ vai khác:** A — `Pool.quote_swap` + `swap` (farmer gọi `quote_swap(zero_for_one=False, amount_in=v)`, dùng `amount_in`, `amount_out` của `SwapResult`).
+- **Trạng thái:** `INTERFACE.md` ĐÃ CHỐT 14/10, sửa cùng ngày (ĐỔI INTERFACE): **farmer chỉ mua**, `arb:0` bán ngược lại cuối bước; thêm `Pool.fee`. Đã có:
+  - `scenarios/fake_log.py` — log giả đúng mục 4, mốc thật ở `df.attrs["meta"]`.
+  - `agents/base.py` — Protocol `Agent`, `Market`, `ThiTruongCoDinh`, `role()`.
+  - `agents/farmer.py` — `Farmer` tối ưu `U(v) = thưởng(v) − [v − P_e·x(v)]` bằng **chia đôi trên `U'(v)`** (giá biên từ `sqrt_price_after`, chính xác ~1e-8, đúng cả khi xuyên tick); `thuong_tuyen_tinh`, `thuong_log` (`σ·Q·log₂(1+v/Q)` — giả định, cần đối chiếu Binance).
+  - `agents/arb.py` — `Arbitrageur` kéo giá về `P_e` bằng `sqrt_price_limit`, có cờ `bat` để tắt ở pha Attack.
+  - `agents/victim.py` — `l_v_sao` (Lemma 4) + `VictimToanTri`: vào tick chứa giá, mỗi bước chỉnh L về `L_V*` (lệch > 1%), `L_A` = mọi thanh khoản khác đang hoạt động; giá ra ngoài khoảng thì giữ nguyên.
+  - Test trên **engine thật**: farmer khớp Theorem 1 (sai 1e-8), victim đạt `L_V*/L_A = 1` tại `L_A = fQ/(4c_V)`, arb về đúng `P_e`.
+- **Đang làm:** chưa mở việc mới. Việc kế: `agents/attacker.py` (dựng tường, rút toàn bộ, xả tới `z₂` — Lemma 5) rồi `scenarios/run.py` + config JSON cơ sở (trả thưởng theo cửa sổ, ghi `subsidy`/`step` bằng `pool.log.append`). Đáp ứng yêu cầu của B trong bộ chạy: `collect` cuối kịch bản cho mọi LP; ghi `c_A` vào config/meta. Sau đó: victim thích nghi.
+- **Cần từ vai khác:** —
 
 ---
 
@@ -32,6 +38,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 19:31 | C | Thêm `agents/arb.py`, `agents/victim.py` (toàn tri, Lemma 4); farmer đổi sang chia đôi trên đạo hàm; test arb/victim/farmer trên engine thật | toàn repo 122 qua (tests/agents 23 qua) |
 | 14/10/2026 19:31 | B | Thêm `metrics/pnl.py` (suy vai như bài gốc, thiệt hại nạn nhân nonalpha/full, lợi nhuận kẻ tấn công paper/net/full) + test | toàn repo 122 qua (tests/metrics 56 qua) |
 | 14/10/2026 19:26 | B | Thêm `metrics/indicators.py` (trợ cấp, thanh khoản bể, VWAP, độ dời giá, bảng theo pha: lift chính trên `vol_total`, RV) + test | toàn repo 96 qua (tests/metrics 41 qua) |
 | 14/10/2026 19:40 | A | `Pool.swap` + `quote_swap` cross-tick (feeGrowth, lật outside, khoảng trống, hết thanh khoản) + 17 test swap. **C dùng được `quote_swap` trên `engine.Pool`** | toàn repo 78 qua (tests/engine 37 qua) |
