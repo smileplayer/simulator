@@ -205,3 +205,13 @@ def test_tuong_ngay_duoi_gia_kich_hoat_khi_ban():
     # khứ hồi: mua lại đúng lượng token1 nhận được → giá về gần 1, vẫn trong tường
     r2 = pool.swap("farmer:0", False, amount_in=r.amount_out)
     assert pool.tick == -1 and r2.amount_out < 10.0
+
+
+def test_cham_bien_tren_roi_doi_chieu():
+    """Mua hết thanh khoản → giá dừng đúng z(5), tick = 5, L = 0; bán lại thì vào vị thế ngay."""
+    pool = Pool(FEE, 1.0)
+    pool.mint("victim:0", -5, 5, 1e6)
+    pool.swap("bg:0", False, amount_in=1e12)
+    assert pool.sqrt_price == sqrt_price_at_tick(5) and pool.tick == 5 and pool.liquidity == 0
+    r = pool.swap("bg:0", True, amount_in=10.0)
+    assert r.amount_out > 0 and pool.tick == 4 and pool.liquidity == pytest.approx(1e6)
