@@ -11,8 +11,8 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 ---
 
 ## Vai A — Engine
-- **Trạng thái:** chưa bắt đầu
-- **Đang làm:** —
+- **Trạng thái:** đã nhận vai 14/10, chưa có code (`engine/` chỉ có `__init__.py`, `tests/engine/` trống).
+- **Đang làm:** chưa mở việc. Việc kế: `engine/pool.py` lõi một khoảng — `Position`, `SwapResult`, `Pool` đúng chữ ký INTERFACE mục 2; hàm toán tick↔`√P`, `amount0/amount1` theo `L`; `mint`, `position_amounts`, `liquidity_at` + test (1.000 USDT một tick dưới `P₀=1` → `L ≈ 20.000.000`; `(x, y)` đúng ba trạng thái). Sau đó: `swap`/`quote_swap` cross-tick + `feeGrowth` (ưu tiên vì C cần `quote_swap`).
 - **Cần từ vai khác:** —
 
 ## Vai B — Đo lường, kiểm định
@@ -31,6 +31,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 19:09 | A | Nhận vai, rà SYNC/INTERFACE/phân công; chưa viết code | toàn repo 13 qua; tests/engine chưa có test |
 | 14/10/2026 19:09 | B | Nhận vai, rà SYNC/INTERFACE/phân công; chưa viết code | toàn repo 13 qua; tests/metrics chưa có test |
 | 14/10/2026 18:56 | C | **ĐỔI INTERFACE → ĐÃ CHỐT** (trả lời 4 câu hỏi mở, thêm thứ tự trong bước, `subsidy_window`, quy ước dấu cho collect/subsidy/step, phí luôn ≥ 0). Thêm `scenarios/fake_log.py` cho B | toàn repo 13 qua (tests/agents 7 qua) |
 | 14/10/2026 18:50 | C | Nhận vai, rà INTERFACE, đề xuất đáp án 4 câu hỏi mở (chờ Đức duyệt) | toàn repo 6 qua; tests/agents chưa có test |
