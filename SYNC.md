@@ -21,9 +21,9 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 - **Cần từ vai khác:** —
 
 ## Vai C — Tác nhân, thí nghiệm
-- **Trạng thái:** `INTERFACE.md` **ĐÃ CHỐT 14/10** (1 bước = 1 giờ; `arb:0` kéo giá về `P_e` cuối mỗi bước; farmer khứ hồi trong cùng bước; trợ cấp theo cửa sổ `subsidy_window` = 24 bước). `scenarios/fake_log.py` đã xong: `make_fake_log(seed)` trả DataFrame đúng mục 4, mốc thật ở `df.attrs["meta"]` (`t_m`=48, `t_0`=144, `wall_tick`, …). Trong log giả: Prep ≈ 1,05–1,2× khối lượng nền, Attack > 10×, Post < nền; giá giảm ≈ 30% trong 2 bước sau `t_0`. Dòng `step` có `owner="platform"`.
-- **Đang làm:** chưa mở việc mới. Việc kế: khung tác nhân (`agents/base.py`: Protocol `Agent`, `Market`) + farmer tối ưu `U_T` với `MC(v)` từ `quote_swap`. Viết trên bể giả `_BeGia` trước, chờ engine của A thì đổi sang.
-- **Cần từ vai khác:** A — `Pool.quote_swap` sớm (farmer cần để tính `MC(v)`).
+- **Trạng thái:** `INTERFACE.md` ĐÃ CHỐT 14/10, **sửa lại cùng ngày (ĐỔI INTERFACE): farmer chỉ mua**, không khứ hồi (khứ hồi gần như thuận nghịch nên chi phí không phụ thuộc `L` → tường mất tác dụng; bài gốc đo được 0,0038% swap farmer là khứ hồi). Token0 farmer nhận được định giá theo `P_e`; `arb:0` bán ngược lại cuối bước. Thêm `fee` vào trạng thái đọc được của `Pool` (engine của A đã có). `scenarios/fake_log.py`: log giả đúng mục 4, farmer chỉ mua; mốc thật ở `df.attrs["meta"]`. `agents/base.py`: Protocol `Agent`, `Market`, `ThiTruongCoDinh`, `role()`. `agents/farmer.py`: `Farmer` tối ưu `U(v) = thưởng(v) − [v − P_e·x(v)]` (tìm kiếm tỷ lệ vàng trên `quote_swap`), `thuong_tuyen_tinh(σ,Q)`, `thuong_log(σ,Q)` = `σ·Q·log₂(1+v/Q)` (giả định, cần đối chiếu luật Binance); test khớp Theorem 1 (`V*` < 1e-5 tương đối), không vượt `Q`, `V* ∝ L`.
+- **Đang làm:** chưa mở việc mới. Việc kế: `agents/arb.py` (kéo giá về `P_e` bằng `sqrt_price_limit`) + `agents/victim.py` loại toàn tri (Lemma 4: `L_V* = max{0, √(fQL_A/c_V) − L_A}`, kiểm `L_V*/L_A ≈ 1` tại `L_A = fQ/(4c_V)`). Farmer mới test trên bể L hằng; khi A có `swap`/`quote_swap` thì thêm test trên `engine.Pool`.
+- **Cần từ vai khác:** A — `Pool.quote_swap` + `swap` (farmer gọi `quote_swap(zero_for_one=False, amount_in=v)`, dùng `amount_in`, `amount_out` của `SwapResult`).
 
 ---
 
@@ -31,6 +31,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 19:13 | C | **ĐỔI INTERFACE:** farmer chỉ mua (bỏ khứ hồi), thêm `Pool.fee`; log giả cập nhật theo. Thêm `agents/base.py`, `agents/farmer.py` (trợ cấp tuyến tính + log) | toàn repo 43 qua (tests/agents 12 qua) |
 | 14/10/2026 19:25 | A | Lõi engine: `tick_math.py`, `log.py` (`EventLog`), `pool.py` (mint/burn/collect/position_amounts/fees_owed/liquidity_at, feeGrowth theo tick; chưa có swap) | toàn repo 38 qua (tests/engine 20 qua) |
 | 14/10/2026 19:10 | B | Thêm `metrics/timeseries.py` (chuỗi thời gian theo bước: giá, `L_active`, khối lượng theo role, log-return, biến động trượt) + test | toàn repo 18 qua (tests/metrics 5 qua) |
 | 14/10/2026 19:09 | A | Nhận vai, rà SYNC/INTERFACE/phân công; chưa viết code | toàn repo 13 qua; tests/engine chưa có test |
