@@ -1,0 +1,73 @@
+"""Bộ chạy kịch bản trên engine thật: đúng thứ tự, đúng định dạng log, khớp mốc Lemma 4."""
+import pytest
+
+from scenarios.run import nap_config, run, run_frame
+
+
+def cfg_nho(**sua):
+    cfg = nap_config("co_so")
+    cfg.update(steps=120, t_m=24, wall_schedule=[[24, 0.6], [36, 0.4]], t_0=96, victim_delay=12)
+    cfg.update(sua)
+    return cfg
+
+
+@pytest.fixture(scope="module")
+def df():
+    return run_frame(cfg_nho(), 0)
+
+
+def test_mot_dong_step_moi_buoc_va_seq(df):
+    st = df[df.kind == "step"]
+    assert list(st.t) == list(range(120))
+    for _, g in df.groupby("t"):
+        assert list(g.seq) == list(range(len(g))) and g.kind.iloc[-1] == "step"
+
+
+def test_tro_cap_cuoi_cua_so_va_khong_vuot_Q(df):
+    cfg = cfg_nho()
+    sub = df[df.kind == "subsidy"]
+    assert set((sub.t + 1) % cfg["subsidy_window"]) == {0}
+    assert (sub.amount1 <= cfg["sigma"] * cfg["Q"] * (1 + 1e-9)).all()
+    mua = df[(df.kind == "swap") & (df.role == "farmer")]
+    theo_cua_so = mua.groupby([mua.owner, mua.t // cfg["subsidy_window"]]).amount1.sum()
+    assert (theo_cua_so <= cfg["Q"] * (1 + 1e-9)).all()
+
+
+def test_victim_khop_lemma4(df):
+    cfg = cfg_nho()
+    L_v = df[(df.kind == "mint") & (df.role == "victim")].liquidity.sum()
+    L_khac = cfg["L_A"] + cfg["L_bg"]
+    assert L_v / L_khac == pytest.approx(1.0, rel=0.02)    # c_V chọn ở mốc L_A = fV/(4c_V)
+
+
+def test_tan_cong_rut_roi_xa_arb_nghi(df):
+    m = df.attrs["meta"]
+    assert m["t_rut"] == 96 and m["c_A"] == 0.5
+    a = df[df.role == "attacker"]
+    assert a[a.kind == "burn"].index.max() < a[a.kind == "swap"].index.min()
+    xa = set(a[a.kind == "swap"].t)
+    assert xa == {96, 97}
+    assert df[(df.role == "arb") & df.t.isin(xa)].empty
+    st = df[df.kind == "step"].set_index("t")
+    assert st.loc[97, "sqrt_price_after"] ** 2 < 0.9 * st.loc[95, "sqrt_price_after"] ** 2
+
+
+def test_collect_cuoi_kich_ban(df):
+    c = df[(df.kind == "collect") & (df.t == 119)]
+    assert {"victim", "bg"} <= set(c.role)
+    assert (c.fee0 + c.fee1 > 0).all()
+
+
+def test_tai_lap_theo_seed_va_dang_log():
+    cfg = cfg_nho(steps=60, t_0=50)
+    assert run(cfg, 1).to_frame().equals(run(cfg, 1).to_frame())
+    assert not run(cfg, 1).to_frame().equals(run(cfg, 2).to_frame())
+    df_log = run_frame(cfg_nho(steps=60, t_0=50, subsidy_form="log"), 0)
+    assert (df_log[df_log.kind == "subsidy"].amount1 > 0).all()
+
+
+def test_chua_cai_thi_bao_loi():
+    with pytest.raises(NotImplementedError):
+        run(cfg_nho(defense={"name": "cap"}), 0)
+    with pytest.raises(NotImplementedError):
+        run(cfg_nho(victim_type="adaptive"), 0)
