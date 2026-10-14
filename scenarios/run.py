@@ -19,7 +19,7 @@ from agents.arb import Arbitrageur
 from agents.attacker import Attacker
 from agents.farmer import Farmer, thuong_log, thuong_tuyen_tinh
 from agents.victim import VictimToanTri
-from engine import EventLog, Pool, sqrt_price_at_tick, tick_at_sqrt_price
+from engine import MAX_TICK, MIN_TICK, EventLog, Pool, sqrt_price_at_tick, tick_at_sqrt_price
 
 THU_MUC_CONFIG = Path(__file__).parent / "configs"
 
@@ -97,6 +97,8 @@ def run(config: dict, seed: int) -> EventLog:
         n_bg = cfg.get("bg_n", 5)
         for k, (lo, hi) in enumerate(dai_nen(z0 ** 2, cfg["bg_band"], n_bg)):
             pool.mint(f"bg:{k + 1}", lo, hi, cfg["L_bg"] / n_bg)
+        if cfg.get("bg_tail", 0) > 0:                     # đuôi mỏng toàn dải: giá xả không kẹt ở mép dải
+            pool.mint(f"bg:{n_bg + 1}", MIN_TICK, MAX_TICK, cfg["bg_tail"] * cfg["L_bg"])
     else:                                                 # nền phủ đều ±bg_range tick (cách cũ)
         pool.mint("bg:1", -cfg["bg_range"], cfg["bg_range"], cfg["L_bg"])
 

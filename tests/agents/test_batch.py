@@ -10,7 +10,7 @@ from scenarios.batch import MUC, cau_hinh, chay, doc_ket_qua, mang_L27, to_hop_r
 def test_L27_truc_giao_do_manh_2():
     L = mang_L27()
     assert len(L) == 27 and len(set(L)) == 27
-    for i, j in itertools.combinations(range(5), 2):
+    for i, j in itertools.combinations(range(6), 2):
         assert set(Counter((r[i], r[j]) for r in L).values()) == {3}
 
 

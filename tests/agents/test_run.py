@@ -95,3 +95,10 @@ def test_chua_cai_thi_bao_loi():
         run(cfg_nho(defense={"name": "cap"}), 0)
     with pytest.raises(NotImplementedError):
         run(cfg_nho(victim_type="adaptive"), 0)
+
+
+def test_duoi_nen_toan_dai():
+    from engine import MAX_TICK, MIN_TICK
+    df = run_frame(cfg_nho(steps=30, t_0=28, bg_tail=0.075), 0)
+    duoi = df[(df.kind == "mint") & (df.tick_lower == MIN_TICK) & (df.tick_upper == MAX_TICK)]
+    assert len(duoi) == 1 and duoi.liquidity.iloc[0] == pytest.approx(0.075 * cfg_nho()["L_bg"])

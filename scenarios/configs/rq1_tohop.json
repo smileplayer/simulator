@@ -6,7 +6,8 @@
   "k": 0.64,
   "sigma": 0.005,
   "Q": 12000,
-  "bg_band": 0.15
+  "bg_band": 0.15,
+  "attacker_inventory": 15000
  },
  {
   "id": "L27_01",
@@ -15,7 +16,8 @@
   "k": 0.64,
   "sigma": 0.01,
   "Q": 24000,
-  "bg_band": 0.15
+  "bg_band": 0.15,
+  "attacker_inventory": 40000
  },
  {
   "id": "L27_02",
@@ -24,7 +26,8 @@
   "k": 0.64,
   "sigma": 0.02,
   "Q": 48000,
-  "bg_band": 0.15
+  "bg_band": 0.15,
+  "attacker_inventory": 25000
  },
  {
   "id": "L27_03",
@@ -33,7 +36,8 @@
   "k": 0.8,
   "sigma": 0.005,
   "Q": 24000,
-  "bg_band": 0.4
+  "bg_band": 0.4,
+  "attacker_inventory": 25000
  },
  {
   "id": "L27_04",
@@ -42,7 +46,8 @@
   "k": 0.8,
   "sigma": 0.01,
   "Q": 48000,
-  "bg_band": 0.4
+  "bg_band": 0.4,
+  "attacker_inventory": 15000
  },
  {
   "id": "L27_05",
@@ -51,7 +56,8 @@
   "k": 0.8,
   "sigma": 0.02,
   "Q": 12000,
-  "bg_band": 0.4
+  "bg_band": 0.4,
+  "attacker_inventory": 40000
  },
  {
   "id": "L27_06",
@@ -60,7 +66,8 @@
   "k": 0.95,
   "sigma": 0.005,
   "Q": 48000,
-  "bg_band": 0.25
+  "bg_band": 0.25,
+  "attacker_inventory": 40000
  },
  {
   "id": "L27_07",
@@ -69,7 +76,8 @@
   "k": 0.95,
   "sigma": 0.01,
   "Q": 12000,
-  "bg_band": 0.25
+  "bg_band": 0.25,
+  "attacker_inventory": 25000
  },
  {
   "id": "L27_08",
@@ -78,7 +86,8 @@
   "k": 0.95,
   "sigma": 0.02,
   "Q": 24000,
-  "bg_band": 0.25
+  "bg_band": 0.25,
+  "attacker_inventory": 15000
  },
  {
   "id": "L27_09",
@@ -87,7 +96,8 @@
   "k": 0.64,
   "sigma": 0.005,
   "Q": 24000,
-  "bg_band": 0.25
+  "bg_band": 0.25,
+  "attacker_inventory": 15000
  },
  {
   "id": "L27_10",
@@ -96,7 +106,8 @@
   "k": 0.64,
   "sigma": 0.01,
   "Q": 48000,
-  "bg_band": 0.25
+  "bg_band": 0.25,
+  "attacker_inventory": 40000
  },
  {
   "id": "L27_11",
@@ -105,7 +116,8 @@
   "k": 0.64,
   "sigma": 0.02,
   "Q": 12000,
-  "bg_band": 0.25
+  "bg_band": 0.25,
+  "attacker_inventory": 25000
  },
  {
   "id": "L27_12",
@@ -114,7 +126,8 @@
   "k": 0.8,
   "sigma": 0.005,
   "Q": 48000,
-  "bg_band": 0.15
+  "bg_band": 0.15,
+  "attacker_inventory": 25000
  },
  {
   "id": "L27_13",
@@ -123,7 +136,8 @@
   "k": 0.8,
   "sigma": 0.01,
   "Q": 12000,
-  "bg_band": 0.15
+  "bg_band": 0.15,
+  "attacker_inventory": 15000
  },
  {
   "id": "L27_14",
@@ -132,7 +146,8 @@
   "k": 0.8,
   "sigma": 0.02,
   "Q": 24000,
-  "bg_band": 0.15
+  "bg_band": 0.15,
+  "attacker_inventory": 40000
  },
  {
   "id": "L27_15",
@@ -141,7 +156,8 @@
   "k": 0.95,
   "sigma": 0.005,
   "Q": 12000,
-  "bg_band": 0.4
+  "bg_band": 0.4,
+  "attacker_inventory": 40000
  },
  {
   "id": "L27_16",
@@ -150,7 +166,8 @@
   "k": 0.95,
   "sigma": 0.01,
   "Q": 24000,
-  "bg_band": 0.4
+  "bg_band": 0.4,
+  "attacker_inventory": 25000
  },
  {
   "id": "L27_17",
@@ -159,7 +176,8 @@
   "k": 0.95,
   "sigma": 0.02,
   "Q": 48000,
-  "bg_band": 0.4
+  "bg_band": 0.4,
+  "attacker_inventory": 15000
  },
  {
   "id": "L27_18",
@@ -168,7 +186,8 @@
   "k": 0.64,
   "sigma": 0.005,
   "Q": 48000,
-  "bg_band": 0.4
+  "bg_band": 0.4,
+  "attacker_inventory": 15000
  },
  {
   "id": "L27_19",
@@ -177,7 +196,8 @@
   "k": 0.64,
   "sigma": 0.01,
   "Q": 12000,
-  "bg_band": 0.4
+  "bg_band": 0.4,
+  "attacker_inventory": 40000
  },
  {
   "id": "L27_20",
@@ -186,7 +206,8 @@
   "k": 0.64,
   "sigma": 0.02,
   "Q": 24000,
-  "bg_band": 0.4
+  "bg_band": 0.4,
+  "attacker_inventory": 25000
  },
  {
   "id": "L27_21",
@@ -195,7 +216,8 @@
   "k": 0.8,
   "sigma": 0.005,
   "Q": 12000,
-  "bg_band": 0.25
+  "bg_band": 0.25,
+  "attacker_inventory": 25000
  },
  {
   "id": "L27_22",
@@ -204,7 +226,8 @@
   "k": 0.8,
   "sigma": 0.01,
   "Q": 24000,
-  "bg_band": 0.25
+  "bg_band": 0.25,
+  "attacker_inventory": 15000
  },
  {
   "id": "L27_23",
@@ -213,7 +236,8 @@
   "k": 0.8,
   "sigma": 0.02,
   "Q": 48000,
-  "bg_band": 0.25
+  "bg_band": 0.25,
+  "attacker_inventory": 40000
  },
  {
   "id": "L27_24",
@@ -222,7 +246,8 @@
   "k": 0.95,
   "sigma": 0.005,
   "Q": 24000,
-  "bg_band": 0.15
+  "bg_band": 0.15,
+  "attacker_inventory": 40000
  },
  {
   "id": "L27_25",
@@ -231,7 +256,8 @@
   "k": 0.95,
   "sigma": 0.01,
   "Q": 48000,
-  "bg_band": 0.15
+  "bg_band": 0.15,
+  "attacker_inventory": 25000
  },
  {
   "id": "L27_26",
@@ -240,7 +266,8 @@
   "k": 0.95,
   "sigma": 0.02,
   "Q": 12000,
-  "bg_band": 0.15
+  "bg_band": 0.15,
+  "attacker_inventory": 15000
  },
  {
   "id": "LOG_0",
@@ -249,7 +276,8 @@
   "k": 0.8,
   "sigma": 0.01,
   "Q": 24000,
-  "bg_band": 0.25
+  "bg_band": 0.25,
+  "attacker_inventory": 25000
  },
  {
   "id": "LOG_1",
@@ -258,7 +286,8 @@
   "k": 0.64,
   "sigma": 0.005,
   "Q": 12000,
-  "bg_band": 0.15
+  "bg_band": 0.15,
+  "attacker_inventory": 15000
  },
  {
   "id": "LOG_2",
@@ -267,6 +296,7 @@
   "k": 0.95,
   "sigma": 0.02,
   "Q": 48000,
-  "bg_band": 0.4
+  "bg_band": 0.4,
+  "attacker_inventory": 40000
  }
 ]

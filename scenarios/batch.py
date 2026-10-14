@@ -1,6 +1,6 @@
 """Bộ tổ hợp kịch bản RQ1 (~30 vụ, đối chiếu 29 vụ của bài gốc) và bộ chạy nhiều seed ghi dần ra đĩa.
 
-Tổ hợp = mảng trực giao L27 (5 yếu tố × 3 mức: L_A, k, σ, Q, bg_band; mọi cặp mức của hai yếu tố bất kỳ
+Tổ hợp = mảng trực giao L27 (6 yếu tố × 3 mức: L_A, k, σ, Q, bg_band, kho attacker; mọi cặp mức của hai yếu tố bất kỳ
 xuất hiện đều 3 lần) + 3 vụ trợ cấp dạng log. `k` đặt c_V = k·f·V/L_A với V = n_farmers·Q, k ∈ [0,64; 1)
 nên L_V*/L_A = 1/√k − 1 ∈ (0; 0,25] — tường chiếm ≥ 80% như 25/29 vụ bài gốc.
 
@@ -25,14 +25,15 @@ MUC = {
     "sigma": [0.005, 0.01, 0.02],
     "Q": [12000, 24000, 48000],
     "bg_band": [0.15, 0.25, 0.40],
+    "attacker_inventory": [15000, 25000, 40000],
 }
 FILE_TO_HOP = THU_MUC_CONFIG / "rq1_tohop.json"
 
 
 def mang_L27() -> list[tuple[int, ...]]:
-    """27 dòng × 5 cột mức {0,1,2}: cột = a, b, c, a+b+c, a+2b (mod 3) — từng cặp cột độc lập tuyến tính
-    trên GF(3) nên mảng trực giao độ mạnh 2."""
-    return [(a, b, c, (a + b + c) % 3, (a + 2 * b) % 3)
+    """27 dòng × 6 cột mức {0,1,2}: cột = a, b, c, a+b+c, a+2b, b+2c (mod 3) — từng cặp cột độc lập tuyến
+    tính trên GF(3) nên mảng trực giao độ mạnh 2."""
+    return [(a, b, c, (a + b + c) % 3, (a + 2 * b) % 3, (b + 2 * c) % 3)
             for a, b, c in itertools.product(range(3), repeat=3)]
 
 
