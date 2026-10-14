@@ -18,7 +18,7 @@ import pandas as pd
 from agents.arb import Arbitrageur
 from agents.attacker import Attacker
 from agents.farmer import Farmer, thuong_log, thuong_tuyen_tinh
-from agents.victim import VictimToanTri
+from agents.victim import VictimThichNghi, VictimToanTri
 from engine import MAX_TICK, MIN_TICK, EventLog, Pool, sqrt_price_at_tick, tick_at_sqrt_price
 
 THU_MUC_CONFIG = Path(__file__).parent / "configs"
@@ -83,8 +83,9 @@ def run(config: dict, seed: int) -> EventLog:
     cfg = config
     if cfg.get("defense"):
         raise NotImplementedError("biện pháp phòng thủ chưa cài (GĐ2)")
-    if cfg.get("victim_type", "omniscient") != "omniscient":
-        raise NotImplementedError("victim thích nghi chưa cài")
+    loai_victim = cfg.get("victim_type", "omniscient")
+    if loai_victim not in ("omniscient", "adaptive"):
+        raise ValueError(f"victim_type lạ: {loai_victim}")
     rng = np.random.default_rng(seed)
     W, T, fee = cfg["subsidy_window"], cfg["steps"], cfg["fee"]
 
@@ -107,9 +108,14 @@ def run(config: dict, seed: int) -> EventLog:
     farmers = [Farmer(f"farmer:{k}", thuong, Q_tran, window=W, v_tran=v_buoc)
                for k in range(cfg["n_farmers"])]
     V_ky_vong = cfg["n_farmers"] * cfg["Q"]               # victim toàn tri: khối lượng mỗi cửa sổ
-    victims = [VictimToanTri(f"victim:{k}", V=V_ky_vong, c_V=cfg["c_V"], w=cfg.get("w_victim", 1),
-                             t_vao=cfg["t_m"] + cfg["victim_delay"] * (k + 1))
-               for k in range(cfg["n_victims"])]
+
+    def tao_victim(k: int):
+        chung = dict(c_V=cfg["c_V"], w=cfg.get("w_victim", 1), t_vao=cfg["t_m"] + cfg["victim_delay"] * (k + 1))
+        if loai_victim == "adaptive":                     # chỉ thấy phí quá khứ của bể
+            return VictimThichNghi(f"victim:{k}", window=W, H=cfg.get("victim_H", 24), **chung)
+        return VictimToanTri(f"victim:{k}", V=V_ky_vong, **chung)
+
+    victims = [tao_victim(k) for k in range(cfg["n_victims"])]
     lich = [(int(t), float(r)) for t, r in cfg.get("wall_schedule", [[cfg["t_m"], 1.0]])]
     att = Attacker("attacker:0", L_A=cfg["L_A"], t_m=cfg["t_m"], kho_token0=cfg["attacker_inventory"],
                    c_A=cfg["c_A"], w=cfg.get("w_attacker", 1), dung_tuong=lich, t_0=cfg.get("t_0"),

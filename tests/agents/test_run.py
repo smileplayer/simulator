@@ -93,8 +93,8 @@ def test_tai_lap_theo_seed_va_dang_log():
 def test_chua_cai_thi_bao_loi():
     with pytest.raises(NotImplementedError):
         run(cfg_nho(defense={"name": "cap"}), 0)
-    with pytest.raises(NotImplementedError):
-        run(cfg_nho(victim_type="adaptive"), 0)
+    with pytest.raises(ValueError):
+        run(cfg_nho(victim_type="khong_co"), 0)
 
 
 def test_duoi_nen_toan_dai():

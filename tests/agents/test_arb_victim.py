@@ -116,3 +116,29 @@ def test_farmer_va_arb_mot_buoc():
     assert pool.sqrt_price == pytest.approx(1.00001, rel=1e-12)
     df = pool.log.to_frame()
     assert list(df[df.kind == "swap"].role) == ["farmer", "arb"]
+
+
+# ---------- Victim thích nghi ----------
+def test_victim_thich_nghi_uoc_V_tu_phi():
+    from agents.victim import VictimThichNghi
+    pool, tt = be_co_tuong(1e9), ThiTruongCoDinh(1.0)
+    vic = VictimThichNghi("victim:0", c_V=1e-9, window=24, H=4, t_vao=100)
+    for t in range(6):                               # mỗi bước một lệnh mua 1.000 token1 → phí 2,5
+        pool.t = t
+        vic.act(t, pool, tt)
+        pool.swap("bg:0", zero_for_one=False, amount_in=1000.0)
+    pool.t = 6
+    vic.quan_sat(6, pool)
+    assert vic.uoc_V(6, pool) == pytest.approx(4 * 1000.0 * 24 / 4, rel=1e-9)   # 24.000 / cửa sổ
+    assert vic.uoc_V(3, pool) is None                # chưa đủ H bước lịch sử
+
+
+def test_victim_thich_nghi_vao_nhieu_hon_toan_tri():
+    from scenarios.hieu_chinh import LV_chia_LA
+    from scenarios.run import nap_config, run_frame
+    cfg = nap_config("co_so")
+    toan_tri = LV_chia_LA(run_frame(cfg, 0))
+    cfg["victim_type"] = "adaptive"
+    thich_nghi = LV_chia_LA(run_frame(cfg, 0))
+    assert toan_tri == pytest.approx(1 / math.sqrt(0.75) - 1, rel=0.02)
+    assert thich_nghi > 3 * toan_tri                 # V̂ gồm cả khối lượng arb + nền
