@@ -11,8 +11,8 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 ---
 
 ## Vai A — Engine
-- **Trạng thái:** đã nhận vai 14/10, chưa có code (`engine/` chỉ có `__init__.py`, `tests/engine/` trống).
-- **Đang làm:** chưa mở việc. Việc kế: `engine/pool.py` lõi một khoảng — `Position`, `SwapResult`, `Pool` đúng chữ ký INTERFACE mục 2; hàm toán tick↔`√P`, `amount0/amount1` theo `L`; `mint`, `position_amounts`, `liquidity_at` + test (1.000 USDT một tick dưới `P₀=1` → `L ≈ 20.000.000`; `(x, y)` đúng ba trạng thái). Sau đó: `swap`/`quote_swap` cross-tick + `feeGrowth` (ưu tiên vì C cần `quote_swap`).
+- **Trạng thái:** có lõi engine trừ swap. `engine/tick_math.py` (tick↔`√P`, `amount0/1_delta`, `amounts_for_liquidity`, `liquidity_for_amounts` — C dùng để đổi vốn → `L`). `engine/log.py`: `EventLog` đúng INTERFACE mục 4 (`append(t, kind, owner, **cột)` tự đánh `seq`, `to_frame`, `to_csv`) — **bộ chạy của C ghi dòng `subsidy`/`step` bằng `pool.log.append(...)`**. `engine/pool.py`: `Pool` đúng chữ ký, cấu trúc theo tick (`liquidity_net/gross`, `feeGrowthOutside`) cho độ rộng bất kỳ; `mint`, `burn`, `collect`, `position_amounts`, `fees_owed`, `positions` (chỉ vị thế còn L > 0), `liquidity_at`. `swap`/`quote_swap` hiện ném `NotImplementedError`.
+- **Đang làm:** chưa mở việc. Việc kế: `swap` + `quote_swap` cross-tick (theo `amount_in` và/hoặc `sqrt_price_limit`, cộng `feeGrowthGlobal`, lật `feeGrowthOutside` khi qua tick, dừng khi hết thanh khoản) + test: một tick khớp công thức tay < 1e-9, xuyên ≥ 1.000 tick, bảo toàn token, hai LP cùng tick chia phí theo `L`, `quote_swap` không đổi trạng thái.
 - **Cần từ vai khác:** —
 
 ## Vai B — Đo lường, kiểm định
@@ -31,6 +31,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 19:25 | A | Lõi engine: `tick_math.py`, `log.py` (`EventLog`), `pool.py` (mint/burn/collect/position_amounts/fees_owed/liquidity_at, feeGrowth theo tick; chưa có swap) | toàn repo 38 qua (tests/engine 20 qua) |
 | 14/10/2026 19:10 | B | Thêm `metrics/timeseries.py` (chuỗi thời gian theo bước: giá, `L_active`, khối lượng theo role, log-return, biến động trượt) + test | toàn repo 18 qua (tests/metrics 5 qua) |
 | 14/10/2026 19:09 | A | Nhận vai, rà SYNC/INTERFACE/phân công; chưa viết code | toàn repo 13 qua; tests/engine chưa có test |
 | 14/10/2026 19:09 | B | Nhận vai, rà SYNC/INTERFACE/phân công; chưa viết code | toàn repo 13 qua; tests/metrics chưa có test |
