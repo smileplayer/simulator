@@ -19,6 +19,7 @@ from agents.arb import Arbitrageur
 from agents.attacker import Attacker
 from agents.farmer import Farmer, thuong_log, thuong_tuyen_tinh
 from agents.victim import VictimThichNghi, VictimToanTri
+from defenses.thuong import LichTraThuong, Q_hieu_luc, ten_bien_phap
 from engine import MAX_TICK, MIN_TICK, EventLog, Pool, sqrt_price_at_tick, tick_at_sqrt_price
 
 THU_MUC_CONFIG = Path(__file__).parent / "configs"
@@ -70,19 +71,19 @@ def dai_nen(P0: float, band: float, n: int) -> list[tuple[int, int]]:
     return ds
 
 
-def _tao_thuong(cfg: dict):
+def _tao_thuong(cfg: dict, Q: float):
     if cfg["subsidy_form"] == "linear":
-        return thuong_tuyen_tinh(cfg["sigma"], cfg["Q"]), cfg["Q"]
+        return thuong_tuyen_tinh(cfg["sigma"], Q), Q
     if cfg["subsidy_form"] == "log":
-        return thuong_log(cfg["sigma"], cfg["Q"]), None
+        return thuong_log(cfg["sigma"], Q), None
     raise ValueError(f"subsidy_form lạ: {cfg['subsidy_form']}")
 
 
 def run(config: dict, seed: int) -> EventLog:
     """Chạy một kịch bản từ đầu tới cuối, trả EventLog; `log.meta` chứa tham số + mốc thật (t_m, t_rut, c_A…)."""
     cfg = config
-    if cfg.get("defense"):
-        raise NotImplementedError("biện pháp phòng thủ chưa cài (GĐ2)")
+    defense = cfg.get("defense")
+    ten_bien_phap(defense)                                # báo lỗi nếu biện pháp chưa cài
     loai_victim = cfg.get("victim_type", "omniscient")
     if loai_victim not in ("omniscient", "adaptive"):
         raise ValueError(f"victim_type lạ: {loai_victim}")
@@ -103,11 +104,15 @@ def run(config: dict, seed: int) -> EventLog:
     else:                                                 # nền phủ đều ±bg_range tick (cách cũ)
         pool.mint("bg:1", -cfg["bg_range"], cfg["bg_range"], cfg["L_bg"])
 
-    thuong, Q_tran = _tao_thuong(cfg)
-    v_buoc = cfg["Q"] / W                                 # farmer rải đều trần qua cửa sổ
-    farmers = [Farmer(f"farmer:{k}", thuong, Q_tran, window=W, v_tran=v_buoc)
+    Q_eff = Q_hieu_luc(cfg["Q"], defense)                 # hạ trần (nếu có)
+    lich_tra = LichTraThuong.tu_defense(defense)          # trả trễ (nếu có); mặc định trả ngay
+    thuong, Q_tran = _tao_thuong(cfg, Q_eff)              # luật nền tảng trả
+    he_so = lich_tra.he_so_cam_nhan
+    thuong_farmer = (lambda v: he_so * thuong(v)) if he_so != 1.0 else thuong   # farmer chiết khấu δ^D
+    v_buoc = Q_eff / W                                    # farmer rải đều trần qua cửa sổ
+    farmers = [Farmer(f"farmer:{k}", thuong_farmer, Q_tran, window=W, v_tran=v_buoc)
                for k in range(cfg["n_farmers"])]
-    V_ky_vong = cfg["n_farmers"] * cfg["Q"]               # victim toàn tri: khối lượng mỗi cửa sổ
+    V_ky_vong = cfg["n_farmers"] * Q_eff                  # victim toàn tri: biết luật (kể cả trần mới)
 
     def tao_victim(k: int):
         chung = dict(c_V=cfg["c_V"], w=cfg.get("w_victim", 1), t_vao=cfg["t_m"] + cfg["victim_delay"] * (k + 1))
@@ -147,12 +152,13 @@ def run(config: dict, seed: int) -> EventLog:
             tt.vol = cfg["vol_post"]
         else:
             arb.act(t, pool, tt)
-        if (t + 1) % W == 0:
+        if (t + 1) % W == 0:                                  # chốt thưởng cuối cửa sổ
             for a in farmers:
                 if a.v_cua_so > 0:
-                    pool.log.append(t, "subsidy", a.owner, amount1=a.thuong(a.v_cua_so),
-                                    sqrt_price_after=pool.sqrt_price, tick_after=pool.tick,
-                                    liquidity_active_after=pool.liquidity)
+                    lich_tra.chot(t, a.owner, thuong(a.v_cua_so), pool.sqrt_price ** 2)
+        for owner, gia_tri in lich_tra.den_han(t, pool.sqrt_price ** 2):   # trả khoản tới hạn
+            pool.log.append(t, "subsidy", owner, amount1=gia_tri, sqrt_price_after=pool.sqrt_price,
+                            tick_after=pool.tick, liquidity_active_after=pool.liquidity)
         if t == T - 1:                                        # thu phí còn treo để phí hiện trong log
             for pid in sorted({int(i) for i in pool.log.to_frame()["position_id"].dropna()}):
                 if any(x > 0 for x in pool.fees_owed(pid)):
@@ -161,7 +167,7 @@ def run(config: dict, seed: int) -> EventLog:
                         sqrt_price_after=pool.sqrt_price, tick_after=pool.tick,
                         liquidity_active_after=pool.liquidity)
 
-    pool.log.meta = dict(cfg, seed=seed, t_rut=att.t_rut, wall_tick=att.tick_lower,
+    pool.log.meta = dict(cfg, seed=seed, Q_eff=Q_eff, subsidy_pending=lich_tra.con_treo(pool.sqrt_price ** 2), t_rut=att.t_rut, wall_tick=att.tick_lower,
                          attacker_inventory_left=att.kho, P0=z0 ** 2)
     return pool.log
 
