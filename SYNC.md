@@ -16,8 +16,8 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 - **Cần từ vai khác:** —
 
 ## Vai B — Đo lường, kiểm định
-- **Trạng thái:** có `metrics/timeseries.py`: `step_frame` (giá, tick, `L_active`, `p_ext` từ dòng `step`), `swap_volume` (khối lượng mỗi bước theo `role`, đo bằng |amount1| token1), `build_timeseries` (gộp + `vol_total`, `vol_trade` = bỏ arb, `n_swap`, `ret` log-return, `abs_ret`, `rv` std trượt 24 bước). Test `tests/metrics/test_timeseries.py` (5) trên `make_fake_log`. Related Work đã có bản nháp trong Claude Docs.
-- **Đang làm:** chưa mở việc. Việc kế: `metrics/phases.py` — `phases(df)` tìm `t_m`, `t_50`, `t_peak`, `t_0`, `t_oot`, `t_b` (giá −10%) và ranh giới Prep/Attack/Post; test đối chiếu `df.attrs["meta"]` (`t_m`=48, `t_0`=144).
+- **Trạng thái:** có `metrics/timeseries.py` (`step_frame`, `swap_volume` theo `role` bằng |amount1|, `build_timeseries`: `vol_total`, `vol_trade` = bỏ arb, `n_swap`, `ret`, `abs_ret`, `rv` trượt 24 bước) và `metrics/phases.py` (`wall_liquidity` phát lại mint/burn một tick; `phases(df)` → `t_m, t_50, t_peak, t_0` (tụt < 95% đỉnh, §6.1.1), `t_0_burn` (burn lớn nhất, §5), `t_oot`+`seq_oot`, `t_b` (giá ≤ 90% biên dưới tick tường), `delta_*`, cửa sổ Before/Prep/Attack/Post W=24 theo §6.2; `label_phases(ts, ph)`). Định nghĩa đã đối chiếu nguyên văn bài gốc. Test: `tests/metrics/` 23 qua trên log giả seed 0–2. Related Work đã có bản nháp trong Claude Docs.
+- **Đang làm:** chưa mở việc. Việc kế: `metrics/indicators.py` — `subsidy_cost`, `pool_liquidity` (trung bình `L_active` Before vs `(t_b, t_b+24]`), chỉ số theo pha (volume lift `μ_s/μ_Before`, RV = √Σr² từ tick giữa các swap liên tiếp như bài gốc, độ dời giá). Sau đó `victim_loss` (full / nonalpha) và `attacker_profit`.
 - **Cần từ vai khác:** —
 
 ## Vai C — Tác nhân, thí nghiệm
@@ -31,6 +31,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 14/10/2026 19:18 | B | Thêm `metrics/phases.py` (mốc `t_m→t_b`, cửa sổ 4 pha theo §6.1–6.2 bài gốc) + test | toàn repo 61 qua (tests/metrics 23 qua) |
 | 14/10/2026 19:13 | C | **ĐỔI INTERFACE:** farmer chỉ mua (bỏ khứ hồi), thêm `Pool.fee`; log giả cập nhật theo. Thêm `agents/base.py`, `agents/farmer.py` (trợ cấp tuyến tính + log) | toàn repo 43 qua (tests/agents 12 qua) |
 | 14/10/2026 19:25 | A | Lõi engine: `tick_math.py`, `log.py` (`EventLog`), `pool.py` (mint/burn/collect/position_amounts/fees_owed/liquidity_at, feeGrowth theo tick; chưa có swap) | toàn repo 38 qua (tests/engine 20 qua) |
 | 14/10/2026 19:10 | B | Thêm `metrics/timeseries.py` (chuỗi thời gian theo bước: giá, `L_active`, khối lượng theo role, log-return, biến động trượt) + test | toàn repo 18 qua (tests/metrics 5 qua) |
