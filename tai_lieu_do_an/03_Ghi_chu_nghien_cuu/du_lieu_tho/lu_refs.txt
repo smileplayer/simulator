@@ -1,0 +1,57 @@
+[1] Binance alpha 2.0, 2025.
+[2] Frequently asked questions on binance alpha points, 2025.
+[3] Pancakeswap trading rewards program, 2025.
+[4] veaero rewards program, 2025.
+[5] Rajesh K Aggarwal and Guojun Wu. Stock market manipulations. The Journal of Business, 79(4):1915- 1953, 2006.
+[6] Darcy WE Allen, Chris Berg, and Aaron M Lane. Why airdrop cryptocurrency tokens? Journal of Business Research, 163:113945, 2023.
+[7] Nicola Atzei, Massimo Bartoletti, and Tiziana Cimoli. A survey of attacks on ethereum smart contracts (sok). In International conference on principles of security and trust, pages 164-186. Springer, 2017.
+[8] Lorenz Breidenbach, Christian Cachin, Benedict Chan, Alex Coventry, Steve Ellis, Ari Juels, Farinaz Koushanfar, Andrew Miller, Brendan Magauran, Daniel Moroz, et al. Chainlink 2.0: Next steps in the evolution of decentralized oracle networks. Chainlink Labs, 1:1-136, 2021.
+[9] Agostino Capponi, Ruizhe Jia, and Kanye Ye Wang. Maximal extractable value and allocative inefficiencies in public blockchains. Journal of Financial Economics, 172:104132, 2025.
+[10] Agostino Capponi, Ruizhe Jia, and Ye Wang. Blockchain private pools and price discovery. In AEA Papers and Proceedings, volume 113, pages 253-256. American Economic Association 2014 Broadway, Suite 305, Nashville, TN 37203, 2023.
+[11] Agostino Capponi, Ruizhe Jia, and Ye Wang. Do private transaction pools mitigate frontrunning risk? Cryptology ePrint Archive, 2023.
+[12] Federico Cernera, Massimo La Morgia, Alessandro Mei, and Francesco Sassi. Token spammers, rug pulls, and sniper bots: An analysis of the ecosystem of tokens in ethereum and in the binance smart chain ({{{{{BNB}}}}}). In 32nd USENIX security symposium (USENIX security 23), pages 3349-3366, 2023.
+[13] Huashan Chen, Marcus Pendleton, Laurent Njilla, and Shouhuai Xu. A survey on ethereum systems security: Vulnerabilities, attacks, and defenses. ACM Computing Surveys (CSUR), 53(3):1-43, 2020.
+[14] Carole Comerton-Forde and Ta�lis J Putnin, s. Stock price manipulation: Prevalence and determinants. Review of Finance, 18(1):23-66, 2014.
+[15] Lin William Cong, Xi Li, Ke Tang, and Yang Yang. Crypto wash trading. Management Science, 69(11):6427-6454, 2023.
+[16] Lin William Cong, Ye Li, and Neng Wang. Tokenbased platform finance. Journal of Financial Economics, 144(3):972-991, 2022.
+[17] David J Cooper and R Glen Donaldson. A strategic analysis of corners and squeezes. Journal of Financial and Quantitative Analysis, 33(1):117-137, 1998.
+[18] Philip Daian, Steven Goldfeder, Tyler Kell, Yunqi Li, Xueyuan Zhao, Iddo Bentov, Lorenz Breidenbach, and Ari Juels. Flash boys 2.0: Frontrunning, transaction reordering, and consensus instability in decentralized exchanges. arXiv preprint arXiv:1904.05234, 2019.
+[19] Poulami Das, Andreas Erwig, Sebastian Faust, Julian Loss, and Siavash Riahi. The exact security of bip32 wallets. In Proceedings of the 2021 ACM SIGSAC conference on computer and communications security, pages 1020-1042, 2021.
+[20] Poulami Das, Sebastian Faust, and Julian Loss. A formal treatment of deterministic wallets. In Proceedings of the 2019 ACM SIGSAC conference on computer and communications security, pages 651-668, 2019.
+[21] Anirudh Dhawan and Ta�lis J Putnin, s. A new wolf in town? pump-and-dump manipulation in cryptocurrency markets. Review of Finance, 27(3):935-975, 2023.
+[22] Benedict J Drasch, Gilbert Fridgen, Tobias MannerRomberg, Fenja M Nolting, and Sven Radszuwill. The token's secret: The two-faced financial incentive of the token economy. Electronic Markets, 30(3):557-567, 2020.
+[23] Sizheng Fan, Tian Min, Xiao Wu, and Wei Cai. Altruistic and profit-oriented: Making sense of roles in web3 community from airdrop perspective. In Proceedings of the 2023 CHI Conference on Human Factors in Computing Systems, pages 1-16, 2023.
+[24] Josselin Feist, Gustavo Grieco, and Alex Groce. Slither: a static analysis framework for smart contracts. In 2019 IEEE/ACM 2nd International Workshop on Emerging Trends in Software Engineering for Blockchain (WETSEB), pages 8-15. IEEE, 2019.
+[25] Ding Feng, Rupert Hitsch, Kaihua Qin, Arthur Gervais, Roger Wattenhofer, Yaxing Yao, and Ye Wang. Defi auditing: Mechanisms, effectiveness, and user perceptions. In International Conference on Financial Cryptography and Data Security, pages 320-336. Springer, 2023.
+[26] Robin Fritsch. Concentrated liquidity in automated market makers. In Proceedings of the 2021 ACM CCS workshop on decentralized finance and security, pages 15-20, 2021.
+[27] Robin Fritsch and Andrea Canidio. Measuring arbitrage losses and profitability of amm liquidity. In Companion Proceedings of the ACM Web Conference 2024, pages 1761-1767, 2024.
+[28] Jingxing Gan, Gerry Tsoukalas, and Serguei Netessine. Decentralized platforms: Governance, tokenomics, and ico design. Management Science, 69(11):6667-6683, 2023.
+[29] Juan Guarnizo and Pawel Szalachowski. Pdfs: Practical data feed service for smart contracts. In European symposium on research in computer security, pages 767- 789. Springer, 2019.
+[30] Rong Han, Zheng Yan, Xueqin Liang, and Laurence T Yang. How can incentive mechanisms and blockchain benefit with each other? a survey. ACM Computing Surveys, 55(7):1-38, 2022.
+[31] Saleh Hashemseresht and Mohsen Pourpouneh. Concentrated liquidity analysis in uniswap v3. In Proceedings of the 2022 ACM CCS Workshop on Decentralized Finance and Security, pages 63-70, 2022.
+[32] Robert A Jarrow. Market manipulation, bubbles, corners, and short squeezes. Journal of financial and Quantitative Analysis, 27(3):311-336, 1992.
+[33] Josh Kamps and Bennett Kleinberg. To the moon: defining and detecting cryptocurrency pump-and-dumps. Crime Science, 7(1):1-18, 2018.
+[34] Asim Ijaz Khwaja and Atif Mian. Unchecked intermediaries: Price manipulation in an emerging stock market. Journal of Financial Economics, 78(1):203-241, 2005.
+[35] Henry M Kim, Marek Laskowski, Michael Zargham, Hjalmar Turesson, Matthew Barlin, and Danil Kabanov. Token economics in real life: Cryptocurrency and incentives design for insolar's blockchain network. Computer, 54(1):70-80, 2021.
+[36] Massimo La Morgia, Alessandro Mei, Francesco Sassi, and Julinda Stefa. Pump and dumps in the bitcoin era: Real time detection of cryptocurrency market manipulations. In 2020 29th international conference on computer communications and networks (ICCCN), pages 1-9. IEEE, 2020.
+[37] Zihao Li, Jianfeng Li, Zheyuan He, Xiapu Luo, Ting Wang, Xiaoze Ni, Wenwu Yang, Xi Chen, and Ting Chen. Demystifying defi mev activities in flashbots bundle. In Proceedings of the 2023 ACM SIGSAC Conference on Computer and Communications Security, pages 165-179, 2023.
+[38] Loi Luu, Duc-Hiep Chu, Hrishi Olickel, Prateek Saxena, and Aquinas Hobor. Making smart contracts smarter. In Proceedings of the 2016 ACM SIGSAC conference on computer and communications security, pages 254-269, 2016.
+[39] Yunlong Mao, Ziqin Dang, Heng Wang, Yuan Zhang, and Sheng Zhong. Solution probing attack against coin mixing based privacy-preserving crowdsourcing platforms. IEEE Transactions on Dependable and Secure Computing, 21(5):4684-4698, 2024.
+[40] Yuanzheng Niu, Xiaoqi Li, Hongli Peng, and Wenkai Li. Unveiling wash trading in popular nft markets. In Companion proceedings of the ACM web conference 2024, pages 730-733, 2024.
+[41] Kaihua Qin, Liyi Zhou, and Arthur Gervais. Quantifying blockchain extractable value: How dark is the forest? In 2022 IEEE Symposium on Security and Privacy (SP), pages 198-214. IEEE, 2022.
+[42] Kaihua Qin, Liyi Zhou, Benjamin Livshits, and Arthur Gervais. Attacking the defi ecosystem with flash loans for fun and profit. In International conference on financial cryptography and data security, pages 3-32. Springer, 2021.
+[43] Nicola Ruaro, Fabio Gritti, Robert McLaughlin, Ilya Grishchenko, Christopher Kruegel, and Giovanni Vigna. Not your type! detecting storage collision vulnerabilities in ethereum smart contracts. In Proc. Netw. Distrib. Syst. Secur. Symp, pages 1-17, 2024.
+[44] Janice Jianing Si, Tanusree Sharma, and Kanye Ye Wang. Understanding user-perceived security risks and mitigation strategies in the web3 ecosystem. In Proceedings of the 2024 CHI Conference on Human Factors in Computing Systems, pages 1-22, 2024.
+[45] Weizhao Tang, Rachid El-Azouzi, Cheng Han Lee, Ethan Chan, and Giulia Fanti. Game theoretic liquidity provisioning in concentrated liquidity market makers. Proceedings of the ACM on Measurement and Analysis of Computing Systems, 9(1):1-45, 2025.
+[46] Christof Ferreira Torres, Ramiro Camino, et al. Frontrunner jones and the raiders of the dark forest: An empirical study of frontrunning on the ethereum blockchain. In 30th USENIX Security Symposium (USENIX Security 21), pages 1343-1359, 2021.
+[47] Jos Van Bommel. Rumors. The journal of Finance, 58(4):1499-1520, 2003.
+[48] Friedhelm Victor and Andrea Marie Weintraud. Detecting and quantifying wash trading on decentralized cryptocurrency exchanges. In Proceedings of the Web Conference 2021, pages 23-32, 2021.
+[49] Heng Wang, Yunlong Mao, and Sheng Zhong. Solution probing attack against blockchain-based quality-aware crowdsourcing platforms. In 2022 IEEE 19th International Conference on Mobile Ad Hoc and Smart Systems (MASS), pages 81-89. IEEE, 2022.
+[50] Ye Wang, Patrick Zuest, Yaxing Yao, Zhicong Lu, and Roger Wattenhofer. Impact and user perception of sandwich attacks in the defi ecosystem. In Proceedings of the 2022 CHI Conference on Human Factors in Computing Systems, pages 1-15, 2022.
+[51] Hongbo Wen, Hanzhi Liu, Jiaxin Song, Yanju Chen, Wenbo Guo, and Yu Feng. Foray: towards effective attack synthesis against deep logical vulnerabilities in defi protocols. In Proceedings of the 2024 on ACM SIGSAC Conference on Computer and Communications Security, pages 1001-1015, 2024.
+[52] Siwei Wu, Zhou Yu, Dabao Wang, Yajin Zhou, Lei Wu, Haoyu Wang, and Xingliang Yuan. Defiranger: Detecting defi price manipulation attacks. IEEE Transactions on Dependable and Secure Computing, 21(4):4147- 4161, 2023.
+[53] Jiahua Xu and Yebo Feng. Reap the harvest on blockchain: A survey of yield farming protocols. IEEE Transactions on Network and Service Management, 20(1):858-869, 2022.
+[54] Jiahua Xu and Benjamin Livshits. The anatomy of a cryptocurrency pump-and-dump scheme. In 28th USENIX Security Symposium (USENIX Security 19), pages 1609-1625, 2019.
+[55] Jiahua Xu, Krzysztof Paruch, Simon Cousaert, and Yebo Feng. Sok: Decentralized exchanges (dex) with automated market maker (amm) protocols. ACM Computing Surveys, 55(11):1-50, 2023.
+[56] Liyi Zhou, Kaihua Qin, Christof Ferreira Torres, Duc V Le, and Arthur Gervais. High-frequency trading on decentralized on-chain exchanges. In 2021 IEEE Symposium on Security and Privacy (SP), pages 428-445. IEEE, 2021.
+[57] Liyi Zhou, Xihan Xiong, Jens Ernstberger, Stefanos Chaliasos, Zhipeng Wang, Ye Wang, Kaihua Qin, Roger Wattenhofer, Dawn Song, and Arthur Gervais. Sok: Decentralized finance (defi) attacks. In 2023 IEEE Symposium on Security and Privacy (SP), pages 2444-2461. IEEE, 2023.

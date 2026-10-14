@@ -1,0 +1,62 @@
+BÁO CÁO TIẾN ĐỘ TÌM HIỂUDEFI CLMM VÀ CƠ CHẾ LIQUIDITY/INCENTIVE
+1. Mục tiêu tìm hiểu
+Mục tiêu hiện tại là xây dựng nền tảng kiến thức về mô hình tạo lập thị trường tự động với thanh khoản tập trung (CLMM) trong tài chính phi tập trung, làm cơ sở để đọc và phân tích các công trình nghiên cứu liên quan đến khai thác thanh khoản, cơ chế khuyến khích và các hành vi tấn công/lợi dụng incentive. Trọng tâm ở giai đoạn này là hiểu kiến trúc CLMM, cách biểu diễn thanh khoản và nguyên lý hình thành phí; chưa đi sâu vào triển khai hợp đồng thông minh hoặc mô hình phát hiện tấn công.
+2. Bối cảnh DeFi, Liquidity Mining và Incentive
+DeFi là hệ sinh thái dịch vụ tài chính vận hành trên blockchain thông qua các hợp đồng thông minh. Trong các sàn giao dịch phi tập trung sử dụng AMM, nhà cung cấp thanh khoản (LP) đưa tài sản vào pool để phục vụ hoạt động hoán đổi tài sản của người dùng và nhận phí giao dịch.
+Liquidity Mining là cơ chế khuyến khích LP cung cấp thanh khoản bằng phần thưởng bổ sung, thường dưới dạng token. Incentive có tác dụng thu hút thanh khoản nhưng đồng thời có thể tạo động cơ kinh tế khiến người tham gia tối ưu phần thưởng thay vì tối ưu giá trị thanh khoản thực sự cung cấp cho giao thức. Đây là cơ sở của bài toán nghiên cứu các hành vi thao túng hoặc Liquidity Mining Attack do incentive gây ra.
+3. Kiến trúc tổng quát của CLMM
+CLMM là một biến thể của AMM cho phép LP tập trung thanh khoản vào một khoảng giá xác định thay vì phân bổ trên toàn bộ miền giá. Cơ chế này làm tăng hiệu quả sử dụng vốn tại các vùng giá mà LP lựa chọn.
+3.1. Pool và nhà cung cấp thanh khoản
+Pool chứa hai loại tài sản của một cặp giao dịch, ví dụ ETH/USDC. LP cung cấp tài sản cho pool và nhận phí từ các giao dịch sử dụng thanh khoản của mình. Một LP có thể sở hữu nhiều vị thế thanh khoản khác nhau.
+3.2. Position và Range
+Trong CLMM, thanh khoản của LP được tổ chức thành các position. Mỗi position gắn với một khoảng giá (range) được xác định bởi biên dưới và biên trên. Vì vậy, position không chỉ mô tả lượng vốn được cung cấp mà còn mô tả vùng giá mà lượng vốn đó có hiệu lực.
+3.3. Tick
+Trục giá trong CLMM được chia thành các mốc rời rạc gọi là tick. Biên dưới và biên trên của position được xác định thông qua các tick. Khi giá thị trường di chuyển qua các tick, tập hợp position đang hoạt động và tổng thanh khoản đang hoạt động có thể thay đổi.
+3.4. In-range, Out-of-range và Active Liquidity
+Một position được xem là in-range khi giá hiện tại nằm giữa hai biên của position. Khi đó thanh khoản của position có thể tham gia vào hoạt động hoán đổi và được xem là active liquidity. Khi giá nằm ngoài range, position trở thành out-of-range đối với mức giá hiện tại và không còn đóng góp active liquidity tại vùng đó.
+4. Hoạt động Swap và sự thay đổi thanh khoản
+Trader thực hiện swap giữa hai tài sản trong pool. Giao dịch làm thay đổi trạng thái của pool và có thể làm giá dịch chuyển. Nếu giao dịch đủ lớn để giá đi qua một hoặc nhiều tick, các position có thể chuyển giữa trạng thái active và inactive. Do đó, active liquidity của pool không cố định mà phụ thuộc vào giá hiện tại và các range được LP thiết lập.
+5. Khái niệm Liquidity trong CLMM
+Liquidity trong CLMM không nên được đồng nhất trực tiếp với giá trị vốn tính bằng USD. Đây là một đại lượng toán học biểu diễn khả năng cung cấp thanh khoản của position trong một khoảng giá cụ thể. Giá trị liquidity phụ thuộc vào lượng hai loại token, giá hiện tại và biên giá của position.
+Một hệ quả quan trọng là cùng một lượng vốn nhưng các range khác nhau có thể tạo ra lượng liquidity khác nhau. Range càng tập trung quanh vùng giá hiện tại thì vốn được tập trung mạnh hơn vào vùng giao dịch đó, tạo ra hiệu quả sử dụng vốn cao hơn nhưng đồng thời position cũng dễ trở thành out-of-range khi giá biến động.
+6. Quan hệ giữa giá, range, token và liquidity
+Để biểu diễn quan hệ giữa giá và lượng token trong CLMM, các công thức thường sử dụng giá hiện tại, giá biên dưới, giá biên trên và căn bậc hai của các giá trị này. Việc sử dụng căn bậc hai của giá là một đặc điểm toán học phổ biến trong các mô hình CLMM.
+Một position có ba trạng thái chính: (i) giá nằm dưới range; (ii) giá nằm trong range; và (iii) giá nằm trên range. Khi giá nằm trong range, position chứa cả hai loại tài sản theo tỷ lệ phụ thuộc vào vị trí của giá trong range. Khi giá dịch chuyển về một biên, thành phần tài sản của position dần chuyển về một phía; khi vượt khỏi range, position về cơ bản nằm ở một loại tài sản tương ứng.
+Về mặt khái niệm, công thức liquidity giải quyết hai bài toán thuận nghịch: từ lượng token, giá hiện tại và range suy ra liquidity; hoặc từ liquidity, giá hiện tại và range suy ra lượng từng loại token cần thiết. Trực giác chung có thể xem lượng tài sản là hàm của liquidity nhân với khoảng cách giá sau khi giá đã được biến đổi qua căn bậc hai.
+Trong trường hợp giá hiện tại nằm trong range của position, quan hệ giữa liquidity và lượng hai token có thể được biểu diễn bằng hai công thức cơ bản sau:
+Δy = L(√P − √Pₐ)
+Δx = L(1/√P − 1/√Pᵦ)
+Trong đó, L là lượng liquidity của position; P là giá hiện tại; Pₐ là mốc giá thấp nhất (biên dưới) và Pᵦ là mốc giá cao nhất (biên trên). Δy và Δx lần lượt biểu diễn lượng biến thiên của hai loại token tương ứng với phần range từ biên dưới đến giá hiện tại và từ giá hiện tại đến biên trên.
+Hai công thức cho thấy lượng token cấu thành position không chỉ phụ thuộc vào liquidity L mà còn phụ thuộc vào vị trí của giá hiện tại trong range. Khi giá dịch chuyển trong range, tỷ trọng hai token thay đổi trong khi L là đại lượng dùng để biểu diễn mức thanh khoản của position. Đây là cơ sở toán học để liên hệ giữa vốn được cung cấp, khoảng giá lựa chọn và trạng thái tài sản của LP trong CLMM.
+7. Phí giao dịch và Fee Growth
+Khi trader thực hiện swap, giao thức thu phí giao dịch và phân bổ phần phí tương ứng cho LP có thanh khoản hoạt động. Do số lượng position có thể rất lớn, giao thức không nhất thiết cập nhật trực tiếp số phí của từng LP sau mỗi giao dịch. Thay vào đó, hệ thống có thể sử dụng các biến tích lũy biểu diễn mức phí tăng thêm trên mỗi đơn vị liquidity.
+Khái niệm fee growth vì vậy có thể được hiểu là một bộ đếm tích lũy phí trên mỗi đơn vị liquidity. Ở mức khái quát, phần phí mà một position tích lũy phụ thuộc vào liquidity của position và mức tăng của fee growth trong khoảng thời gian position có quyền hưởng phí. Đây là nội dung hiện đang được tiếp tục tìm hiểu sâu hơn.
+8. Liên hệ với bài toán Liquidity Mining Attack
+Kiến thức về position, range, tick và active liquidity là nền tảng để phân tích incentive trong CLMM. Do LP có khả năng chọn range và thay đổi position, thiết kế cơ chế thưởng có thể ảnh hưởng trực tiếp đến hành vi cung cấp thanh khoản. Nếu phần thưởng không phản ánh đúng đóng góp kinh tế thực tế, người tham gia có thể tìm cách tối ưu cấu hình position hoặc thời điểm cung cấp/rút thanh khoản nhằm tối đa hóa incentive.
+Ở giai đoạn hiện tại, quá trình tìm hiểu đã đi đến cơ chế phân phối reward cơ bản trong CLMM: reward có thể được phân bổ theo tỷ trọng liquidity hoặc active liquidity, reward được phát theo một tốc độ nhất định (emission), và hệ thống có thể sử dụng reward growth cùng checkpoint để theo dõi phần thưởng tích lũy của từng position. Đồng thời, đã nhận diện được rủi ro thiết kế khi reward phụ thuộc trực tiếp vào liquidity: LP có thể lựa chọn range rất hẹp quanh giá hiện tại để tập trung vốn và làm tăng liquidity tương đối, từ đó tối ưu reward.
+8.1. Cơ chế phát hành và phân phối Reward
+Incentive có thể được phát theo thời gian với một tốc độ xác định (reward emission). Ở mô hình đơn giản, tại mỗi khoảng thời gian, lượng reward được chia cho các LP theo tỷ trọng liquidity đủ điều kiện của từng LP so với tổng liquidity đủ điều kiện. Trong CLMM, điều kiện này có thể gắn với active liquidity, do chỉ các position có range bao phủ giá hiện tại mới đang cung cấp thanh khoản tại mức giá đó.
+Rewardᵢ = Reward tổng × (Lᵢ / L tổng)
+Công thức trên thể hiện nguyên lý phân chia tỷ lệ: Lᵢ là liquidity đủ điều kiện của position i và L tổng là tổng liquidity đủ điều kiện trong cùng khoảng thời gian. Khi active liquidity được dùng làm cơ sở phân phối, tỷ trọng này thay đổi khi giá đi qua các tick và các position chuyển trạng thái in-range/out-of-range.
+8.2. Reward Growth và Checkpoint
+Để tránh phải cập nhật reward trực tiếp cho từng LP ở mỗi đơn vị thời gian, hệ thống có thể theo dõi một biến tích lũy reward trên mỗi đơn vị liquidity (reward growth). Khi trạng thái của position được cập nhật hoặc reward được tính, hệ thống lấy chênh lệch giữa reward growth hiện tại và giá trị đã ghi nhận tại checkpoint trước đó, sau đó nhân với liquidity của position.
+Reward của position ≈ L × (Reward growth hiện tại − Reward growth tại checkpoint)
+Checkpoint có thể hiểu là mốc ghi nhận lần gần nhất position đã được tính đến trong bộ đếm reward. Cơ chế này có cấu trúc tương tự ý tưởng fee growth: thay vì cập nhật từng position liên tục, giao thức duy trì đại lượng tích lũy trên mỗi đơn vị liquidity và chỉ tính phần chênh lệch khi cần.
+8.3. Ảnh hưởng của Range đến Incentive
+Do liquidity trong CLMM phụ thuộc vào độ rộng range, cùng một lượng vốn có thể tạo ra các mức liquidity khác nhau. Một range hẹp quanh giá hiện tại tập trung vốn mạnh hơn và có thể tạo liquidity lớn hơn so với một range rộng. Nếu cơ chế incentive phân phối reward chủ yếu theo liquidity mà không phản ánh đầy đủ thời gian hoạt động, rủi ro ngoài range hoặc đóng góp kinh tế thực tế, LP có động cơ lựa chọn range rất hẹp để tối đa hóa tỷ trọng reward. Đây là một điểm thiết kế quan trọng khi phân tích khả năng incentive bị lợi dụng.
+9. Mức độ kiến thức đã đạt được
+Hiểu mục đích và đặc điểm cơ bản của CLMM so với AMM truyền thống.
+Hiểu vai trò của pool, LP, position, range, tick và active liquidity.
+Hiểu mối quan hệ giữa chuyển động giá, swap, tick và sự thay đổi active liquidity.
+Phân biệt được giá trị vốn với đại lượng liquidity trong mô hình CLMM.
+Hiểu ở mức khái niệm quan hệ giữa lượng token, giá hiện tại, biên giá và liquidity.
+Đã tìm hiểu và hiểu hai công thức Δy = L(√P − √Pₐ) và Δx = L(1/√P − 1/√Pᵦ), qua đó nắm được quan hệ định lượng giữa liquidity, giá hiện tại, hai biên của range và lượng hai token trong position.
+Nhận biết vai trò của căn bậc hai của giá trong các công thức CLMM, nhưng chưa đi sâu vào chứng minh toán học.
+Hiểu nguyên lý tổng quát của việc tích lũy phí và khái niệm fee growth.
+Hiểu được vì sao incentive có thể tạo động cơ cho hành vi tối ưu reward và hình thành bài toán Liquidity Mining Attack.
+Hiểu khái niệm reward emission: giao thức phát một lượng incentive theo thời gian và phân phối cho các liquidity đủ điều kiện.
+Hiểu nguyên lý chia reward theo tỷ trọng liquidity/active liquidity của position so với tổng liquidity đủ điều kiện.
+Hiểu khái niệm reward growth và checkpoint, cũng như cách dùng chênh lệch reward growth để tính phần thưởng tích lũy của position.
+Hiểu rằng độ rộng range ảnh hưởng đến lượng liquidity tạo ra từ cùng một mức vốn; do đó cơ chế thưởng trực tiếp theo liquidity có thể tạo động cơ lựa chọn range rất hẹp để tối ưu reward.
+10. Kết luận tiến độ
+Đến thời điểm hiện tại, quá trình tìm hiểu đã hình thành được khung kiến thức về kiến trúc CLMM, quan hệ định lượng giữa liquidity - giá - lượng token, cơ chế tích lũy phí, và đã mở rộng sang cơ chế incentive. Cụ thể, đã nắm được nguyên lý reward emission, phân phối reward theo tỷ trọng liquidity/active liquidity, reward growth và checkpoint, đồng thời nhận diện được ảnh hưởng của độ rộng range đến khả năng tối ưu reward. Đây là nền tảng để bước tiếp sang phân tích chiến lược khai thác incentive và xây dựng đặc trưng phát hiện Liquidity Mining Attack từ dữ liệu on-chain.
