@@ -24,7 +24,13 @@ class VictimToanTri:
 
     Trong bộ chạy, V = (n_farmers + m)·Q_eff gồm cả khối lượng farm của kẻ tấn công (m tài khoản ảo, CH-6): phí
     từ khối lượng đó là thật (cơ chế pressure trader của bài gốc), nên `attacker_farm_share` lớn kéo victim vào
-    nhiều hơn — đúng ý đồ, không phải lỗi."""
+    nhiều hơn — đúng ý đồ, không phải lỗi.
+
+    Giả định của bài gốc mà loại này dựa vào (giữ nguyên để kiểm lý thuyết): **Giả định 1 (cap-binding)** — mọi
+    farmer giao dịch tới trần nên V = số tài khoản × Q_eff; **Giả định 2 (tick feasibility)** — Q ≤ L_A(z_U − z₀)/(1−f),
+    mọi khối lượng được trợ cấp nằm trong một tick. Khi trần không ràng buộc (σ thấp: farmer dừng trước Q) hoặc Q lớn
+    so với L_A (khối lượng tràn ra ngoài tick), V thật < V giả định → victim toàn tri định giá sai (vào quá nhiều);
+    kết quả ở các ô đó thuộc vùng "ngoài giả định", không dùng để kiểm Lemma 4/Theorem 6."""
 
     def __init__(self, owner: str, V: float, c_V: float, w: int = 1, t_vao: int = 0,
                  nguong: float = 0.01):

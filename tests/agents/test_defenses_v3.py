@@ -128,3 +128,30 @@ def test_to_hop_k_nho_va_danh_sach_viec():
     assert len(danh_sach_viec("k_nho", 10)) == 30 * len(BIEN_PHAP_KNHO) * len(LOAI_VICTIM) * 10
     assert len(danh_sach_viec("chinh", 10)) == 30 * len(BIEN_PHAP) * len(LOAI_VICTIM) * 10
     assert {"warn15", "warn20", "warn40", "dyncap", "claw72"} <= set(BIEN_PHAP_KNHO)
+
+
+@pytest.mark.parametrize("bp,fs", [("cap50", 0.3), ("dyncap", 0.0)])
+def test_phat_lai_toi_uu_lai_farmer_khong_victim_van_bang_0(bp, fs):
+    """Farmer trong pha xả được tối ưu lại trên bể phát lại; không victim → trùng đúng lệnh thật → excess = 0."""
+    from scenarios.quet_gd2 import BIEN_PHAP, loi_nhuan_dia_chi
+    cfg = nap_config("co_so")
+    cfg.update(n_victims=0, attacker_farm_share=fs, defense=BIEN_PHAP[bp])
+    r = loi_nhuan_dia_chi(run_frame(cfg, 0))
+    assert abs(r["dc_excess"]) < 1e-6 * r["dc_paper"]
+
+
+def test_phat_lai_L27_25_khong_phu_thuoc_luong_farm_that():
+    """Vụ L27_25 (victim thích nghi): trước đây phát lại nguyên lượng farm thật trong pha xả (victim đỡ giá → farmer
+    mua nhiều) làm phản thực ở `khong` cao hơn `cap75` ~1.700 → excess không đơn điệu theo trần. Nay phản thực
+    tối ưu lại farmer nên hai bp cho cùng ban_thang (nền + kho như nhau) và excess(khong) ≥ excess(cap75)."""
+    import json
+    from scenarios.batch import FILE_TO_HOP, cau_hinh
+    from scenarios.quet_gd2 import BIEN_PHAP, loi_nhuan_dia_chi
+    vu = next(v for v in json.loads(FILE_TO_HOP.read_text(encoding="utf-8")) if v["id"] == "L27_25")
+    kq = {}
+    for bp in ("khong", "cap75"):
+        cfg = cau_hinh(vu)
+        cfg.update(defense=BIEN_PHAP[bp], victim_type="adaptive")
+        kq[bp] = loi_nhuan_dia_chi(run_frame(cfg, 0))
+    assert kq["khong"]["dc_ban_thang"] == pytest.approx(kq["cap75"]["dc_ban_thang"], rel=1e-3)
+    assert kq["khong"]["dc_excess"] >= kq["cap75"]["dc_excess"]

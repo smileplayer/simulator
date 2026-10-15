@@ -7,14 +7,14 @@ Biện pháp (`BIEN_PHAP`): không có; hạ trần Q còn 75/50/25% (§7.1); tr
 
 Ba chế độ (v3, 15/10 — thêm cột lợi nhuận theo **địa chỉ thật** `dc_*`, có cả khi giá không sập):
 - mặc định: 30 vụ RQ1 × 16 bp (cap90/75/60/50/25/15/10/05 thêm lưới mịn) × 2 victim × seed
-  → `ket_qua/gd2/tomtat_v3.csv`;
+  → `ket_qua/gd2/tomtat_v4.csv`;
 - `--farm` (CH-6): kẻ tấn công cũng farm, s ∈ {0; 0,3; 0,6} × {khong, delay24/72/168, claw24/72/168}
-  (claw với s = 0 bỏ) → `ket_qua/gd2/tomtat_farm_v3.csv`;
+  (claw với s = 0 bỏ) → `ket_qua/gd2/tomtat_farm_v4.csv`;
 - `--k_nho`: vùng victim lớn — 30 vụ cùng mảng L27 nhưng k ∈ {0,10; 0,25; 0,45} (L_V*/L_A = 1/√k − 1 ≈
   2,16; 1,0; 0,49), s = 0,3 cố định, bp {khong, cap50, cap25, cap10, delay72, claw72, warn15/20/40, dyncap}
-  → `ket_qua/gd2/tomtat_knho_v3.csv`;
+  → `ket_qua/gd2/tomtat_knho_v4.csv`;
 - `--luoi`: lưới σ ∈ {0,0025 … 0,04} × Q ∈ {6k … 96k} quanh co_so (giữ c_V của co_so), bp {khong, cap50}
-  → `ket_qua/gd2/tomtat_luoi_v3.csv`.
+  → `ket_qua/gd2/tomtat_luoi_v4.csv`.
 
 Chạy: `python -m scenarios.quet_gd2 [--seeds 10] [--out ...] [--nhanh] [--farm | --k_nho | --luoi]`.
 Chạy lại thì bỏ qua các lượt đã có trong file; không lưu log thô (quá lớn).
@@ -70,53 +70,96 @@ def to_hop_k_nho() -> list[dict]:
     return to_hop_rq1({**MUC, "k": K_NHO}, tien_to="KN_")
 
 
-def phat_lai_ban_thang(df, owner: str = "attacker:0", c_A: float | None = None) -> dict:
+def phat_lai_ban_thang(df, owner: str = "attacker:0", c_A: float | None = None) -> dict | None:
     """Phản thực "bán thẳng kho" bằng phát lại log (token1): dựng bể ngay trước dòng burn tường đầu tiên của
-    `owner` (mọi vị thế còn mở lúc đó, BỎ vị thế của `attacker:*` và `victim:*`), rồi phát lại tuần tự mọi dòng sau
-    đó — mint/burn của owner khác (trừ attacker/victim), mọi swap với đúng chiều và `amount_in` của log (gồm cú xả
-    của `owner`, lệnh nền, farmer, arb). Swap xả của `owner` giữ giới hạn z̄ = √(c_A/(1−f)) như tác nhân thật.
+    `owner` (mọi vị thế còn mở lúc đó, BỎ vị thế của `attacker:*` và `victim:*`), rồi phát lại tuần tự các dòng
+    sau đó tới swap xả cuối của `owner`: mint/burn của owner khác (trừ attacker/victim), swap nền/arb với đúng
+    chiều và `amount_in` của log, cú xả của `owner` với đúng lượng (giữ giới hạn z̄ = √(c_A/(1−f)) như tác nhân).
+
+    **Lệnh farm (farmer và farm của kẻ tấn công) được tối ưu lại** trên bể phát lại (cùng luật thưởng, trần
+    `meta["Q_buoc"][t]`, khối lượng đã làm trong cửa sổ) với P_e phản thực = P_e farmer thấy
+    (`meta["pe_farmer"][t]`) × P_bể phát lại / P_bể thật ở cuối bước t−1 (pha xả: P_e neo theo giá bể). Lý do:
+    khối lượng farm trong pha xả là phản ứng nội sinh với giá — phát lại nguyên lượng thật vào bể phản thực
+    (giá thấp hơn nhiều khi thật có victim đỡ) là "đỡ giá miễn phí", làm ban_thang phụ thuộc trần (vụ L27_25).
 
     Trả `ban_thang` = token1 `owner` nhận từ các swap xả trong bể phát lại + phần chưa bán được × c_A,
-    `x_sold`, `x_left`, `hut` = số swap (không kể cú xả chạm z̄) khớp thiếu do hết thanh khoản. Không có victim
-    → bể phát lại trùng bể thật → ban_thang = paper. Không có burn tường → None."""
+    `x_sold`, `x_left`, `hut` = số swap nền/arb khớp thiếu do hết thanh khoản. Không victim → bể phát lại trùng
+    bể thật → ban_thang = paper. Không có burn tường hoặc không xả → None."""
     import math
 
     import numpy as np
 
+    from agents.farmer import Farmer
     from engine import Pool
+    from scenarios.run import _tao_thuong
     meta = df.attrs["meta"]
     fee = float(meta["fee"])
     c_A = float(meta["c_A"]) if c_A is None else c_A
     ev = df[df.kind.isin(["mint", "burn", "swap"])].sort_values(["t", "seq"]).reset_index(drop=True)
     vt = ev.index[(ev.kind == "burn") & (ev.owner == owner)]
-    if not len(vt) or vt[0] == 0:
+    xa = ev.index[(ev.kind == "swap") & (ev.owner == owner) & (ev.amount0 > 0)]
+    if not len(vt) or vt[0] == 0 or not len(xa) or xa[-1] < vt[0]:
         return None
-    i = int(vt[0])
-    bo = ev.owner.astype(str).str.startswith(("attacker:", "victim:"))
+    i, j = int(vt[0]), int(xa[-1])
+    bo = ev.owner.astype(str).str.startswith(("attacker:", "victim:")).to_numpy()
     pool = Pool(fee, float(ev.sqrt_price_after.iloc[i - 1]))
     truoc = ev.iloc[:i]
-    mb = truoc[(truoc.kind != "swap") & ~bo.iloc[:i]].copy()
+    mb = truoc[(truoc.kind != "swap") & ~bo[:i]].copy()
     mb["dL"] = np.where(mb.kind == "mint", 1.0, -1.0) * mb.liquidity.astype(float)
     ma = {}
     for pid, g in mb.groupby("position_id"):
         L = float(g.dL.sum())
         if L > 1e-12 * max(1.0, float(g.liquidity.abs().max())):
             ma[pid] = pool.mint(str(g.owner.iloc[0]), int(g.tick_lower.iloc[0]), int(g.tick_upper.iloc[0]), L)[0]
+
+    # farmer phản thực: luật thưởng như bộ chạy (trần theo bước, chiết khấu δ^D khi trả trễ)
+    W = int(meta["subsidy_window"])
+    d = meta.get("defense") or {}
+    he_so = d.get("chiet_khau", 1.0) ** d.get("D", 0) if d.get("name") == "delay" else 1.0
+    m_att = float(meta.get("attacker_farm_accounts", 0.0) or 0.0)
+    P_that = df[df.kind == "step"].groupby("t").sqrt_price_after.last() ** 2
+    mua_that = ev[(ev.kind == "swap") & (ev.amount1 > 0) & (ev.amount0 < 0)]
+
+    def tao_farmer(o: str, t: int) -> Farmer:
+        Q_t = float(meta["Q_buoc"][t])
+        th, Q_tran = _tao_thuong(meta, Q_t)
+        so = m_att if o == owner else 1.0
+        th_o = (lambda v: so * th(v / so)) if so != 1.0 else th
+        th_cam = (lambda v: he_so * th_o(v)) if he_so != 1.0 else th_o
+        f = Farmer(o, th_cam, None if Q_tran is None else so * Q_tran, window=W, v_tran=so * Q_t / W)
+        f._cua_so = t // W
+        cu = mua_that[(mua_that.owner == o) & (mua_that.t // W == t // W) & (mua_that.index < i)]
+        f.v_cua_so = float(cu.amount1.sum())             # khối lượng thật trong cửa sổ trước khi rút tường
+        return f
+
+    farmer: dict[str, Farmer] = {}
     z_dung = math.sqrt(c_A / (1 - fee)) if c_A > 0 else None
     out = x_sold = x_xin = 0.0
-    hut = 0
-    sau = ev.iloc[i:]
-    for r, la_bo in zip(sau.itertuples(index=False), bo.iloc[i:]):
+    hut, t_nay, P_cf_truoc = 0, int(ev.t.iloc[i]), float("nan")
+    sau = ev.iloc[i:j + 1]
+    for r, la_bo in zip(sau.itertuples(index=False), bo[i:j + 1]):
+        if r.t != t_nay:                                   # sang bước mới: giá phát lại cuối bước trước
+            t_nay, P_cf_truoc = int(r.t), pool.sqrt_price ** 2
         if r.kind == "swap":
             xuong = r.amount0 > 0
             v = float(r.amount0 if xuong else r.amount1)
             if v <= 0:
                 continue                                  # swap chỉ nhảy khoảng trống (lượng 0)
+            la_farm = (not xuong) and (str(r.owner).startswith("farmer:") or r.owner == owner)
+            if la_farm and "pe_farmer" in meta and not math.isnan(P_cf_truoc):
+                o = str(r.owner)
+                if o not in farmer or farmer[o]._cua_so != r.t // W:
+                    farmer[o] = tao_farmer(o, int(r.t))
+                pe = float(meta["pe_farmer"][r.t]) * P_cf_truoc / float(P_that[r.t - 1])
+                v_cf, u = farmer[o].ke_hoach(pool, pe)
+                if v_cf > 1e-9 and u > 0:
+                    farmer[o].v_cua_so += pool.swap(o, False, amount_in=v_cf).amount_in
+                continue
             la_xa = r.owner == owner and xuong
-            lim = z_dung if la_xa and z_dung is not None and z_dung < pool.sqrt_price else None
             if la_xa and z_dung is not None and pool.sqrt_price <= z_dung:
                 x_xin += v                                # đã dưới giá vốn: không bán
                 continue
+            lim = z_dung if la_xa else None
             if pool.liquidity <= 0 and not la_xa:
                 hut += 1
                 continue
@@ -135,19 +178,6 @@ def phat_lai_ban_thang(df, owner: str = "attacker:0", c_A: float | None = None) 
                 pool.burn(ma[r.position_id], min(float(r.liquidity), L_con))
     x_left = max(x_xin - x_sold, 0.0)
     return dict(ban_thang=out + x_left * c_A, x_sold=x_sold, x_left=x_left, hut=hut)
-
-
-def to_hop_luoi() -> list[dict]:
-    """25 ô lưới (σ, Q), mọi yếu tố khác = co_so. Giữ **c_V của co_so** (chi phí vật lý của victim không đổi theo
-    luật trợ cấp) → k = c_V·L_A/(f·n·Q) = 0,75·24.000/Q đổi theo Q (Q ≤ 18k: k ≥ 1, victim toàn tri không vào;
-    Q = 24k/48k/96k: k = 0,75/0,375/0,1875)."""
-    co_so = json.loads((FILE_TO_HOP.parent / "co_so.json").read_text(encoding="utf-8"))
-    ds = []
-    for sg in SIGMA_LUOI:
-        for Q in Q_LUOI:
-            k = co_so["c_V"] * co_so["L_A"] / (co_so["fee"] * co_so["n_farmers"] * Q)
-            ds.append({"id": f"LUOI_s{sg}_Q{Q}", "sigma": sg, "Q": Q, "k": k})
-    return ds
 
 
 def loi_nhuan_dia_chi(df, owner: str = "attacker:0") -> dict:
@@ -289,7 +319,7 @@ if __name__ == "__main__":
     nhom.add_argument("--k_nho", action="store_true", help="vùng victim lớn k ∈ {0,10; 0,25; 0,45}")
     nhom.add_argument("--luoi", action="store_true", help="lưới (σ, Q) 5 × 5 quanh co_so, bp khong + cap50")
     a = ap.parse_args()
-    mac_dinh = ("ket_qua/gd2/tomtat_farm_v3.csv" if a.farm else "ket_qua/gd2/tomtat_knho_v3.csv" if a.k_nho
-                else "ket_qua/gd2/tomtat_luoi_v3.csv" if a.luoi else "ket_qua/gd2/tomtat_v3.csv")
+    mac_dinh = ("ket_qua/gd2/tomtat_farm_v4.csv" if a.farm else "ket_qua/gd2/tomtat_knho_v4.csv" if a.k_nho
+                else "ket_qua/gd2/tomtat_luoi_v4.csv" if a.luoi else "ket_qua/gd2/tomtat_v4.csv")
     out = a.out or (mac_dinh.replace(".csv", "_nhanh.csv") if a.nhanh else mac_dinh)
     chay(a.seeds, Path(out), a.nhanh, a.farm, a.k_nho, a.luoi)

@@ -82,7 +82,8 @@ def chay(seeds: int, out: Path, nhanh: bool = False) -> None:
             continue
         df = run_frame(cau_hinh(vu), s)
         df.to_csv(p, index=False)
-        p.with_suffix(".meta.json").write_text(json.dumps(df.attrs["meta"], ensure_ascii=False), encoding="utf-8")
+        p.with_suffix(".meta.json").write_text(json.dumps(df.attrs["meta"], ensure_ascii=False,
+                                                         default=lambda o: o.tolist()), encoding="utf-8")
         lam += 1
         if lam % 10 == 0 or i == len(viec) - 1:
             print(f"{i + 1}/{len(viec)} xong, {time.time() - t0:.0f}s")

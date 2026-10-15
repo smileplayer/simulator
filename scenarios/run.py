@@ -189,6 +189,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
             if isinstance(v, VictimToanTri) and not isinstance(v, VictimThichNghi):
                 v.V = (cfg["n_farmers"] + m_att) * Q_t
 
+    pe_farmer: list[float] = []                           # P_e farmer thấy ở mỗi bước
+    Q_buoc: list[float] = []                              # trần hiện hành mỗi bước
     doc_log = 0                                           # chỉ số dòng log đã quét để tìm mint/burn trong bước
     for t in range(T):
         pool.t = t
@@ -211,6 +213,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
                 pool.swap("bg:0", zero_for_one=False, amount_in=v)
             else:
                 pool.swap("bg:0", zero_for_one=True, amount_in=v / pool.sqrt_price ** 2)
+        pe_farmer.append(tt.external_price(t))            # P_e farmer thấy (cho phản thực phát lại)
+        Q_buoc.append(Q_nay[0])
         for a in san_tro_cap:
             a.act(t, pool, tt)
         for a in victims:
@@ -261,7 +265,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
                          subsidy_clawed=lich_tra.da_thu_hoi, attacker_farm_accounts=m_att, t_rut=att.t_rut,
                          wall_tick=att.tick_lower, attacker_inventory_left=att.kho, P0=z0 ** 2,
                          dyncap_t_bao_dau=None if tran_dong is None else tran_dong.t_bao_dau,
-                         dyncap_so_buoc=0 if tran_dong is None else tran_dong.so_buoc_bat)
+                         dyncap_so_buoc=0 if tran_dong is None else tran_dong.so_buoc_bat,
+                         pe_farmer=np.array(pe_farmer), Q_buoc=np.array(Q_buoc))   # mảng: pandas chép attrs nhanh
     return pool.log
 
 
