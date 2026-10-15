@@ -69,6 +69,17 @@ def to_hop_k_nho() -> list[dict]:
     """30 vụ vùng k nhỏ: mảng L27 + 3 vụ log như RQ1, chỉ thay mức k bằng K_NHO; mã vụ tiền tố `KN_`."""
     return to_hop_rq1({**MUC, "k": K_NHO}, tien_to="KN_")
 
+def to_hop_luoi() -> list[dict]:
+    """25 ô lưới (σ, Q), mọi yếu tố khác = co_so. Giữ **c_V của co_so** (chi phí vật lý của victim không đổi theo
+    luật trợ cấp) → k = c_V·L_A/(f·n·Q) = 0,75·24.000/Q đổi theo Q (Q ≤ 18k: k ≥ 1, victim toàn tri không vào;
+    Q = 24k/48k/96k: k = 0,75/0,375/0,1875)."""
+    co_so = json.loads((FILE_TO_HOP.parent / "co_so.json").read_text(encoding="utf-8"))
+    ds = []
+    for sg in SIGMA_LUOI:
+        for Q in Q_LUOI:
+            k = co_so["c_V"] * co_so["L_A"] / (co_so["fee"] * co_so["n_farmers"] * Q)
+            ds.append({"id": f"LUOI_s{sg}_Q{Q}", "sigma": sg, "Q": Q, "k": k})
+    return ds
 
 def phat_lai_ban_thang(df, owner: str = "attacker:0", c_A: float | None = None) -> dict | None:
     """Phản thực "bán thẳng kho" bằng phát lại log (token1): dựng bể ngay trước dòng burn tường đầu tiên của
