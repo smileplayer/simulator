@@ -159,16 +159,37 @@ def cot_w_A(df: pd.DataFrame) -> str:
     return next(c for c in ("w_A", "w_attacker", "w_tuong") if c in df.columns)
 
 
-def chon_w_A_toi_uu(df: pd.DataFrame, cot: str = "dc_excess") -> pd.DataFrame:
-    """Phản ứng tối ưu của kẻ tấn công: mỗi (vụ, α, w₀, victim, seed) giữ dòng có `cot` (token1) lớn nhất qua các
-    độ rộng tường w_A; thêm `w_A_toi_uu`. Hòa → w_A nhỏ nhất. Pro-rata (α = 0) giữ nguyên các dòng w_A = 1."""
+def chon_w_A_toi_uu(df: pd.DataFrame, cot: str = "dc_excess", cach: str = "trung_vi") -> pd.DataFrame:
+    """Phản ứng tối ưu của kẻ tấn công qua các độ rộng tường w_A (tick), theo `cot` (token1):
+    - `cach="trung_vi"` (mặc định): mỗi (vụ, α, w₀, victim) chọn **một** w_A có trung vị `cot` qua seed lớn nhất,
+      giữ mọi seed ở w_A đó (kẻ tấn công chọn trước, không biết nhiễu của seed);
+    - `cach="theo_seed"`: mỗi seed chọn w_A riêng (max của nhiễu → thiên lệch lên, chỉ để đối chiếu).
+    Hòa → w_A nhỏ nhất. Thêm cột `w_A_toi_uu`. Pro-rata (α = 0) chỉ có w_A = 1."""
     w = cot_w_A(df)
-    d = df.sort_values([*KHOA_GD3, "alpha", "w0", cot, w], ascending=[True] * 5 + [False, True])
-    out = d.groupby(["scenario_id", "seed", "victim_type", "alpha", "w0"], sort=False).head(1).copy()
+    nhom = ["scenario_id", "victim_type", "alpha", "w0"]
+    if cach == "theo_seed":
+        d = df.sort_values([*nhom, "seed", cot, w], ascending=[True] * 5 + [False, True])
+        out = d.groupby([*nhom, "seed"], sort=False).head(1).copy()
+    else:
+        tv = df.groupby([*nhom, w])[cot].median().reset_index().sort_values([*nhom, cot, w],
+                                                                          ascending=[True] * 4 + [False, True])
+        chon = tv.groupby(nhom, sort=False).head(1)[[*nhom, w]]
+        out = df.merge(chon, on=[*nhom, w])
     out["w_A_toi_uu"] = out[w]
-    return out.sort_values([*KHOA_GD3, "alpha", "w0"]).reset_index(drop=True)
+    return out.sort_values([*nhom, "seed"]).reset_index(drop=True)
 
 
 def ty_le_von_wA_giai_tich(k: float) -> float:
     """Giải tích của C khi kẻ tấn công nới tường tối ưu: k ≥ 1/4 → C_RA/C_PR = 1/(4k(1/√k − 1)); k < 1/4 → 1."""
     return 1 / (4 * k * (1 / math.sqrt(k) - 1)) if k >= 0.25 else 1.0
+
+
+def so_sanh_wA(gon1: pd.DataFrame, gon_opt: pd.DataFrame) -> pd.DataFrame:
+    """Bảng "tường 1 tick" vs "tường tối ưu" (cùng vụ, victim, α, w₀): tỷ lệ vốn victim [CI], % đổi dc_excess [CI],
+    hiệu lãi victim (token1) so với pro-rata; thêm giải tích của C cho tường tối ưu và sai số tương đối."""
+    k = ["scenario_id", "k", "victim_type", "alpha", "w0"]
+    c = ["ty_le_von", "ty_le_von_lo", "ty_le_von_hi", "dc_excess_pct", "dc_excess_pct_lo", "dc_excess_pct_hi",
+         "lai_victim_hieu", "lai_victim_hieu_lo", "lai_victim_hieu_hi", "do_sap_hieu"]
+    m = gon1[k + c].merge(gon_opt[k + c + ["w_A_toi_uu", "ty_le_von_giai_tich_wA"]], on=k, suffixes=("_1tick", "_toi_uu"))
+    m["sai_so_tuong_doi_wA"] = (m["ty_le_von_toi_uu"] - m["ty_le_von_giai_tich_wA"]) / m["ty_le_von_giai_tich_wA"]
+    return m

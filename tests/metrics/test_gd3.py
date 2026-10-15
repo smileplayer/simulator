@@ -72,6 +72,13 @@ def test_chon_w_A_toi_uu():
     o = chon_w_A_toi_uu(d)
     assert len(o) == 2
     assert o.loc[o["alpha"] == 2.0, "w_A_toi_uu"].item() == 12      # hòa → w_A nhỏ hơn
+    # hai seed: seed 0 thích w_A = 1 (nhiễu lớn), seed 1 thích 25; trung vị chọn một w_A chung, theo seed thì tách
+    d2 = pd.DataFrame(dict(scenario_id="A", victim_type="omniscient", alpha=2.0, w0=50, seed=[0, 0, 1, 1],
+                           w_A=[1, 25, 1, 25], dc_excess=[500.0, 200.0, 100.0, 300.0]))
+    tv = chon_w_A_toi_uu(d2)
+    assert len(tv) == 2 and tv["w_A_toi_uu"].nunique() == 1 and tv["w_A_toi_uu"].iloc[0] == 1   # trung vị 300 vs 250
+    ts = chon_w_A_toi_uu(d2, cach="theo_seed")
+    assert list(ts["w_A_toi_uu"]) == [1, 25] and ts["dc_excess"].mean() > tv["dc_excess"].mean()
     assert ty_le_von_wA_giai_tich(0.64) == pytest.approx(1.5625)
     assert ty_le_von_wA_giai_tich(0.1) == 1.0
 
@@ -103,3 +110,19 @@ def test_ve_gd3(tmp_path):
     ve_lp(gon, tmp_path / "c.png")
     for f in "abc":
         assert (tmp_path / f"{f}.png").stat().st_size > 1000
+
+
+def test_so_sanh_wA_va_hinh(tmp_path):
+    from metrics.gd3 import so_sanh_wA
+    from plots.hinh_gd3 import ve_so_sanh_wA, ve_theo_wA
+    gon = bang_gon_gd3(bang_gd3(chuan_bi(_bang()), B=20))
+    opt = gon.assign(w_A_toi_uu=1, ty_le_von_giai_tich_wA=[ty_le_von_wA_giai_tich(k) for k in gon["k"]])
+    ss = so_sanh_wA(gon, opt)
+    assert len(ss) == len(gon)
+    r = ss[(ss["k"] == 0.8)].iloc[0]
+    assert r["sai_so_tuong_doi_wA"] == pytest.approx(r["ty_le_von_toi_uu"] / ty_le_von_wA_giai_tich(0.8) - 1)
+    ve_so_sanh_wA(ss, tmp_path / "a.png")
+    tv = _bang().assign(w_A=1).groupby(["scenario_id", "k", "victim_type", "alpha", "w0", "w_A"])[
+        ["von_victim", "dc_excess"]].median().reset_index()
+    ve_theo_wA(tv, opt, tmp_path / "b.png", vu=("A", "B"), alpha=2.0)
+    assert (tmp_path / "a.png").stat().st_size > 1000 and (tmp_path / "b.png").stat().st_size > 1000

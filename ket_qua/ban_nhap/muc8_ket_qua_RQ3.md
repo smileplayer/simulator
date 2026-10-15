@@ -13,7 +13,7 @@
 >
 > **So sánh:** mỗi mức φ ghép cặp với pro-rata cùng vụ + seed + loại victim; CI 95% bootstrap theo seed (mỗi nhóm một vụ). Tỷ lệ vốn C_RA/C_PR là tỷ số trung bình cặp của `von_victim`. Thiệt hại `vl_loss_full` chỉ so trên cặp cùng sập (290/1.920 lượt không sập, chủ yếu L27_22/KN_L27_22 sập nông). Lãi/lỗ victim chính dùng `vl_lai_tien` (= nhận lại + phí − nạp), đo được cả khi không sập.
 
-## 8.1 Kết quả chính
+## 8.1 Kết quả chính (tường một tick — trước khi kẻ tấn công nới tường, xem 8.3)
 
 1. **Victim chọn độ rộng đúng như giải tích.**
    - α = 0,5: victim ở lại một tick.
@@ -58,18 +58,63 @@ trong đó ℓ là L trên mỗi token1 vốn, theo hình học CLMM thật. B =
 - **Vùng giảm vốn:** u < (1/√k − 1)² hoặc u > 1. Với k < 1/4, mọi u < 1 đều thỏa, nên range-aware gần như luôn giảm vốn victim. Với k ≥ 0,64, ngưỡng (1/√k − 1)² ≤ 0,06, nên cần α đủ lớn (α = 3, w₀ = 10: u = 0,015) mới giảm; α = 1,5–2 rơi vào vùng tăng.
 - **Victim thích nghi** không có công thức (V̂ phụ thuộc phí thực nhận); mô phỏng luôn giảm vốn.
 
-## 8.3 Kết luận RQ3
+## 8.3 Kẻ tấn công nới tường (phản ứng tối ưu)
 
-- Range-aware làm victim trải rộng như kỳ vọng (α* ≈ 1), nhưng **không** giảm được phần vốn bị cú sập quét qua, vì cú sập sâu hơn nhiều so với độ rộng dải. Tác động thật đi qua lượng vốn victim bỏ vào.
-- Với victim định giá đúng theo trần, range-aware chỉ có lợi ở vùng victim lớn (k < 1/4: vốn −20…−85%, lợi kẻ tấn công giảm tới 75%). Ở vùng tường chiếm ưu thế (k ≥ 0,64), phạt tường một tick lại nhường phí cho victim, hút victim vào nhiều hơn (tới 10×) và làm lợi kẻ tấn công tăng tới 8 lần.
-- Victim ước khối lượng từ phí thực nhận thì luôn bỏ ít vốn hơn.
-- Cái giá chính đổ lên LP lành mạnh dải hẹp cố định: mất 50–100% phí khi w₀ ≥ 50.
-- Kết luận phụ thuộc mạnh vào k, nên muốn dùng range-aware phải biết bể nằm ở vùng nào.
+**Dữ liệu và cách chọn w_A.** `tomtat_wA.csv` có 4.440 lượt: α ∈ {1,5; 2; 3} × w₀ × w_A ∈ {1, w₀/4, w₀/2, w₀} × 6 vụ × 2 victim × 10 seed, cộng pro-rata. Với mỗi (vụ, α, w₀, victim), kẻ tấn công chọn **một** w_A có trung vị `dc_excess` qua 10 seed lớn nhất (`wA_toi_uu.csv`, `gon_wA.csv`). Chọn riêng từng seed (`*_theo_seed.csv`) thiên lệch lên không đáng kể: % đổi `dc_excess` cao hơn trung vị 0,2 điểm (lớn nhất 10 điểm); tỷ lệ vốn lệch trung vị 0,013.
 
-## 8.4 Giới hạn
+Hình: `theo_wA.png` (vốn victim và `dc_excess` theo w_A/w₀, α = 2), `so_sanh_wA.png` (tường 1 tick so với tường tối ưu). Bảng: `so_sanh_wA.csv`.
 
-- **Cú sập ≫ w:** w₀ ≤ 200 tick quá nhỏ so với cú sập 600–5.000 tick. Muốn cắt phần vốn trên đường sập cần w₀ ≳ 1.000; chưa quét.
-- **Luật chọn w bỏ qua biến động:** victim chọn w* = argmax φ·ℓ, không tính rủi ro giá ra khỏi dải và thời gian trong dải. LP thật sẽ chọn hẹp hơn khi biến động thấp.
-- **Kẻ tấn công chưa được nới tường** trong `tomtat.csv`: tường vẫn một tick, chịu phạt φ(1). Phản ứng tối ưu tự nhiên là nới tường để né phạt. C đang chạy `tomtat_wA.csv` (w_A ∈ {1, w₀/4, w₀/2, w₀}). `metrics.chay_gd3` đã có sẵn bước chọn w_A tối ưu theo `dc_excess` → `wA_toi_uu.csv`, `gon_wA.csv`, đối chiếu giải tích của C: C_RA/C_PR = 1/(4k(1/√k − 1)) khi k ≥ 1/4 (k = 0,64 → 1,56×; 0,80 → 2,63×; 0,95 → 9,9×), ≈ 1 khi k < 1/4.
-- **Chỉ 6 vụ.** CI chỉ phản ánh biến thiên theo seed, không theo vụ.
-- **Bất thường chưa giải thích hết:** ở KN_L27_22 (k = 0,25, sập nông) vốn victim giảm 19–84% mà `dc_excess` lại tăng 2–21%. Giả thuyết: victim dải rộng có nửa dải dưới (token1) nằm ngay dưới giá, nên cú xả bán được nhiều token1 ở giá cao hơn so với khi victim dồn trong một tick. Cần xem log.
+**w_A tối ưu thường là w₀/4–w₀/2, không phải w₀.** Nới hết cỡ (w_A = w₀) thì né được phạt φ nhưng làm tường loãng, nên cú xả kém hiệu quả. Ở k = 0,95 với w₀ = 200, nới hết cỡ còn đuổi victim đi hẳn (tỷ lệ vốn 0,01).
+
+**Bảng 8.2 — tường 1 tick so với tường tối ưu** (α ≥ 1,5; 9 mức φ mỗi ô; "đáng kể" = CI 95% bootstrap cặp với pro-rata không chứa 0 hoặc 1). Hiệu lãi victim tính bằng token1; dương là victim đỡ lỗ.
+
+| k | Victim | Vốn: tường 1 tick | Vốn: tường tối ưu | dc_excess: tường 1 tick | dc_excess: tường tối ưu (giảm/tăng đáng kể) | Lãi victim, tường tối ưu (tốt/xấu đáng kể) |
+|---|---|---|---|---|---|---|
+| 0,10 | toàn tri | 0,17–0,68 | 0,71–1,01 | −75…−6% | −28…−3% (8/0) | −14.235…+133 (0/8) |
+| 0,10 | thích nghi | 0,15–0,63 | 0,58–0,83 | −61…+3% | −1…+10% (0/7) | +271…+4.134 (7/0) |
+| 0,25 | toàn tri | 0,21–0,81 | 0,75–1,00 | −27…+15% | +8…+20% (0/9) | +534…+1.448 (9/0) |
+| 0,25 | thích nghi | 0,16–0,67 | 0,56–1,02 | +2…+21% | +13…+22% (0/9) | +1.435…+2.892 (8/0) |
+| 0,45 | toàn tri | 0,35–1,07 | 1,02–1,13 | −64…+1% | −15…+4% (7/0) | −440…+459 (2/2) |
+| 0,45 | thích nghi | 0,20–0,73 | 0,81–1,00 | −66…−3% | −7…0% (5/0) | −2.291…+561 (2/7) |
+| 0,64 | toàn tri | 0,56–1,56 | 1,47–1,57 | −57…+20% | −3…+20% (1/6) | −708…−247 (0/9) |
+| 0,64 | thích nghi | 0,24–0,83 | 0,80–1,01 | −79…−27% | −43…−24% (9/0) | −115…+2.329 (8/1) |
+| 0,80 | toàn tri | 0,98–2,70 | 2,40–2,70 | −8…+111% | +79…+111% (0/9) | +199…+755 (5/0) |
+| 0,80 | thích nghi | 0,24–0,89 | 0,82–1,03 | −36…+10% | +6…+17% (0/9) | +239…+1.267 (8/0) |
+| 0,95 | toàn tri | 4,5–10,4 | 10,1–10,6 | +277…+736% | +610…+740% (0/9) | −435…−143 (0/0) |
+| 0,95 | thích nghi | 0,28–0,90 | 0,95–1,02 | −69…−11% | −26…−5% (9/0) | −482…+359 (2/3) |
+
+Mức gốc pro-rata (trung vị): `dc_excess` = 9.318 / 737 / 1.175 / 1.949 / 347 / 78 token1 (toàn tri, k tăng dần).
+
+**Đối chiếu giải tích của C cho tường tối ưu.** Công thức: C_RA/C_PR = 1/(4k(1/√k − 1)) khi k ≥ 1/4, và ≈ 1 khi k < 1/4.
+- Victim toàn tri khớp trong ±10% ở **46/54 ô**.
+  - k ≥ 0,45: khớp 36/36. Sai số tương đối trung vị: k = 0,45 → 0,0%; 0,64 → −1,7%; 0,80 → +1,1%; 0,95 → +2,8%. Ví dụ k = 0,64 cho 1,47–1,57 so với giải tích 1,56.
+  - k = 0,25: khớp 7/9. k = 0,10: chỉ 3/9; mô phỏng 0,71–1,01, giải tích 1, sai số trung vị −14%, lớn nhất −29%.
+- Lý do lệch ở k nhỏ: giải tích giả định kẻ tấn công né hết phạt (w_A = w₀). Kẻ tấn công thật tối đa `dc_excess` nên dừng ở w_A < w₀, vẫn chịu một phần phạt.
+
+**Trả lời câu hỏi then chốt.**
+- **Vùng k nhỏ:** tác dụng của range-aware gần như mất hết khi kẻ tấn công nới tường tối ưu.
+  - k = 0,10, toàn tri: vốn victim chỉ còn giảm 0–29% (từ 32–83% khi tường 1 tick). `dc_excess` giảm 3–28% (đáng kể 8/9 ô). Nhưng victim **lỗ thêm** 3–14 nghìn token1 (đáng kể 8/9), vì cú sập sâu hơn 8–26 điểm %.
+  - k = 0,10, thích nghi: vốn giảm 17–42% và victim đỡ lỗ, nhưng `dc_excess` không giảm (−1…+10%).
+  - k = 0,25: `dc_excess` **tăng** 8–22% ở cả hai loại victim (đáng kể 18/18 ô), dù victim cũng đỡ lỗ.
+- **Vùng RQ1, victim toàn tri:** range-aware **vẫn hút victim** đúng mức giải tích (1,5× / 2,6× / 10× ở k = 0,64 / 0,80 / 0,95; tăng đáng kể 27/27 ô). `dc_excess` tăng +79…+111% ở k = 0,80 và +610…+740% ở k = 0,95.
+- **Victim thích nghi:** khi tường tối ưu, vốn gần như về mức pro-rata (0,80–1,03 ở k ≥ 0,45). `dc_excess` giảm đáng kể ở k = 0,64 (−24…−43%, 9/9 ô) và k = 0,95 (−5…−26%, 9/9 ô), nhưng tăng ở k = 0,25 và 0,80 (+6…+22%).
+
+## 8.4 Kết luận RQ3
+
+- **Range-aware đổi được cách victim chọn độ rộng (α* ≈ 1), nhưng không đổi được rủi ro của victim.** Phần vốn victim bị cú sập quét qua vẫn ≈ 0,5, vì cú sập sâu hơn nhiều so với dải.
+- **Tác dụng duy nhất là qua phí tường bị phạt, và kẻ tấn công vô hiệu hóa được bằng cách nới tường.**
+  - Khi kẻ tấn công nới tường tối ưu (w₀/4–w₀/2), vùng victim lớn mất gần hết lợi ích. Vốn victim chỉ còn giảm ≤ 30%, và lợi tăng thêm của kẻ tấn công không giảm ổn định: −28% ở k = 0,10 toàn tri, +8…+22% ở k = 0,25.
+  - Vùng tường chiếm ưu thế (k ≥ 0,64) thì vẫn bị hút victim vào đúng như giải tích (tới 10×), lợi kẻ tấn công tăng tới 7–8 lần.
+- **Victim thích nghi được bảo vệ phần nào ở k = 0,64 và 0,95** (lợi kẻ tấn công −5…−43%), nhưng không nhất quán theo k.
+- **Cái giá không nhỏ:** LP dải hẹp cố định mất 50–100% phí khi w₀ ≥ 50.
+- **Kết luận:** range-aware với φ dạng lũy thừa không phải biện pháp chống tấn công tường thanh khoản đáng tin cậy. Ở GĐ2, cảnh báo rủi ro (tăng c_V) có biên đánh đổi tốt hơn hẳn.
+
+## 8.5 Giới hạn
+
+- **Cú sập ≫ w:** w₀ ≤ 200 tick quá nhỏ so với cú sập 600–5.000 tick. Muốn cắt phần vốn trên đường sập cần w₀ ≳ 1.000 tick; chưa quét.
+- **Luật chọn w bỏ qua biến động:** victim và LP chọn w* = argmax φ·ℓ, không tính rủi ro giá ra khỏi dải hay thời gian trong dải. LP thật sẽ chọn hẹp hơn khi biến động thấp, nên mức trải rộng (và cái giá với LP) có thể bị ước cao.
+- **Victim toàn tri rút giữa hai bước xả:** victim chỉnh L mỗi bước, nên có thể rút ngay sau bước xả đầu. Thiệt hại khi đó phụ thuộc lịch xả 2 bước, và có thể khác nếu kẻ tấn công xả trong một bước.
+- **Trượt giá LP (`lp*_truot`) là của cả bể, đo ở pha bình thường trước khi có tường.** Nó không đo thanh khoản lúc tấn công. Mức giảm 2–8% chỉ phản ánh LP lành mạnh trải rộng hơn trong bể nền.
+- **Khối lượng farmer không đổi theo độ sâu thanh khoản**, vì trần Q ràng buộc (farmer mua tới trần bất kể L). Range-aware không có kênh làm đổi khối lượng: tổng khối lượng |Δ| < 1%.
+- **Chỉ 6 vụ, lưới w_A 4 mức.** CI chỉ phản ánh biến thiên theo seed. Tỷ lệ 0,01 ở L27_16 khi w_A = w₀ = 200 là victim rút hẳn.
+- **KN_L27_22 (k = 0,25, sập nông): vốn victim giảm mà `dc_excess` lại tăng 2–22% — đã kiểm log, không phải lỗi.** C xác nhận phản thực bán thẳng đúng: `dc_ban_thang` trùng tới từng số giữa α = 0 và α = 2/w₀ = 50 (seed 0–3: 14.347 / 14.085 / 13.880 / 13.946). Cơ chế: kẻ tấn công xả 2 bước × 7.500 token0. Sau khi tường rút, victim toàn tri chỉ còn thấy nền nên mục tiêu L ≈ 0, và rút phần còn lại ở t_rut + 1. Vì vậy phần victim bị lấy bị chặn bởi lượng xả mỗi bước, không bởi vốn victim. Với cú sập nông và kho nhỏ, `dc_excess` gần như không đổi theo vốn victim. Mức +2…+22% là nhiễu cộng với chênh giá nhỏ của dải rộng: trong 25 tick chênh giá chỉ ≈ 0,25%, nên giả thuyết "nửa dải dưới bán được giá cao" chỉ đúng một phần. Hệ quả: ở vụ sập nông, vốn victim không phải biến quyết định lợi kẻ tấn công.
