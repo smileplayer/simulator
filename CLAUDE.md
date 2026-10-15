@@ -24,7 +24,7 @@ Khi chưa biết mình là vai nào (chưa có lệnh `/vai`), **hỏi Đức tr
 
 ## Git
 
-- Nhánh chung là `main`. **Không commit, không push giữa chừng.** Chỉ khi Đức gõ `/chot`: Chỉ huy chạy test toàn repo, commit theo từng vai (mỗi vai một commit, chỉ `git add` thư mục của vai đó + `SYNC.md`), rồi `git pull --rebase origin main && git push origin HEAD:main`.
+- Nhánh chung là `main`. **Không commit, không push giữa chừng**, trừ một ngoại lệ (Đức cho phép 15/10): **khi cần Đức chạy một lệnh** (lệnh dài > 5 phút), Chỉ huy tự chạy test, commit + push ngay để Đức `git pull` là chạy được. Ngoài ra chỉ khi Đức gõ `/chot`: Chỉ huy chạy test toàn repo, commit theo từng vai (mỗi vai một commit, chỉ `git add` thư mục của vai đó + `SYNC.md`), rồi `git pull --rebase origin main && git push origin HEAD:main`.
 - Subagent A/B/C **không chạy git commit/push**; xong việc trả báo cáo cho Chỉ huy. Chỉ huy ghi `SYNC.md` (subagent không sửa `SYNC.md` để tránh ghi đè nhau).
 - Thông điệp commit bắt đầu bằng `[A]`, `[B]`, `[C]` hoặc `[CH]`, viết tiếng Việt, ngắn. **Không** `git add -A` / `git add .`.
 - Không `git push --force`, `git reset --hard`, `git checkout -- .`, `git clean` khi Đức chưa đồng ý.

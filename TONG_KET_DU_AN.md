@@ -185,17 +185,26 @@ Bảng: `ket_qua/gd2/bang/`, hình: `ket_qua/gd2/hinh/`, bản nháp: `ket_qua/b
 
 **Giới hạn mô hình cần ghi trong bài:** (a) lợi của phương án bán thẳng phụ thuộc Q (farmer mua đỡ cú bán) — Theorem 6 coi không đổi → vài vụ Q nhỏ có "lợi tăng thêm" tăng nhẹ khi hạ trần; (b) victim toàn tri tin V = n·Q kể cả khi trần không ràng buộc; (c) giá sập theo VWAP chỉ 52% (CI 38–67).
 
-### GĐ3 (RQ3) — kết quả giải tích và sơ bộ (15/10)
-- **Lựa chọn độ rộng của victim** chỉ phụ thuộc g(w) = φ(w)·ℓ(w) (ℓ = L trên mỗi đơn vị vốn): w* = argmax g. Với φ = min(1,(w/w₀)^α), w* nhảy thẳng 1 → w₀; ngưỡng **α\* ≈ 1** ⇒ φ phải ít nhất tuyến tính (siêu tuyến tính để chắc) — xác nhận giả thuyết của đồ án.
-- **Nhưng range-aware KHÔNG cắt được phần vốn trên đường sập** ở w₀ ≤ 200: cú sập sâu 600–5.000 tick ≫ nửa dải → victim vẫn mất ~50% vốn dù trải rộng. Cần w₀ ≳ 1.000 tick.
-- **Kênh tác động thật là lượng vốn victim bỏ vào:** tường một tick bị phạt φ(1) → nhường phí cho victim. Range-aware giảm vốn victim ⇔ u < (1/√k − 1)² (u = w₀^(1−α) + w₀·B/L_A): đúng khi victim lớn (k < 1/4), **sai ở vùng RQ1 (k ≥ 0,64): range-aware hút victim vào nhiều hơn** (vốn ×4–9,5, lợi kẻ tấn công 75 → 650). Vùng victim lớn: vốn ×0,17–0,44, lợi kẻ tấn công 9.416 → 2.368.
-- LP lành mạnh dải cố định 10 tick mất gần hết phí khi w₀ > 10 (cái giá hiệu quả vốn).
-- Chưa xét: kẻ tấn công nới rộng tường để né phạt φ(1) (phản ứng tối ưu tự nhiên, quyết định chốt #2).
+### GĐ3 (RQ3) — kết quả (15/10)
+Bảng: `ket_qua/gd3/bang/`, hình: `ket_qua/gd3/hinh/`, bản nháp: `ket_qua/ban_nhap/muc8_ket_qua_RQ3.md`.
+- **Victim chọn độ rộng** theo g(w) = φ(w)·ℓ(w): w* nhảy 1 → w₀; ngưỡng **α\* ≈ 1** (mô phỏng: α = 0,5 → w = 1, α ≥ 1 → w = w₀ ở mọi lượt) ⇒ φ phải ít nhất tuyến tính, siêu tuyến tính để chắc — **xác nhận giả thuyết của đồ án**.
+- **Trải rộng không cắt được phần vốn trên đường sập** (0,50–0,55 ở mọi φ): sập sâu 600–5.000 tick ≫ w/2.
+- **Kênh tác động thật = lượng vốn victim** (tường 1 tick bị phạt nhường phí cho victim). Giải tích khớp mô phỏng 89/90 ô (sai số trung vị 0,15%). Tường 1 tick, α ≥ 1,5, toàn tri:
+
+| k | Vốn victim (× pro-rata) | Lợi kẻ tấn công |
+|---|---|---|
+| 0,10 | 0,17–0,68 | −6…−75% |
+| 0,95 | 4,5–10,4 | +277…+736% |
+
+  Victim thích nghi luôn giảm vốn (0,15–0,90×).
+- **Khi kẻ tấn công được nới tường (giải tích + `--nhanh`):** k < 1/4 → nới tới w₀, vốn victim ≈ 1,00–1,03× pro-rata (range-aware vô hiệu; KN_L27_10: mức giảm lợi kẻ tấn công co từ −62% xuống −8%); k ≥ 1/4 → kẻ tấn công chọn u* = 1/(4k), vốn victim = 1/(4k(1/√k − 1)) × pro-rata (1,56× / 2,63× / 9,9× ở k = 0,64 / 0,80 / 0,95). **Kết luận dự kiến: họ φ = min(1,(w/w₀)^α) không phải biện pháp phòng thủ trước kẻ tấn công biết thích nghi.** Chờ số đầy đủ từ `quet_gd3 --w_A`.
+- **Cái giá:** LP dải cố định 10 tick mất 51–100% phí khi w₀ ≥ 50; LP tự chọn w thu thêm 44–77%; khi giá bị ghim, độ sâu trên mỗi đơn vị vốn còn ≈ 1/w₀.
+- **Giới hạn mô hình:** luật chọn w bỏ qua biến động; victim toàn tri rút giữa hai bước xả (phần bị lấy bị chặn bởi lượng xả mỗi bước); trượt giá `lp*_truot` là của cả bể, đo trước tường.
 
 ### Ngay bây giờ
-1. **Đức:** `/chot` → `git pull` → `python -m scenarios.quet_gd3` (~5,5 phút) → đẩy `ket_qua/gd3/tomtat.csv`.
-2. **B:** tổng hợp GĐ3 (tỷ lệ vốn victim, dc_excess, phí/vốn LP theo α, w₀, k; CI); sửa `phases`/`victim_loss` khi không sập, `identify_roles` cho victim dải rộng.
-3. **Đức quyết:** có thêm kẻ tấn công tự chọn độ rộng tường (né phạt φ) không.
+1. **Đức:** `/chot` → `git pull` → `python -m scenarios.quet_gd3 --w_A` (~15 phút) → đẩy `ket_qua/gd3/tomtat_wA.csv`.
+2. **B:** `python -m metrics.chay_gd3` + `plots.ve_gd3` trên `tomtat_wA.csv`, chốt mục 8 (RQ3).
+3. Sau đó: hoàn thiện bản thảo mục 5–8, slide trình bày.
 
 ### Xa hơn
 9. **GĐ3 / RQ3:** range-aware nhiều tick (engine đã có `fee_weight`); `c_V` theo vốn; tường nhiều tick.
