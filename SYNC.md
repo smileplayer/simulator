@@ -120,6 +120,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 15/10/2026 | CH | Bản thảo: mục 2 (A), mục 4 (C), mục 5–10 (B), dàn ý slide; độ nhạy RQ1 (bỏ neo giá, phí 0,01%) + 3 vụ ngoài Giả định 2; giá ghim = điều kiện cần; `.gitignore` chặn log độ nhạy | toàn repo 284 qua |
 | 15/10/2026 | B | Chốt RQ3 trên `tomtat_wA.csv`: kẻ tấn công nới tường vô hiệu hóa range-aware; khớp giải tích 46/54 ô; mục 8 chốt | tests/metrics 104 qua |
 | 15/10/2026 | B | GĐ3: sửa đo khi không sập + victim dải rộng + tường rộng; bảng/hình RQ3, khớp giải tích 89/90 ô; bản nháp mục 8 | tests/metrics 103 qua |
 | 15/10/2026 | C | GĐ3: kẻ tấn công nới tường (**ĐỔI INTERFACE**); giải tích: range-aware vô hiệu khi kẻ tấn công thích nghi (k < 1/4) và hút thêm victim (k ≥ 1/4); chờ Đức chạy `quet_gd3 --w_A` | toàn repo 274 qua |

@@ -3,3 +3,5 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+# Log thô của các biến thể độ nhạy (~270 MB) — tái tạo bằng python -m scenarios.batch --bien_the …
+ket_qua/do_nhay/rq1_*/

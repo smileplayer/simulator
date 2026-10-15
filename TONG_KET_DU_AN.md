@@ -105,6 +105,8 @@ Tiêu chuẩn kiểm định cũng đổi (Đức chốt 14/10): kiểm theo **p
 | 17 | 15/10 | B | Lợi tăng thêm không đơn điệu theo trần (L27_25 thích nghi: 2.586 → 4.493 ở cap75) | Trái Theorem 6 | Lỗi phản thực: phát lại nguyên lượng mua farmer (lấy từ đường giá có victim đỡ) → farmer phản thực tối ưu lại trên bể phản thực | C ✓, **cần chạy lại v4** |
 | 18 | 15/10 | Đức | `python -m scenarios.quet_gd2 --luoi` lỗi NameError: hàm `to_hop_luoi` bị xóa nhầm khi sửa #17; test không bao phủ chế độ `--luoi` | Không chạy được lưới σ×Q | Khôi phục hàm từ commit trước; thêm 4 test khói cho mọi chế độ quét | CH + C ✓ |
 | 19 | 15/10 | A | Engine: khi giá rời tường lớn, L·φ còn lại < 1e-9 lần tường bị `_clean` làm tròn về 0 và kéo L về 0 → bể coi như rỗng, mất phí vị thế nhỏ (chỉ khi có φ, tức GĐ3) | Sai phân bổ phí GĐ3 | Bỏ `_clean`, cộng lại trực tiếp các vị thế đang hoạt động khi phép trừ gần triệt tiêu; +25 test; GĐ1/GĐ2 lệch ≤ 1,8e-12 | A ✓ |
+| 20 | 15/10 | A, CH kiểm | Mô hình dùng f = 0,25% với tickSpacing 1; trên PancakeSwap v3 (`PancakeV3Factory.sol`) tier 0,01/0,05/0,25/1% đi với spacing 1/10/50/200 → "tường một tick" theo nghĩa đen chỉ có ở tier 0,01%; bài gốc không nêu tier của 29 vụ | Con số tuyệt đối (lợi nhuận, độ sâu) phụ thuộc cặp (f, spacing); kết quả qua k và σ/f thì không | Ghi là giới hạn trong mục 2 + mục 9; đề xuất chạy độ nhạy f = 0,01% (chưa làm) | mở |
+| 21 | 15/10 | C, CH đo | 3 vụ L27_02/04/06 (L_A = 2e8, Q = 48k) vi phạm Giả định 2: 34–37% lệnh farmer trong pha tường đẩy giá ra khỏi tick tường (các vụ khác 1–4%) → Lemma 4 của victim toàn tri dựa trên V sai | Kết quả các vụ này lệch lý thuyết | Giữ trong RQ1, đánh dấu "ngoài Giả định 2", B thêm phân tích độ nhạy loại 3 vụ | B ✓ (27 vụ vẫn 13/13) |
 
 **Hạ tầng:**
 - `.claude/settings.json` cấm `git push` → Đức sửa.
@@ -150,6 +152,17 @@ Tiêu chuẩn kiểm định cũng đổi (Đức chốt 14/10): kiểm theo **p
 Trung vị lift: Prep 1,79 · Attack 3,65 · Post 0,855. Lift Prep theo Q 12k/24k/48k: 1,37 / 1,84 / 3,06.
 Yếu tố seed chéo **đã hết** (hoán vị seed 0–4 vs 5–9: p = 0,66, trước CH-8 p < 0,001).
 **Khác biệt ghi nhận:** Prep không vụ nào < 1× (bài gốc 9/29); Post dồn < 1,5×; tường cạn dồn 80–99% (bài gốc 18/29 ở 100%); **giá sập theo VWAP chỉ 52%, CI vắt qua ngưỡng 50%** → trong bài báo ghi "đạt điểm, chưa chắc thống kê", không hiệu chỉnh thêm (tránh ép mô hình khớp số); chỉ số phụ mốc trước burn chắc ở 79%.
+
+### Độ nhạy RQ1 (15/10, `ket_qua/do_nhay/so_sanh.csv`)
+| Dấu hiệu | Gốc | Bỏ neo giá pha tường | Phí 0,01% | Nhận xét |
+|---|---|---|---|---|
+| Giá ghim quanh t_m, tường cạn ≥ 80%, Δbuild/Δextract | 99–100% | 97–100% | 99–100% | vững |
+| Giá sập < −10% (VWAP) | 52% | 59% | 64% | vững (tăng) |
+| RV Prep < RV Attack | 97% | 51% | 100% | do giả định giá ghim |
+| RV Post cao nhất | 96% | 79% | 95% | vững |
+| Post < 1× | 80% | 81% | 42% (Không đạt) | phụ thuộc mức phí |
+
+**Điều kiện cần của tấn công: giá bị ghim.** Khi có giá ngoài + arb, tường một tick không giữ được giá (giá nằm trên tick tường 1,2% số bước; arb vượt tường chỉ cần ~20k token1; 75% lượt victim vào sai tick, trung vị cách tường 105 tick) → thiệt hại và lợi tăng thêm về 0. Baseline giá ghim có căn cứ: token Alpha giao dịch chủ yếu trên chính bể, bài gốc thấy giá ghim ở 79% vụ. Hệ quả cho thảo luận: **neo giá ngoài** (niêm yết/oracle sớm) là hướng phòng thủ bài gốc chưa nêu (suy luận, chưa đánh giá đánh đổi).
 
 ### Phát hiện quan trọng nhất cho RQ2
 
