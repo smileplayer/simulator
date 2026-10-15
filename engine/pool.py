@@ -62,9 +62,9 @@ class _PositionState:
     owed1: float = 0.0
 
 
-def _clean(L: float, scale: float) -> float:
-    """Đưa L_active về 0 khi chỉ còn sai số float so với lượng vừa trừ (và không cho âm)."""
-    return 0.0 if L <= 1e-9 * abs(scale) else L
+def _mat_so(L: float, scale: float) -> bool:
+    """True khi L (vừa trừ đi lượng cỡ `scale`) nhỏ tới mức sai số float đáng kể → cần cộng lại."""
+    return L <= 1e-6 * abs(scale)
 
 
 class Pool:
@@ -141,6 +141,16 @@ class Pool:
         st.owed1 += Lw * (in1 - st.fee_growth_inside1_last)
         st.fee_growth_inside0_last, st.fee_growth_inside1_last = in0, in1
 
+    def _active_sums(self, tick: int) -> tuple[float, float]:
+        """(Σ L, Σ L·φ) của các vị thế chứa `tick`, cộng trực tiếp (không trừ) — chính xác, O(số vị thế)."""
+        L = Lw = 0.0
+        for st in self._positions.values():
+            p = st.pos
+            if p.liquidity > 0 and p.tick_lower <= tick < p.tick_upper:
+                L += p.liquidity
+                Lw += p.liquidity * st.weight
+        return L, Lw
+
     def _in_range(self, p: Position) -> bool:
         return p.tick_lower <= self.tick < p.tick_upper
 
@@ -193,14 +203,14 @@ class Pool:
                                        sqrt_price_at_tick(p.tick_upper), L)
         if L > 0:
             Lw = L * st.weight
+            p.liquidity -= L
             if self._in_range(p):
-                self.liquidity = _clean(self.liquidity - L, L)
-                self.liquidity_weighted = _clean(self.liquidity_weighted - Lw, Lw)
-                if self.liquidity == 0 or self.liquidity_weighted == 0:
-                    self.liquidity = self.liquidity_weighted = 0.0
+                self.liquidity -= L
+                self.liquidity_weighted -= Lw
+                if _mat_so(self.liquidity, L) or _mat_so(self.liquidity_weighted, Lw):
+                    self.liquidity, self.liquidity_weighted = self._active_sums(self.tick)
             self._update_tick(p.tick_lower, -L, -Lw, upper=False)
             self._update_tick(p.tick_upper, -L, -Lw, upper=True)
-            p.liquidity -= L
         self._log("burn", p.owner, position_id=p.id, tick_lower=p.tick_lower,
                   tick_upper=p.tick_upper, liquidity=L, amount0=-a0, amount1=-a1)
         return a0, a1
@@ -303,9 +313,10 @@ class Pool:
                     L += net_L
                     Lw += net_w
                     tick = nxt
-                L, Lw = _clean(L, net_L), _clean(Lw, net_w)
-                if L == 0 or Lw == 0:                      # hai cái cùng về 0, tránh chia cho 0
-                    L = Lw = 0.0
+                if _mat_so(L, net_L) or _mat_so(Lw, net_w):
+                    # trừ hai số gần nhau (ví dụ rời tường lớn) → cộng lại chính xác từ các vị thế,
+                    # để vị thế nhỏ còn lại không bị coi là rỗng và L, Lw cùng về 0 đúng lúc
+                    L, Lw = self._active_sums(tick)
             else:
                 tick = tick_at_sqrt_price(z)
 
