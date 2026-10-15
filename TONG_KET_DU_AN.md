@@ -103,6 +103,7 @@ Tiêu chuẩn kiểm định cũng đổi (Đức chốt 14/10): kiểm theo **p
 | 15 | 15/10 | C | Phản thực "bán thẳng" bán cả kho một lần → excess +370 khi không có victim | Lớn hơn cả tín hiệu ở RQ1 (~300) | Phản thực phát lại log (bỏ tường + victim) → 0 đúng khi không victim | C ✓ |
 | 16 | 15/10 | B | Định giá chi phí farm khác nhau giữa B và C (lệch 136) | Bảng không nhất quán | Thống nhất theo `metrics.pnl.farm_pnl` | C ✓ |
 | 17 | 15/10 | B | Lợi tăng thêm không đơn điệu theo trần (L27_25 thích nghi: 2.586 → 4.493 ở cap75) | Trái Theorem 6 | Lỗi phản thực: phát lại nguyên lượng mua farmer (lấy từ đường giá có victim đỡ) → farmer phản thực tối ưu lại trên bể phản thực | C ✓, **cần chạy lại v4** |
+| 18 | 15/10 | Đức | `python -m scenarios.quet_gd2 --luoi` lỗi NameError: hàm `to_hop_luoi` bị xóa nhầm khi sửa #17; test không bao phủ chế độ `--luoi` | Không chạy được lưới σ×Q | Khôi phục hàm từ commit trước; thêm 4 test khói cho mọi chế độ quét | CH + C ✓ |
 
 **Hạ tầng:**
 - `.claude/settings.json` cấm `git push` → Đức sửa.
@@ -163,21 +164,29 @@ Yếu tố seed chéo **đã hết** (hoán vị seed 0–4 vs 5–9: p = 0,66, 
 
 ## 7. Việc tiếp theo
 
-### Ngay bây giờ (cập nhật 15/10 tối)
-- ✓ GĐ2 v3 đã chạy và B đã phân tích (bản đồ ba vùng khớp lý thuyết 25/25 ô, Q* toàn tri = k) — nhưng phát hiện lỗi phản thực (#17) → số lợi tăng thêm phải chạy lại.
-1. **Đức:** `/chot` → `git pull` → chạy `python -m scenarios.quet_gd2 --luoi` (~5 phút), `python -m scenarios.quet_gd2` (~45 phút), `python -m scenarios.quet_gd2 --k_nho` (~28 phút), `python -m scenarios.quet_gd2 --farm` (~50 phút) → `ket_qua/gd2/*_v4.csv`, đẩy lên.
-2. **B:** chạy lại `metrics.chay_gd2` + `plots.ve_gd2` trên v4, cập nhật bản nháp mục 7 (kiểm lại tính đơn điệu theo trần).
+### GĐ2 v4 — số cuối của RQ2 (15/10)
+Bảng: `ket_qua/gd2/bang/`, hình: `ket_qua/gd2/hinh/`, bản nháp: `ket_qua/ban_nhap/muc7_ket_qua_RQ2.md`.
 
-### Kết quả GĐ2 v3 (trước sửa #17 — xu hướng dự kiến giữ, số lợi tăng thêm sẽ đổi)
-- **Bản đồ ba vùng (toàn tri) khớp lý thuyết 25/25 ô:** (i) σ = f; (ii) Q ≤ 12k; (iii) Q ≥ 24k (ranh Q_eff = 18k). Vùng 4 "ngoài giả định": σ = 0,0025 (Giả định 1), Q = 96k (Giả định 2: 35–37% lệnh farmer rời tick tường).
-- **Q\*:** toàn tri Q*/Q = k (28/30 vụ); thích nghi: hạ trần không đuổi được (21/30 vụ còn ở cap05).
-- **Cảnh báo rủi ro (warn40) có biên đánh đổi tốt nhất:** cắt 94% lợi kẻ tấn công cả với victim thích nghi, mất < 2,3% khối lượng. Trần động ≈ cap25. Clawback cắt ~52% phần farm. Không biện pháp nào chặn cú sập.
+| Nhóm biện pháp | Vùng RQ1: % giảm lợi kẻ tấn công (toàn tri \| thích nghi) | Vùng k nhỏ (victim lớn) | Mất khối lượng |
+|---|---|---|---|
+| Hạ trần cap50 → cap05 | 100 \| 31–65 | 25–81 \| 4–30 | 26–54% |
+| Trần động | 100 \| 56 | 62 \| 19 | 36–42% |
+| Cảnh báo rủi ro warn15/20/40 | 94–100 \| 27/50/94 | 9/18/43 \| 2/4/18 | < 2,3% |
+| Trả trễ delay72 / 168 | ≈ 0 / 4 \| ≈ 0 / 19 | 5–6 | 3% / 19% |
+| Thu hồi claw72 / 168 (attacker farm 0,6) | 50 / 72 \| 46 / 76 (victim không đổi) | 20–22 | 3,6% / 25% |
 
-### Kết quả GĐ2 v2 đáng chú ý
-- Hạ trần: toàn tri cap50 → thiệt hại −100%, lợi kẻ tấn công −94%, mất khối lượng −26%; thích nghi chỉ −40%/−43%. **Q\* toàn tri khớp Lemma 4/Theorem 6** (ngưỡng = k ở 28/30 vụ).
-- Trả trễ 24–72 không tác dụng; 168 = hạ σ trá hình. Clawback 168 (attacker farm 0,6) cắt lợi kẻ tấn công −74…−77% nhưng không bảo vệ victim.
-- Không biện pháp nào làm giá thôi sập. Victim thích nghi khó bảo vệ (ước V từ phí cả bể, gồm nền + arb).
-- Vùng k nhỏ (victim lớn): lợi nhuận tăng thêm ~8.500 (RQ1 ~300); cap25, warn40, dyncap cắt còn ~2.200–3.000.
+**Kết luận RQ2:**
+1. Ngưỡng hạ trần Q\* của Theorem 6 khớp thực nghiệm khi victim định giá theo trần: **Q\*/Q = k** (28/30 vụ RQ1, 30/30 k nhỏ). Hạ dưới ngưỡng xóa hết lợi, đổi lấy mất 20–26% khối lượng.
+2. **Victim thích nghi (nhìn phí lịch sử) khó bảo vệ:** hạ trần/trần động chỉ cắt 31–65% (RQ1), 4–30% (victim lớn), mất tới nửa khối lượng; 21/30 vụ vẫn còn victim ở cap05. Lý do: victim ước khối lượng từ phí cả bể (gồm nền + arb).
+3. **Cảnh báo rủi ro có biên đánh đổi tốt nhất** (mất < 2,3% khối lượng). Thu hồi thưởng là bổ sung rẻ nhưng chỉ cắt lãi farm.
+4. **Không biện pháp nào chặn được cú sập giá.**
+5. Bản đồ ba vùng (toàn tri) khớp lý thuyết 25/25 ô; vùng 4 "ngoài giả định" ở σ = f và Q lớn so với L_A.
+
+**Giới hạn mô hình cần ghi trong bài:** (a) lợi của phương án bán thẳng phụ thuộc Q (farmer mua đỡ cú bán) — Theorem 6 coi không đổi → vài vụ Q nhỏ có "lợi tăng thêm" tăng nhẹ khi hạ trần; (b) victim toàn tri tin V = n·Q kể cả khi trần không ràng buộc; (c) giá sập theo VWAP chỉ 52% (CI 38–67).
+
+### Ngay bây giờ
+1. **Đức:** `/chot` (đẩy test khói của C, phân tích v4 của B, SYNC, tổng kết).
+2. Chọn hướng tiếp theo (mục "Xa hơn"): GĐ3 range-aware nhiều tick, hoặc hoàn thiện bản thảo mục 5–7.
 
 ### Xa hơn
 9. **GĐ3 / RQ3:** range-aware nhiều tick (engine đã có `fee_weight`); `c_V` theo vốn; tường nhiều tick.

@@ -56,6 +56,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
   - **Bản đồ ba vùng (toàn tri, khớp lý thuyết 25/25 ô):** (i) σ = f = 0,0025; (ii) σ ≥ 0,005, Q ≤ 12k; (iii) Q ≥ 24k (ranh Q_eff = 18k; cap50 dời sang 36k). Vùng 4 "ngoài giả định": σ = 0,0025 vi phạm Giả định 1 (victim toàn tri vẫn vào → lỗ); Q = 96k vi phạm Giả định 2 (35–37% lệnh farmer rời tick tường). Thích nghi: có lợi ở mọi ô kể cả vùng (i).
   - **Kết luận RQ2:** hạ trần chỉ hiệu quả khi victim định giá theo trần; cảnh báo rủi ro có biên đánh đổi tốt nhất; clawback là bổ sung rẻ nhắm phần farm; không biện pháp nào chặn cú sập.
   - Bất thường: lợi không đơn điệu theo trần (L27_25 thích nghi: 2.586 → 4.493 ở cap75) → giao C điều tra.
+- **GĐ2 v4 (15/10, subagent) — số cuối RQ2:** `--phien v4|v3|v2` (mặc định v4; v3 → `bang_v3/`, `hinh_v3/`); `kiem_don_dieu` → `don_dieu_*.csv`; bản nháp mục 7 viết lại theo v4; tests/metrics 95 qua. So v3: hành vi (victim, khối lượng, sập) giống hệt, chỉ `dc_excess` đổi; xếp hạng, Q*, bản đồ ba vùng giữ nguyên; vụ không đơn điệu giảm (thích nghi RQ1 12 → 6/30; k nhỏ 26 → 10). **Đơn điệu:** hiệu cặp gộp âm ở mọi bước hạ trần (thích nghi cap90→cap75 −212 [−374; −46]); "tăng" CH thấy là trung vị cắt ngang. Còn 11/240 phép so tăng có ý nghĩa theo vụ, hai cơ chế: (1) lợi của bán thẳng co theo Q qua farmer mua đỡ (Theorem 6 coi không đổi) — Q = 12k, kho 15k; (2) vi phạm Giả định 2 (Q = 48k, L_A = 2e8). Kết luận RQ2: Q*/Q = k khi victim định giá theo trần; victim thích nghi chỉ bị cắt 31–65% (RQ1) / 4–30% (k nhỏ) với mất tới nửa khối lượng; warn có biên đánh đổi tốt nhất; clawback chỉ cắt lãi farm; không biện pháp nào chặn cú sập.
 
 ## Vai C — Tác nhân, thí nghiệm
 - **Trạng thái:** `INTERFACE.md` ĐÃ CHỐT 14/10, sửa cùng ngày (ĐỔI INTERFACE): **farmer chỉ mua**, `arb:0` bán ngược lại cuối bước; thêm `Pool.fee`. Đã có:
@@ -109,6 +110,8 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 15/10/2026 | B | Phân tích GĐ2 v4 (số cuối RQ2): đơn điệu theo trần đạt ở mức gộp; kết luận RQ2 không đổi so với v3 | tests/metrics 95 qua; toàn repo 236 qua |
+| 15/10/2026 | C/CH | `to_hop_luoi` bị xóa nhầm ở commit 63b553f → `--luoi` NameError trên máy Đức; CH khôi phục nguyên văn từ 745cb2a (Đức dán cùng nội dung); C thêm 4 test khói `tests/agents/test_quet_gd2_khoi.py` cho mọi chế độ quét | toàn repo 236 qua |
 | 15/10/2026 | C | Sửa phản thực phát lại (farmer tối ưu lại trên bể phản thực) → dc_excess đơn điệu theo trần; **ĐỔI INTERFACE** meta pe_farmer/Q_buoc; file ra `_v4`; chờ Đức chạy v4 | toàn repo 232 qua |
 | 15/10/2026 | B | Phân tích GĐ2 v3: bảng 16 bp + k nhỏ + farm, Q* (toàn tri = k), bản đồ ba vùng khớp lý thuyết 25/25, Pareto, bản nháp mục 7 | tests/metrics 94 qua |
 | 15/10/2026 | B | Bảng đánh đổi GĐ2 v2, Q* (toàn tri khớp Lemma 4), 4 hình, bản nháp mục 7 | tests/metrics 89 qua |
