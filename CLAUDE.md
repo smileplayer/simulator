@@ -1,8 +1,8 @@
 # Simulator — luật làm việc cho 3 vai + Chỉ huy
 
-Thư mục này là **git repo của simulator** (`smileplayer/simulator`). Đức chạy **4 phiên Claude Code trên cloud**: 3 vai A, B, C và một **Chỉ huy**. Mỗi phiên ở một container riêng, **chỉ đồng bộ qua GitHub** (nhánh `main`). Tài liệu đồ án nằm trong `tai_lieu_do_an/` (không cần đọc `tai_lieu_do_an/CLAUDE.md`, `README.md`); ghi chú nghiên cứu ở `tai_lieu_do_an/03_Ghi_chu_nghien_cuu/`, bài gốc ở `tai_lieu_do_an/00_Bai_goc/`, tài liệu tham khảo ở `tai_lieu_do_an/01_Tai_lieu_tham_khao/`.
+Thư mục này là **git repo của simulator** (`smileplayer/simulator`). Đức làm việc với **một phiên Chỉ huy trên cloud**; Chỉ huy gọi **A, B, C làm subagent** trong cùng container (cùng thư mục, thấy thay đổi của nhau ngay, không cần push/pull giữa các vai). Tài liệu đồ án nằm trong `tai_lieu_do_an/` (không cần đọc `tai_lieu_do_an/CLAUDE.md`, `README.md`); ghi chú nghiên cứu ở `tai_lieu_do_an/03_Ghi_chu_nghien_cuu/`, bài gốc ở `tai_lieu_do_an/00_Bai_goc/`, tài liệu tham khảo ở `tai_lieu_do_an/01_Tai_lieu_tham_khao/`.
 
-## Bắt đầu phiên: gõ `/vai A`, `/vai B` hoặc `/vai C`. Trước khi dừng: gõ `/chot`.
+## Chốt: Đức gõ `/chot` → test, commit, push. (`/vai` chỉ dùng khi Đức mở riêng một phiên cho một vai.)
 
 Khi chưa biết mình là vai nào (chưa có lệnh `/vai`), **hỏi Đức trước khi sửa bất kỳ file nào**.
 
@@ -24,10 +24,9 @@ Khi chưa biết mình là vai nào (chưa có lệnh `/vai`), **hỏi Đức tr
 
 ## Git
 
-- **Nhánh chung là `main`.** Đầu phiên và trước mỗi lần sửa `SYNC.md`: `git pull --rebase origin main`.
-- Commit sau **mỗi việc nhỏ** xong và test qua, rồi **push ngay**: `git pull --rebase origin main && git push origin HEAD:main`. Push bị từ chối (phiên khác vừa push) → pull --rebase lại rồi push. Xung đột ở `SYNC.md` → giữ cả hai phía, mỗi vai chỉ giữ nội dung mục của mình.
-- Chỉ `git add` thư mục của vai mình + `SYNC.md` (+ `INTERFACE.md` nếu là C). **Không** `git add -A` / `git add .`.
-- Thông điệp commit bắt đầu bằng `[A]`, `[B]`, `[C]` hoặc `[CH]`, viết tiếng Việt, ngắn.
+- Nhánh chung là `main`. **Không commit, không push giữa chừng.** Chỉ khi Đức gõ `/chot`: Chỉ huy chạy test toàn repo, commit theo từng vai (mỗi vai một commit, chỉ `git add` thư mục của vai đó + `SYNC.md`), rồi `git pull --rebase origin main && git push origin HEAD:main`.
+- Subagent A/B/C **không chạy git commit/push**; xong việc trả báo cáo cho Chỉ huy. Chỉ huy ghi `SYNC.md` (subagent không sửa `SYNC.md` để tránh ghi đè nhau).
+- Thông điệp commit bắt đầu bằng `[A]`, `[B]`, `[C]` hoặc `[CH]`, viết tiếng Việt, ngắn. **Không** `git add -A` / `git add .`.
 - Không `git push --force`, `git reset --hard`, `git checkout -- .`, `git clean` khi Đức chưa đồng ý.
 
 ## Code
