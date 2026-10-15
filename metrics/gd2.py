@@ -371,3 +371,44 @@ def ba_vung(luoi: pd.DataFrame, gia_dinh: pd.DataFrame | None = None, nguong_kl:
         out["ngoai_gia_dinh"] = out["vp_GD1"] | out["vp_GD2"]
     out["khop_ly_thuyet"] = out["vung"] == out["vung_ly_thuyet"]
     return out
+
+
+# ---------------------------------------------------------------- kiểm đơn điệu theo trần (Theorem 6)
+
+def kiem_don_dieu(df: pd.DataFrame, cot: str = "loi_tang_them", B: int = B_MAC_DINH, seed: int = SEED_BOOT,
+                  nguong: float = 50.0) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Theorem 6: Π_A không giảm theo Q ⇒ hạ trần một mức (r_cao → r_thap) không được làm `cot` tăng.
+
+    Ghép cặp cùng vụ + seed + victim giữa hai mức trần liền kề có trong dữ liệu, d = cot(r_thap) − cot(r_cao)
+    (token1). Trả (`gop`, `vu`): `gop` — mỗi victim × bước hạ: trung bình và trung vị d + CI 95% bootstrap phân
+    cụm theo vụ, số vụ tăng có ý nghĩa; `vu` — mỗi vụ × victim × bước: TB d qua seed + CI bootstrap theo seed,
+    `tang_co_y_nghia` = TB > `nguong` và ci_lo > 0."""
+    if cot not in df:
+        df = them_cot(df)
+    muc = sorted((r, b) for b, r in MUC_CAP.items() if b in set(df["bp"]))
+    rng = np.random.default_rng(seed)
+    gop, vu = [], []
+    for vt, g in df.groupby("victim_type"):
+        for (r_lo, b_lo), (r_hi, b_hi) in zip(muc[:-1], muc[1:]):
+            P = ghep_cap(g, b_lo, b_hi)
+            if P.empty:
+                continue
+            d = (P[cot] - P[cot + "_goc"]).to_numpy(float)
+            mau = _ma_tran_mau(P["scenario_id"].to_numpy(), B, seed)
+            tb = np.array([d[i].mean() for i in mau]) if isinstance(mau, list) else d[mau].mean(axis=1)
+            tv = np.array([np.median(d[i]) for i in mau]) if isinstance(mau, list) else np.median(d[mau], axis=1)
+            dong_vu = []
+            for v, h in P.assign(d=d).groupby("scenario_id"):
+                x = h["d"].to_numpy()
+                bs = x[rng.integers(0, len(x), (B, len(x)))].mean(axis=1)
+                lo, hi = np.quantile(bs, [0.025, 0.975])
+                dong_vu.append(dict(victim_type=vt, buoc=f"{b_hi}→{b_lo}", scenario_id=v, Q=h["Q"].iloc[0],
+                                    sigma=h["sigma"].iloc[0], L_A=h["L_A"].iloc[0], k=h["k"].iloc[0],
+                                    goc=h[cot + "_goc"].mean(), tb_d=x.mean(), ci_lo=lo, ci_hi=hi,
+                                    tang_co_y_nghia=bool(x.mean() > nguong and lo > 0)))
+            vu += dong_vu
+            gop.append(dict(victim_type=vt, buoc=f"{b_hi}→{b_lo}", r_cao=r_hi, r_thap=r_lo, n_cap=len(d),
+                            tb_d=d.mean(), tb_lo=np.quantile(tb, .025), tb_hi=np.quantile(tb, .975),
+                            tv_d=float(np.median(d)), tv_lo=np.quantile(tv, .025), tv_hi=np.quantile(tv, .975),
+                            so_vu_tang_y_nghia=sum(r["tang_co_y_nghia"] for r in dong_vu), so_vu=len(dong_vu)))
+    return pd.DataFrame(gop), pd.DataFrame(vu)

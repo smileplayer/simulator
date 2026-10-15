@@ -1,6 +1,6 @@
-"""Sinh mọi hình GĐ2 bằng một lệnh: `python -m plots.ve_gd2 [--phien v3|v2] [--gd2 ket_qua/gd2]` (≈ vài giây).
+"""Sinh mọi hình GĐ2 bằng một lệnh: `python -m plots.ve_gd2 [--phien v4|v3|v2] [--gd2 ket_qua/gd2]` (≈ vài giây).
 
-Cần chạy `python -m metrics.chay_gd2 [--phien ...]` trước. v3 (mặc định) đọc `ket_qua/gd2/bang/`, ghi
+Cần chạy `python -m metrics.chay_gd2 [--phien ...]` trước. v4 (mặc định; v3 → `bang_v3/`, `hinh_v3/`) đọc `ket_qua/gd2/bang/`, ghi
 `ket_qua/gd2/hinh/`: `pareto.png` (biên đánh đổi, vùng RQ1 + k nhỏ), `danh_doi_farm.png`, `ba_vung.png`
 (bản đồ σ × Q), `q_sao.png`, `q_sao_knho.png`. v2 đọc `bang_v2/`, ghi `hinh_v2/` (bộ hình lần trước).
 """
@@ -16,10 +16,11 @@ from plots.hinh_gd2 import ve_ba_vung, ve_danh_doi, ve_danh_doi_farm, ve_nhiet, 
 TD_FARM = "Trả trễ / thu hồi khi kẻ tấn công cũng farm (so với không biện pháp cùng phần farm)"
 
 
-def main(gd2: str = "ket_qua/gd2") -> list[Path]:
-    """Vẽ bộ hình v3, trả danh sách đường dẫn."""
+def main(gd2: str = "ket_qua/gd2", phien: str = "v4") -> list[Path]:
+    """Vẽ bộ hình v4 (`bang/` → `hinh/`) hoặc v3 (`bang_v3/` → `hinh_v3/`), trả danh sách đường dẫn."""
     d = Path(gd2)
-    bang, ra = d / "bang", d / "hinh"
+    hau = "" if phien == "v4" else f"_{phien}"
+    bang, ra = d / f"bang{hau}", d / f"hinh{hau}"
     ra.mkdir(parents=True, exist_ok=True)
     f = {k: ra / f"{k}.png" for k in ("pareto", "danh_doi_farm", "ba_vung", "q_sao", "q_sao_knho")}
     ve_pareto({"vùng RQ1 (k ∈ {0,64; 0,80; 0,95}, victim nhỏ)": pd.read_csv(bang / "danh_doi.csv"),
@@ -56,7 +57,7 @@ def main_v2(gd2: str = "ket_qua/gd2") -> list[Path]:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--gd2", default="ket_qua/gd2")
-    ap.add_argument("--phien", default="v3", choices=["v3", "v2"])
+    ap.add_argument("--phien", default="v4", choices=["v4", "v3", "v2"])
     a = ap.parse_args()
-    for p in (main if a.phien == "v3" else main_v2)(a.gd2):
+    for p in (main_v2(a.gd2) if a.phien == "v2" else main(a.gd2, a.phien)):
         print(p)

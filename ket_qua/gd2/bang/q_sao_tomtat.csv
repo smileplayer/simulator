@@ -1,6 +1,6 @@
 victim_type,tieu_chi,khoang,so_vu,vu
 adaptive,con_o_muc_thap_nhat,r = 0.05,21,"L27_00,L27_01,L27_03,L27_05,L27_07,L27_08,L27_09,L27_11,L27_13,L27_14,L27_15,L27_16,L27_18,L27_19,L27_20,L27_21,L27_22,L27_24,L27_26,LOG_0,LOG_1"
-adaptive,r_V,trung vị -0.19,28,r_V<=0: 20; k trong khoảng Q*_V: 0/30; lợi kẻ tấn công đơn điệu theo trần: 18/30
+adaptive,r_V,trung vị -0.19,28,r_V<=0: 20; k trong khoảng Q*_V: 0/30; lợi kẻ tấn công đơn điệu theo trần: 24/30
 omniscient,con_o_muc_thap_nhat,r = 0.05,0,
 omniscient,r_V,trung vị 0.80,30,r_V<=0: 0; k trong khoảng Q*_V: 28/30; lợi kẻ tấn công đơn điệu theo trần: 29/30
 adaptive,V,(0; 0.05],21,"L27_00,L27_01,L27_03,L27_05,L27_07,L27_08,L27_09,L27_11,L27_13,L27_14,L27_15,L27_16,L27_18,L27_19,L27_20,L27_21,L27_22,L27_24,L27_26,LOG_0,LOG_1"

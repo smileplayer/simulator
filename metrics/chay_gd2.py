@@ -1,9 +1,11 @@
-"""Bảng GĐ2 (RQ2) bằng một lệnh: `python -m metrics.chay_gd2 [--phien v3|v2] [--gd2 ket_qua/gd2] [--B 2000] [--nhanh]`.
+"""Bảng GĐ2 (RQ2) bằng một lệnh: `python -m metrics.chay_gd2 [--phien v4|v3|v2] [--gd2 ket_qua/gd2] [--B 2000] [--nhanh]`.
 
-**v3 (mặc định)** đọc `tomtat_v3.csv` (16 bp × victim), `tomtat_knho_v3.csv` (vùng k nhỏ, farm 0,3),
-`tomtat_farm_v3.csv` (× farm_share), `tomtat_luoi_v3.csv` (lưới σ × Q) → `ket_qua/gd2/bang/`:
+**v4 (mặc định; v3 cùng cấu trúc → `bang_v3/`)** đọc `tomtat_v4.csv` (16 bp × victim), `tomtat_knho_v4.csv` (vùng k nhỏ, farm 0,3),
+`tomtat_farm_v4.csv` (× farm_share), `tomtat_luoi_v4.csv` (lưới σ × Q) → `ket_qua/gd2/bang/`. v4 sửa phản thực
+bán thẳng của v3 (farmer trong pha xả tối ưu lại trên bể phản thực). Tệp:
 `danh_doi*.csv` (bảng dài: hiệu cặp so với `khong`, CI, % thay đổi), `gon*.csv` (bảng rộng), `ty_le_sap*.csv`,
-`q_sao_vu*.csv`, `q_sao_tomtat*.csv`, `ba_vung.csv`, `luoi_gia_dinh.csv` (kiểm Giả định 1–2: chạy lại 25 ô ×
+`q_sao_vu*.csv`, `q_sao_tomtat*.csv`, `don_dieu_gop*.csv` / `don_dieu_vu*.csv` (kiểm
+đơn điệu theo trần, Theorem 6), `ba_vung.csv`, `luoi_gia_dinh.csv` (kiểm Giả định 1–2: chạy lại 25 ô ×
 2 victim × 2 bp × 3 seed ≈ 10 s, lần sau đọc lại file; xóa file để chạy lại).
 **v2** (lần chạy trước): `tomtat_v2.csv`, `tomtat_farm_v2.csv` → `ket_qua/gd2/bang_v2/`.
 `--nhanh`: B = 200.
@@ -16,8 +18,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from metrics.gd2 import (ba_vung, bang_danh_doi, bang_gon, kiem_gia_dinh, q_sao_vu, them_cot, tom_tat_q_sao,
-                         ty_le_sap)
+from metrics.gd2 import (ba_vung, bang_danh_doi, bang_gon, kiem_don_dieu, kiem_gia_dinh, q_sao_vu, them_cot,
+                         tom_tat_q_sao, ty_le_sap)
 
 
 def chay_gia_dinh(seeds=(0, 1, 2), bps=("khong", "cap50")) -> pd.DataFrame:
@@ -65,14 +67,14 @@ def main_v2(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None) -> l
     return _ghi(out, Path(ra) if ra else d / "bang_v2")
 
 
-def main(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None) -> list[Path]:
-    """Bảng cho bộ `_v3` → `bang/`. Trả danh sách file đã ghi."""
+def main(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None, phien: str = "v4") -> list[Path]:
+    """Bảng cho bộ `_v4` (mặc định, → `bang/`) hoặc `_v3` (→ `bang_v3/`; cùng cấu trúc). Trả danh sách file."""
     d = Path(gd2)
-    ra = Path(ra) if ra else d / "bang"
-    tt = them_cot(pd.read_csv(d / "tomtat_v3.csv"))
-    kn = them_cot(pd.read_csv(d / "tomtat_knho_v3.csv"))
-    fm = them_cot(pd.read_csv(d / "tomtat_farm_v3.csv"))
-    lu = them_cot(pd.read_csv(d / "tomtat_luoi_v3.csv"))
+    ra = Path(ra) if ra else d / ("bang" if phien == "v4" else f"bang_{phien}")
+    tt = them_cot(pd.read_csv(d / f"tomtat_{phien}.csv"))
+    kn = them_cot(pd.read_csv(d / f"tomtat_knho_{phien}.csv"))
+    fm = them_cot(pd.read_csv(d / f"tomtat_farm_{phien}.csv"))
+    lu = them_cot(pd.read_csv(d / f"tomtat_luoi_{phien}.csv"))
     t0 = time.time()
     out = {"danh_doi": bang_danh_doi(tt, ("victim_type",), B=B),
            "danh_doi_theo_dang": bang_danh_doi(tt, ("subsidy_form", "victim_type"), B=B),
@@ -92,6 +94,8 @@ def main(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None) -> list
     out["q_sao_tomtat"] = tom_tat_q_sao(out["q_sao_vu"])
     out["q_sao_vu_knho"] = q_sao_vu(kn)
     out["q_sao_tomtat_knho"] = tom_tat_q_sao(out["q_sao_vu_knho"])
+    out["don_dieu_gop"], out["don_dieu_vu"] = kiem_don_dieu(tt, B=B)
+    out["don_dieu_gop_knho"], out["don_dieu_vu_knho"] = kiem_don_dieu(kn, B=B)
     f_gd = ra / "luoi_gia_dinh.csv"
     gd = pd.read_csv(f_gd) if f_gd.exists() else chay_gia_dinh()
     out["luoi_gia_dinh"] = gd
@@ -102,10 +106,11 @@ def main(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None) -> list
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--gd2", default="ket_qua/gd2")
-    ap.add_argument("--phien", default="v3", choices=["v3", "v2"])
+    ap.add_argument("--phien", default="v4", choices=["v4", "v3", "v2"])
     ap.add_argument("--B", type=int, default=2000)
     ap.add_argument("--nhanh", action="store_true")
     a = ap.parse_args()
     B = 200 if a.nhanh else a.B
-    for f in (main if a.phien == "v3" else main_v2)(a.gd2, B):
+    files = main_v2(a.gd2, B) if a.phien == "v2" else main(a.gd2, B, phien=a.phien)
+    for f in files:
         print(f)

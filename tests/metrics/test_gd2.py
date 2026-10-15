@@ -199,3 +199,19 @@ def test_ve_v3(tmp_path):
     lu = lu[lu["bp"].isin(["khong", "cap50"])]
     ve_ba_vung(ba_vung(lu), tmp_path / "b.png")
     assert (tmp_path / "p.png").stat().st_size > 1000 and (tmp_path / "b.png").stat().st_size > 1000
+
+
+def test_kiem_don_dieu():
+    from metrics.gd2 import kiem_don_dieu
+    d = _bang_v3(bps=tuple(MUC), k=0.64)
+    gop, vu = kiem_don_dieu(d, B=50)
+    assert set(gop["buoc"]) == {"cap50→cap25", "cap75→cap50", "khong→cap75"}
+    assert (gop["tb_d"] <= 1e-9).all() and gop["so_vu_tang_y_nghia"].eq(0).all()
+    # vụ V0: lợi tăng 100 khi hạ cap75 → cap50 ở mọi seed (có nhiễu nhỏ) → tăng có ý nghĩa
+    m = (d["scenario_id"] == "V0") & (d["bp"] == "cap50")
+    d.loc[m, "dc_excess"] = d.loc[(d["scenario_id"] == "V0") & (d["bp"] == "cap75"), "dc_excess"].to_numpy() + 100 \
+        + np.arange(m.sum())
+    gop, vu = kiem_don_dieu(d, B=200)
+    h = vu[(vu["scenario_id"] == "V0") & (vu["buoc"] == "cap75→cap50")].iloc[0]
+    assert h["tang_co_y_nghia"] and h["tb_d"] == pytest.approx(101)
+    assert gop.set_index("buoc").loc["cap75→cap50", "so_vu_tang_y_nghia"] == 1
