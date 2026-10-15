@@ -21,7 +21,7 @@ from agents.arb import Arbitrageur
 from agents.base import tick_chua_gia
 from agents.attacker import Attacker
 from agents.farmer import Farmer, thuong_log, thuong_tuyen_tinh
-from agents.do_rong import LUOI_W, LPLanhManh, tao_phi, w_sao_hinh_hoc
+from agents.do_rong import LUOI_W, LPLanhManh, l_tren_von, tao_phi, w_sao_hinh_hoc
 from agents.victim import VictimThichNghi, VictimToanTri
 from defenses.thuong import LichTraThuong, Q_hieu_luc, ten_bien_phap
 from defenses.tran_dong import TranDong, c_V_hieu_luc
@@ -183,8 +183,15 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
         lp_lm.append(LPLanhManh(f"lp:{k}", d.get("von", 1000.0), int(w_lp), d.get("t_vao", 0),
                                 d.get("t_ra", cfg["t_m"] - 1), d.get("vi_tri", "giua"), d.get("lenh_mau", 1000.0)))
     lich = [(int(t), float(r)) for t, r in cfg.get("wall_schedule", [[cfg["t_m"], 1.0]])]
-    att = Attacker("attacker:0", L_A=cfg["L_A"], t_m=cfg["t_m"], kho_token0=cfg["attacker_inventory"],
-                   c_A=cfg["c_A"], w=cfg.get("w_attacker", 1), dung_tuong=lich, t_0=cfg.get("t_0"),
+    # GĐ3: tường w_A tick; `tuong_von_co_dinh` → giữ VỐN của tường một tick gốc: L_A(w_A) = L_A·ℓ(w_A)/ℓ(1)
+    w_A = int(cfg.get("w_attacker", 1))
+    vi_tri_A = cfg.get("vi_tri_tuong", "tren")
+    L_A_eff = cfg["L_A"]
+    if cfg.get("tuong_von_co_dinh") and w_A != 1:
+        t0 = tick_at_sqrt_price(z0)
+        L_A_eff = cfg["L_A"] * l_tren_von(w_A, z0, t0, vi_tri_A) / l_tren_von(1, z0, t0, vi_tri_A)
+    att = Attacker("attacker:0", L_A=L_A_eff, t_m=cfg["t_m"], kho_token0=cfg["attacker_inventory"],
+                   c_A=cfg["c_A"], w=w_A, vi_tri=vi_tri_A, dung_tuong=lich, t_0=cfg.get("t_0"),
                    nguong_victim=cfg.get("withdraw_victim_ratio"), so_buoc_xa=cfg["dump_steps"])
     arb = Arbitrageur()
     if m_att > 0:
@@ -243,7 +250,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
         da_co_tuong = att.tick_lower is not None
         att.act(t, pool, tt)
         if not da_co_tuong and att.tick_lower is not None:   # vừa dựng tường → P_e neo giữa tick tường
-            tt.neo(t, (sqrt_price_at_tick(att.tick_lower) * 1.0001 ** 0.25) ** 2)
+            tt.neo(t, (sqrt_price_at_tick(att.tick_gia) * 1.0001 ** 0.25) ** 2)
             tt.vol = cfg.get("vol_prep", 0.0)
         if att.dang_xa(t):                                    # đang xả: giá ngoài đi theo bể, arb nghỉ
             tt.neo(t, pool.sqrt_price ** 2)
@@ -284,7 +291,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     pool.log.meta = dict(cfg, seed=seed, Q_eff=Q_eff, subsidy_pending=lich_tra.con_treo(P_cuoi),
                          subsidy_pending_attacker=lich_tra.con_treo(P_cuoi, att.owner),
                          subsidy_clawed=lich_tra.da_thu_hoi, attacker_farm_accounts=m_att, t_rut=att.t_rut,
-                         wall_tick=att.tick_lower, attacker_inventory_left=att.kho, P0=z0 ** 2,
+                         wall_tick=att.tick_gia, wall_range=(att.tick_lower, att.tick_upper), L_A_eff=L_A_eff, attacker_inventory_left=att.kho, P0=z0 ** 2,
                          dyncap_t_bao_dau=None if tran_dong is None else tran_dong.t_bao_dau,
                          dyncap_so_buoc=0 if tran_dong is None else tran_dong.so_buoc_bat,
                          pe_farmer=np.array(pe_farmer), Q_buoc=np.array(Q_buoc),

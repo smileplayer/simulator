@@ -178,3 +178,27 @@ class LPLanhManh:
                     trong_dai=sum(self.trong_dai) / n,
                     L_gia=sum(self.L_gia) / n if self.L_gia else math.nan,
                     truot=sum(self.truot) / n if self.truot else math.nan)
+
+
+def u_hieu_dung(w_A: int, w_v: int, phi: Callable[[int], float] | None, z: float, B_tren_LA: float = 0.0,
+                tick: int | None = None) -> float:
+    """u của `ty_le_von` khi tường giữ VỐN của tường một tick (L_A(w_A) = L_A·ℓ(w_A)/ℓ(1), dải "tren") và victim
+    dải w_v "giua": u = [ℓ(1)/g_v(w_v)]·[g_A(w_A)/ℓ(1) + B/L_A], B = phần LP rộng (φ = 1) trong tick giá.
+    Pro-rata, w_A = w_v = 1 → u = 1 + B/L_A."""
+    l1 = l_tren_von(1, z, tick, "tren")
+    g_A = g_w(w_A, phi, z, tick, "tren")
+    g_v = g_w(w_v, phi, z, tick, "giua")
+    return (l1 / g_v) * (g_A / l1 + B_tren_LA)
+
+
+def w_A_toi_uu(k: float, phi: Callable[[int], float] | None, w_v: int, z: float, luoi=LUOI_W,
+               B_tren_LA: float = 0.0, tick: int | None = None) -> dict:
+    """Phản ứng tối ưu (giải tích) của kẻ tấn công nới tường vốn cố định: chọn w_A trên lưới làm vốn victim toàn tri
+    lớn nhất (lợi tăng thêm ≈ phần token1 victim bị quét ∝ vốn victim), giả định khối lượng farmer không đổi theo độ
+    sâu (đúng khi trần Q vẫn ràng buộc). Tối ưu không ràng buộc ở u* = 1/(4k); u chạy trong [u(1), u(w₀)] với
+    u(w₀) ≈ 1 + w₀·B/L_A ⇒ k ≥ 1/4: đạt ty_le_von = 1/(4k(1/√k − 1)) > 1; k < 1/4: tốt nhất u ≈ 1 → tỷ lệ ≈ 1
+    (range-aware bị vô hiệu). Trả {w_A, u, ty_le, bang: [(w_A, u, ty_le)]}."""
+    bang = [(w, u, ty_le_von(k, u)) for w in luoi
+            for u in [u_hieu_dung(w, w_v, phi, z, B_tren_LA, tick)]]
+    tot = max(bang, key=lambda r: (r[2], -r[0]))
+    return dict(w_A=tot[0], u=tot[1], ty_le=tot[2], bang=bang)

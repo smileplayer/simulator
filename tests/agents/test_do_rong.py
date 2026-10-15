@@ -110,3 +110,34 @@ def test_quet_gd3_khoi():
     assert 0.45 < r2["phan_duong_sap"] < 0.6                         # sập sâu ≫ w/2: ~nửa vốn bị quét (phần token1)
     for r in (r0, r2):
         assert not math.isnan(r["dc_excess"]) and r["von_victim"] > 0
+
+
+def test_w_A_giai_tich_noi_tuong():
+    """Tường vốn cố định: w_A = w_v = 1 pro-rata → u = 1; nới tường tới w₀ → u ≈ 1 (RA vô hiệu với k < 1/4);
+    k ≥ 1/4 → đạt u* = 1/(4k), tỷ lệ vốn victim 1/(4k(1/√k − 1))."""
+    from agents.do_rong import u_hieu_dung, w_A_toi_uu
+    assert u_hieu_dung(1, 1, None, Z, 0.0, 0) == pytest.approx(1.0)
+    phi = PhiLuyThua(2.0, 50)
+    assert u_hieu_dung(50, 50, phi, Z, 0.0, 0) == pytest.approx(1.0, rel=5e-3)
+    assert u_hieu_dung(1, 50, phi, Z, 0.0, 0) == pytest.approx(1 / 50, rel=5e-3)
+    r = w_A_toi_uu(0.10, phi, 50, Z, luoi=[1, 12, 25, 50], tick=0)
+    assert r["w_A"] == 50 and r["ty_le"] == pytest.approx(1.0, abs=0.01)
+    r = w_A_toi_uu(0.64, phi, 50, Z, luoi=range(1, 51), tick=0)
+    assert r["ty_le"] == pytest.approx(1 / (4 * 0.64 * (1 / 0.8 - 1)), rel=0.02)
+
+
+def test_tuong_rong_von_co_dinh_trong_bo_chay():
+    from scenarios.quet_gd3 import cau_hinh_gd3, muc_w_A, to_hop_gd3
+    from scenarios.run import run_frame
+    assert muc_w_A(0) == [1] and muc_w_A(10) == [1, 2, 5, 10] and muc_w_A(200) == [1, 50, 100, 200]
+    vu = to_hop_gd3()[0]
+    df = run_frame(cau_hinh_gd3(vu, 2.0, 50, "omniscient", w_A=25), 0)
+    m = df.attrs["meta"]
+    lo, hi = m["wall_range"]
+    assert hi - lo == 25 and lo == m["wall_tick"]                    # dải "tren": tick giá ghim là tick dưới cùng
+    assert m["L_A_eff"] == pytest.approx(m["L_A"] * l_tren_von(25, Z, 0, "tren") / l_tren_von(1, Z, 0, "tren"))
+    a = df[(df.owner == "attacker:0") & df.kind.isin(["mint", "burn"])]
+    assert set(a.tick_upper - a.tick_lower) == {25}
+    assert a[a.kind == "burn"].liquidity.sum() == pytest.approx(a[a.kind == "mint"].liquidity.sum())   # rút cả dải
+    df1 = run_frame(cau_hinh_gd3(vu, 2.0, 50, "omniscient", w_A=1), 0)
+    assert df1.attrs["meta"]["L_A_eff"] == df1.attrs["meta"]["L_A"]

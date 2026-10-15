@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from agents.base import Market, khoang_quanh_gia
+from agents.base import Market, khoang_quanh_gia, tick_chua_gia
 
 
 class Attacker:
@@ -17,12 +17,15 @@ class Attacker:
 
     def __init__(self, owner: str, L_A: float, t_m: int, kho_token0: float, c_A: float,
                  w: int = 1, dung_tuong: list[tuple[int, float]] | None = None,
-                 t_0: int | None = None, nguong_victim: float | None = None, so_buoc_xa: int = 1):
+                 t_0: int | None = None, nguong_victim: float | None = None, so_buoc_xa: int = 1,
+                 vi_tri: str = "tren"):
         """`L_A`: tổng L của tường; `t_m`: bước dựng tường đầu tiên; `kho_token0`: lượng token0 sẵn để xả;
         `c_A`: giá vốn token0 (token1/token0); `w`: độ rộng tường (tick, làm tròn lên bội số tick_spacing);
         `dung_tuong`: [(bước, tỷ lệ của L_A)], mặc định dựng hết ở t_m;
         `t_0`: bước rút cố định; `nguong_victim`: rút khi L nạn nhân trong tick ≥ nguong_victim·L_A
-        (phải cho ít nhất một trong hai); `so_buoc_xa`: chia kho xả đều qua bấy nhiêu bước."""
+        (phải cho ít nhất một trong hai); `so_buoc_xa`: chia kho xả đều qua bấy nhiêu bước;
+        `vi_tri` (GĐ3): đặt dải w tick quanh tick chứa giá lúc dựng ("tren" | "giua" | "duoi", `khoang_quanh_gia`);
+        `tick_gia` = tick chứa giá lúc dựng = tick giá bị ghim (bộ chạy neo P_e giữa tick này)."""
         if t_0 is None and nguong_victim is None:
             raise ValueError("cần t_0 hoặc nguong_victim")
         self.owner = owner
@@ -33,6 +36,8 @@ class Attacker:
         self.so_buoc_xa = so_buoc_xa
         self.tick_lower: int | None = None
         self.tick_upper: int | None = None
+        self.tick_gia: int | None = None
+        self.vi_tri = vi_tri
         self.tuong: list[int] = []
         self.t_rut: int | None = None          # bước đã rút (t_0 thực tế)
         self._luot_xa = 0
@@ -48,7 +53,7 @@ class Attacker:
     def _L_victim(self, pool: Any) -> float:
         # vị thế nạn nhân phủ tick tường (GĐ3: dải rộng căn giữa; w = 1 thì đúng tick tường như trước)
         return sum(p.liquidity for p in pool.positions()
-                   if p.owner.startswith("victim:") and p.tick_lower <= self.tick_lower < p.tick_upper)
+                   if p.owner.startswith("victim:") and p.tick_lower <= self.tick_gia < p.tick_upper)
 
     def _den_luc_rut(self, t: int, pool: Any) -> bool:
         if self.t_0 is not None and t >= self.t_0:
@@ -62,7 +67,8 @@ class Attacker:
             for t_dung, ty_le in self.lich:
                 if t == t_dung:
                     if self.tick_lower is None:          # tick chứa giá, căn theo tick_spacing
-                        self.tick_lower, self.tick_upper = khoang_quanh_gia(pool, self.w)
+                        self.tick_lower, self.tick_upper = khoang_quanh_gia(pool, self.w, self.vi_tri)
+                        self.tick_gia = tick_chua_gia(pool)
                     pid, _, _ = pool.mint(self.owner, self.tick_lower, self.tick_upper, ty_le * self.L_A)
                     self.tuong.append(pid)
             if self.tuong and self._den_luc_rut(t, pool):
