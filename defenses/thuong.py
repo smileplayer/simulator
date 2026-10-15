@@ -9,9 +9,10 @@ bằng δ^D (thiếu kiên nhẫn / rủi ro nền tảng) và không dự báo 
 theo giá lúc chốt, nên chi phí thật của nền tảng (token1) = lượng token0 × giá lúc trả: giá sập trước hạn thì
 nền tảng trả ít đi, farmer nhận ít đi. Thưởng chưa tới hạn khi kịch bản kết thúc không tính vào chi phí.
 
-Thu hồi (`clawback`, biến thể (a) của CH-6): khoản còn treo bị hủy nếu giá bể sập ≥ ngưỡng so với giá lúc chốt,
-**chỉ** với owner từng có vị thế LP trong bể khi khoản đó còn treo (nền tảng thấy được ví farmer cũng là LP) —
-farmer thuần không bị phạt.
+Thu hồi (`clawback`, biến thể (a) của CH-6): khoản còn treo bị hủy nếu giá bể sập ≥ ngưỡng so với giá ở đầu cửa sổ
+tích lũy của khoản đó (bước t_chot − subsidy_window + 1: lúc bắt đầu kiếm khoản thưởng),
+**chỉ** với owner từng có vị thế LP trong bể ở bước nào đó thuộc (t_chot − D, t_hiện_tại] — theo lịch sử địa chỉ như
+ngoài đời, nên rút tường trước khi chốt (thưởng chốt sau t_rut) không né được — farmer thuần không bị phạt.
 """
 from __future__ import annotations
 
@@ -47,8 +48,9 @@ class LichTraThuong:
         self.D, self.don_vi, self.chiet_khau = int(D), don_vi, float(chiet_khau)
         self.clawback = clawback
         self.da_thu_hoi = 0.0                                 # token1, theo giá lúc hủy
-        # mỗi khoản: [bước tới hạn, owner, lượng theo don_vi, giá lúc chốt, owner đã từng là LP khi còn treo]
+        # mỗi khoản: [bước tới hạn, owner, lượng theo don_vi, giá tham chiếu clawback, bước chốt]
         self._hang: deque[list] = deque()
+        self._lp_cuoi: dict[str, int] = {}                     # owner → bước gần nhất có vị thế LP
 
     @classmethod
     def tu_defense(cls, defense: dict | None) -> "LichTraThuong":
@@ -63,20 +65,27 @@ class LichTraThuong:
         """Farmer nhân thưởng với δ^D khi quyết định khối lượng."""
         return self.chiet_khau ** self.D
 
-    def chot(self, t: int, owner: str, thuong_token1: float, gia: float) -> None:
-        """Chốt thưởng (token1) ở bước t, giá P = gia (token1/token0)."""
+    def chot(self, t: int, owner: str, thuong_token1: float, gia: float,
+             gia_tham_chieu: float | None = None) -> None:
+        """Chốt thưởng (token1) ở bước t, giá P = gia (token1/token0, dùng đổi ra token0);
+        `gia_tham_chieu`: giá đầu cửa sổ tích lũy để so khi thu hồi (mặc định = gia)."""
         luong = thuong_token1 / gia if self.don_vi == "token0" else thuong_token1
-        self._hang.append([t + self.D, owner, luong, gia, False])
+        ref = gia if gia_tham_chieu is None else gia_tham_chieu
+        self._hang.append([t + self.D, owner, luong, ref, t])
 
-    def thu_hoi(self, gia: float, chu_lp: set[str]) -> list[tuple[str, float]]:
-        """Gọi mỗi bước sau `chot`, trước `den_han`: đánh dấu khoản của owner đang là LP (`chu_lp`), hủy khoản
-        đã đánh dấu khi giá P = gia ≤ (1 − clawback)·giá lúc chốt. Trả [(owner, giá trị token1 bị hủy)]."""
+    def thu_hoi(self, gia: float, chu_lp: set[str], t: int) -> list[tuple[str, float]]:
+        """Gọi mỗi bước t (bước nguyên) sau `chot`, trước `den_han`; `chu_lp` = owner có vị thế LP trong bước t.
+        Hủy khoản của owner từng là LP trong (t_chot − D, t] khi giá P = gia ≤ (1 − clawback)·giá tham chiếu
+        (giá đầu cửa sổ tích lũy).
+        Trả [(owner, giá trị token1 bị hủy)]."""
+        for o in chu_lp:
+            self._lp_cuoi[o] = t
         if self.clawback is None:
             return []
         huy, giu = [], deque()
         for k in self._hang:
-            k[4] = k[4] or k[1] in chu_lp
-            if k[4] and gia <= (1 - self.clawback) * k[3]:
+            tung_lp = self._lp_cuoi.get(k[1], -10**18) > k[4] - self.D
+            if tung_lp and gia <= (1 - self.clawback) * k[3]:
                 huy.append((k[1], k[2] * gia if self.don_vi == "token0" else k[2]))
             else:
                 giu.append(k)

@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from agents.base import Market
+from agents.base import Market, khoang_quanh_gia
 
 
 class Attacker:
@@ -19,7 +19,7 @@ class Attacker:
                  w: int = 1, dung_tuong: list[tuple[int, float]] | None = None,
                  t_0: int | None = None, nguong_victim: float | None = None, so_buoc_xa: int = 1):
         """`L_A`: tổng L của tường; `t_m`: bước dựng tường đầu tiên; `kho_token0`: lượng token0 sẵn để xả;
-        `c_A`: giá vốn token0 (token1/token0); `w`: độ rộng tường (tick);
+        `c_A`: giá vốn token0 (token1/token0); `w`: độ rộng tường (tick, làm tròn lên bội số tick_spacing);
         `dung_tuong`: [(bước, tỷ lệ của L_A)], mặc định dựng hết ở t_m;
         `t_0`: bước rút cố định; `nguong_victim`: rút khi L nạn nhân trong tick ≥ nguong_victim·L_A
         (phải cho ít nhất một trong hai); `so_buoc_xa`: chia kho xả đều qua bấy nhiêu bước."""
@@ -32,6 +32,7 @@ class Attacker:
         self.t_0, self.nguong_victim = t_0, nguong_victim
         self.so_buoc_xa = so_buoc_xa
         self.tick_lower: int | None = None
+        self.tick_upper: int | None = None
         self.tuong: list[int] = []
         self.t_rut: int | None = None          # bước đã rút (t_0 thực tế)
         self._luot_xa = 0
@@ -59,10 +60,9 @@ class Attacker:
         if self.t_rut is None:
             for t_dung, ty_le in self.lich:
                 if t == t_dung:
-                    if self.tick_lower is None:
-                        self.tick_lower = pool.tick
-                    pid, _, _ = pool.mint(self.owner, self.tick_lower, self.tick_lower + self.w,
-                                          ty_le * self.L_A)
+                    if self.tick_lower is None:          # tick chứa giá, căn theo tick_spacing
+                        self.tick_lower, self.tick_upper = khoang_quanh_gia(pool, self.w)
+                    pid, _, _ = pool.mint(self.owner, self.tick_lower, self.tick_upper, ty_le * self.L_A)
                     self.tuong.append(pid)
             if self.tuong and self._den_luc_rut(t, pool):
                 for pid in self.tuong:

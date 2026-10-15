@@ -71,12 +71,31 @@ def test_clawback_chi_huy_khoan_cua_LP_khi_sap():
     lich = LichTraThuong(D=48, don_vi="token0", clawback=0.10)
     lich.chot(23, "attacker:0", 100.0, gia=1.0)
     lich.chot(23, "farmer:0", 100.0, gia=1.0)
-    assert lich.thu_hoi(gia=1.0, chu_lp={"attacker:0"}) == []        # đánh dấu, chưa sập
-    assert lich.thu_hoi(gia=0.95, chu_lp=set()) == []                # sập 5% < ngưỡng
-    assert lich.thu_hoi(gia=0.85, chu_lp=set()) == [("attacker:0", pytest.approx(85.0))]   # đã rút tường vẫn bị hủy
+    assert lich.thu_hoi(gia=1.0, chu_lp={"attacker:0"}, t=23) == []        # là LP, chưa sập
+    assert lich.thu_hoi(gia=0.95, chu_lp=set(), t=24) == []                # sập 5% < ngưỡng
+    assert lich.thu_hoi(gia=0.85, chu_lp=set(), t=25) == [("attacker:0", pytest.approx(85.0))]   # đã rút vẫn bị hủy
     assert lich.da_thu_hoi == pytest.approx(85.0)
     assert lich.den_han(71, gia=0.85) == [("farmer:0", pytest.approx(85.0))]               # farmer thuần vẫn nhận
-    assert LichTraThuong(D=5).thu_hoi(gia=0.1, chu_lp={"farmer:0"}) == []                 # không bật clawback
+    assert LichTraThuong(D=5).thu_hoi(gia=0.1, chu_lp={"farmer:0"}, t=0) == []            # không bật clawback
+
+
+def test_clawback_theo_lich_su_dia_chi_thuong_chot_sau_khi_rut_tuong():
+    """Kẻ tấn công là LP tới bước 168 (rút tường), thưởng farm chốt ở 191 với D = 24: (191 − 24, 191] chứa 168
+    → vẫn bị thu hồi khi sập. Owner chỉ là LP trước cửa sổ đó, và farmer thuần, không bị đụng."""
+    lich = LichTraThuong(D=24, don_vi="token0", clawback=0.10)
+    for t in range(0, 192):
+        chu_lp = ({"attacker:0"} if 48 <= t <= 168 else set()) | ({"cu:0"} if t <= 100 else set())
+        lich.thu_hoi(gia=1.0, chu_lp=chu_lp, t=t)
+    for o in ("attacker:0", "cu:0", "farmer:0"):
+        lich.chot(191, o, 100.0, gia=1.0)
+    assert lich.thu_hoi(gia=0.95, chu_lp=set(), t=192) == []
+    assert lich.thu_hoi(gia=0.80, chu_lp=set(), t=193) == [("attacker:0", pytest.approx(80.0))]
+    assert sorted(o for o, _ in lich.den_han(215, gia=0.8)) == ["cu:0", "farmer:0"]
+    # chốt quá D bước sau lần cuối là LP → hết bị theo dõi
+    lich2 = LichTraThuong(D=24, don_vi="token1", clawback=0.10)
+    lich2.thu_hoi(gia=1.0, chu_lp={"attacker:0"}, t=168)
+    lich2.chot(192, "attacker:0", 50.0, gia=1.0)
+    assert lich2.thu_hoi(gia=0.5, chu_lp=set(), t=193) == []
 
 
 def test_attacker_farm_share_ghi_thuong_cho_attacker_va_clawback():
@@ -112,3 +131,28 @@ def test_quet_gd2_che_do_farm(tmp_path):
     assert (d[d.farm_share == 0].vol_farm_att == 0).all()
     chay(1, out, nhanh=True, farm=True)
     assert len(pd.read_csv(out)) == len(d)
+
+
+def test_clawback_so_voi_gia_dau_cua_so_tich_luy():
+    """Thưởng chốt ở 191 (tích lũy 168–191, cú xả ở 168): giá chốt đã sập (0,5); so với giá đầu cửa sổ (1,0)
+    thì giá cuối 0,85 < 0,9 → thu hồi. Nếu so với giá lúc chốt thì không bị thu hồi."""
+    lich = LichTraThuong(D=24, don_vi="token0", clawback=0.10)
+    lich.thu_hoi(gia=1.0, chu_lp={"attacker:0"}, t=168)
+    lich.chot(191, "attacker:0", 50.0, gia=0.5, gia_tham_chieu=1.0)       # = 100 token0
+    lich.chot(191, "farmer:0", 50.0, gia=0.5, gia_tham_chieu=1.0)
+    assert lich.thu_hoi(gia=0.92, chu_lp=set(), t=192) == []
+    assert lich.thu_hoi(gia=0.85, chu_lp=set(), t=193) == [("attacker:0", pytest.approx(85.0))]
+    cu = LichTraThuong(D=24, don_vi="token0", clawback=0.10)
+    cu.thu_hoi(gia=1.0, chu_lp={"attacker:0"}, t=168)
+    cu.chot(191, "attacker:0", 50.0, gia=0.5)                               # tham chiếu = giá chốt
+    assert cu.thu_hoi(gia=0.85, chu_lp=set(), t=193) == []
+
+
+def test_run_clawback_thu_hoi_thuong_chot_sau_cu_xa():
+    """Trên bộ chạy co_so (tường rút ở 168, xả 2 bước): với D = 24, thưởng của kẻ tấn công chốt ở 191 bị thu hồi."""
+    d = {"name": "delay", "D": 24, "don_vi": "token0", "chiet_khau": 0.995}
+    cfg = nap_config("co_so")
+    df = run_frame(dict(cfg, attacker_farm_share=0.5, defense=dict(d, clawback=0.10)), 0)
+    sub = df[(df.kind == "subsidy") & (df.owner == "attacker:0")]
+    assert df.attrs["meta"]["subsidy_clawed"] > 0
+    assert not (sub.t == 191 + 24).any()              # khoản chốt 191 (tới hạn 215) không được trả

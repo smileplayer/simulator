@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import math
 import sys
+import zlib
 from pathlib import Path
 
 import numpy as np
@@ -29,17 +30,26 @@ class ThiTruongKichBan:
     """Giá ngoài P_e(t) (token1/token0): bước ngẫu nhiên log-chuẩn với độ biến động đổi được theo pha.
 
     Bộ chạy `neo` giá vào một mức (giữa tick tường khi Prep, giá bể khi xả) và đổi `vol` khi sang pha.
+    Cú sốc chuẩn hóa `soc[t]` rút theo chỉ số bước (mỗi bước đúng một số, dòng riêng), nên không phụ thuộc lúc neo
+    hay trạng thái bể: P_e(t) = P_e(t−1)·exp(vol·soc[t]).
     """
 
     def __init__(self, P0: float, vol: float, rng: np.random.Generator):
         self.duong = [P0]
         self.vol = vol
         self.rng = rng
+        self.soc: list[float] = [0.0]                   # soc[0] không dùng
+
+    def _soc(self, t: int) -> float:
+        while len(self.soc) <= t:
+            self.soc.append(float(self.rng.standard_normal()))
+        return self.soc[t]
 
     def external_price(self, t: int) -> float:
         """P_e tại bước t; sinh thêm đường giá nếu chưa có."""
         while len(self.duong) <= t:
-            self.duong.append(self.duong[-1] * math.exp(self.rng.normal(0.0, self.vol)))
+            k = len(self.duong)
+            self.duong.append(self.duong[-1] * math.exp(self.vol * self._soc(k)))
         return self.duong[t]
 
     def neo(self, t: int, gia: float) -> None:
@@ -79,20 +89,34 @@ def _tao_thuong(cfg: dict, Q: float):
     raise ValueError(f"subsidy_form lạ: {cfg['subsidy_form']}")
 
 
-def run(config: dict, seed: int) -> EventLog:
-    """Chạy một kịch bản từ đầu tới cuối, trả EventLog; `log.meta` chứa tham số + mốc thật (t_m, t_rut, c_A…)."""
+def tao_dong_ngau_nhien(cfg: dict, seed: int) -> dict[str, np.random.Generator]:
+    """Các dòng ngẫu nhiên tách theo nguồn: {"nen": giao dịch nền, "gia": đường giá ngoài}.
+
+    Gốc `SeedSequence([seed, crc32(scenario_id)])` (không có `scenario_id`, như co_so: `SeedSequence(seed)`), tách bằng
+    `spawn`. Chỉ phụ thuộc (vụ, seed) — không phụ thuộc biện pháp, loại victim, farm_share — và mỗi nguồn rút số theo
+    bước bất kể trạng thái bể, nên cặp phản thực GĐ2 dùng chung đúng từng số ngẫu nhiên. Tác nhân không có ngẫu nhiên."""
+    ma = cfg.get("scenario_id")
+    goc = np.random.SeedSequence(seed if ma is None else [seed, zlib.crc32(str(ma).encode("utf-8"))])
+    nen, gia = (np.random.default_rng(s) for s in goc.spawn(2))
+    return {"nen": nen, "gia": gia}
+
+
+def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
+    """Chạy một kịch bản từ đầu tới cuối, trả EventLog; `log.meta` chứa tham số + mốc thật (t_m, t_rut, c_A…).
+    `ghi` (dict, tùy chọn, cho test): nhận "nen" = [(t, cỡ token1, số chiều)] mỗi bước và "soc" = cú sốc giá ngoài."""
     cfg = config
     defense = cfg.get("defense")
     ten_bien_phap(defense)                                # báo lỗi nếu biện pháp chưa cài
     loai_victim = cfg.get("victim_type", "omniscient")
     if loai_victim not in ("omniscient", "adaptive"):
         raise ValueError(f"victim_type lạ: {loai_victim}")
-    rng = np.random.default_rng(seed)
+    dong = tao_dong_ngau_nhien(cfg, seed)
+    rng_nen = dong["nen"]
     W, T, fee = cfg["subsidy_window"], cfg["steps"], cfg["fee"]
 
     z0 = sqrt_price_at_tick(0) * 1.0001 ** 0.25          # giữa tick 0
     pool = Pool(fee, z0)
-    tt = ThiTruongKichBan(z0 ** 2, cfg["vol_pre"], rng)
+    tt = ThiTruongKichBan(z0 ** 2, cfg["vol_pre"], dong["gia"])
 
     pool.t = 0
     if cfg.get("bg_band") is not None:                    # nền hữu hạn: vài vị thế lồng nhau trong ±bg_band
@@ -141,14 +165,21 @@ def run(config: dict, seed: int) -> EventLog:
     else:
         thuong_att, san_tro_cap = None, farmers
 
+    doc_log = 0                                           # chỉ số dòng log đã quét để tìm mint/burn trong bước
     for t in range(T):
         pool.t = t
-        # giao dịch nền: số lệnh Poisson, cỡ log-chuẩn (token1), mua/bán đều
-        for _ in range(rng.poisson(cfg["bg_rate"])):
-            v = cfg["bg_size"] * rng.lognormal(0.0, 0.5)
-            if pool.liquidity <= 0:                           # bể cạn ở giá này → trader nền không vào
+        if t % W == 0:                                        # giá đầu cửa sổ tích lũy (tham chiếu của clawback)
+            gia_dau_cua_so = pool.sqrt_price ** 2
+        # giao dịch nền: số lệnh Poisson, cỡ log-chuẩn (token1), mua/bán đều — rút đủ cả bước trước khi khớp
+        n_lenh = rng_nen.poisson(cfg["bg_rate"])
+        co = cfg["bg_size"] * rng_nen.lognormal(0.0, 0.5, n_lenh)
+        chieu = rng_nen.random(n_lenh)
+        if ghi is not None:
+            ghi.setdefault("nen", []).append((t, co, chieu))
+        for v, u in zip(co, chieu):
+            if pool.liquidity <= 0:                           # bể cạn ở giá này → trader nền bỏ lệnh (số đã rút)
                 continue
-            if rng.random() < 0.5:
+            if u < 0.5:
                 pool.swap("bg:0", zero_for_one=False, amount_in=v)
             else:
                 pool.swap("bg:0", zero_for_one=True, amount_in=v / pool.sqrt_price ** 2)
@@ -170,8 +201,15 @@ def run(config: dict, seed: int) -> EventLog:
             for a in san_tro_cap:
                 if a.v_cua_so > 0:
                     ham = thuong_att if a.owner == att.owner else thuong
-                    lich_tra.chot(t, a.owner, ham(a.v_cua_so), pool.sqrt_price ** 2)
-        lich_tra.thu_hoi(pool.sqrt_price ** 2, {p.owner for p in pool.positions()})   # clawback (nếu có)
+                    lich_tra.chot(t, a.owner, ham(a.v_cua_so), pool.sqrt_price ** 2,
+                                  gia_tham_chieu=gia_dau_cua_so)
+        # clawback (nếu có): owner có vị thế LP trong bước t = đang giữ vị thế cuối bước hoặc có mint/burn trong
+        # bước (bắt được kẻ tấn công rút tường ngay bước này); lịch trả nhớ lịch sử theo địa chỉ
+        chu_lp = {p.owner for p in pool.positions()}
+        rows = pool.log.rows
+        chu_lp.update(r["owner"] for r in rows[doc_log:] if r["kind"] in ("mint", "burn"))
+        doc_log = len(rows)
+        lich_tra.thu_hoi(pool.sqrt_price ** 2, chu_lp, t)
         for owner, gia_tri in lich_tra.den_han(t, pool.sqrt_price ** 2):   # trả khoản tới hạn
             pool.log.append(t, "subsidy", owner, amount1=gia_tri, sqrt_price_after=pool.sqrt_price,
                             tick_after=pool.tick, liquidity_active_after=pool.liquidity)
@@ -183,6 +221,9 @@ def run(config: dict, seed: int) -> EventLog:
                         sqrt_price_after=pool.sqrt_price, tick_after=pool.tick,
                         liquidity_active_after=pool.liquidity)
 
+    if ghi is not None:
+        tt.external_price(T - 1)
+        ghi["soc"] = list(tt.soc)
     P_cuoi = pool.sqrt_price ** 2
     pool.log.meta = dict(cfg, seed=seed, Q_eff=Q_eff, subsidy_pending=lich_tra.con_treo(P_cuoi),
                          subsidy_pending_attacker=lich_tra.con_treo(P_cuoi, att.owner),
@@ -191,9 +232,9 @@ def run(config: dict, seed: int) -> EventLog:
     return pool.log
 
 
-def run_frame(config: dict, seed: int) -> pd.DataFrame:
+def run_frame(config: dict, seed: int, ghi: dict | None = None) -> pd.DataFrame:
     """Như run nhưng trả DataFrame, meta để ở `df.attrs["meta"]` (cùng chỗ với log giả)."""
-    log = run(config, seed)
+    log = run(config, seed, ghi)
     df = log.to_frame()
     df.attrs["meta"] = log.meta
     return df

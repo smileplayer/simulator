@@ -32,3 +32,21 @@ class ThiTruongCoDinh:
 def role(owner: str) -> str:
     """Vai của chủ sở hữu: phần trước dấu ':' (ví dụ 'farmer:3' → 'farmer')."""
     return owner.split(":", 1)[0]
+
+
+def tick_chua_gia(pool: Any) -> int:
+    """Tick (đơn vị tick) chứa giá theo nghĩa [P(i), P(i+1)): như `pool.tick`, trừ khi giá nằm đúng biên trên
+    `P(pool.tick + 1)` (quy ước v3 sau khi đi xuống chạm biên) thì trả `pool.tick + 1`."""
+    from engine import sqrt_price_at_tick
+    if pool.sqrt_price >= sqrt_price_at_tick(pool.tick + 1):
+        return pool.tick + 1
+    return pool.tick
+
+
+def khoang_quanh_gia(pool: Any, w: int) -> tuple[int, int]:
+    """Khoảng [tick_lower, tick_upper) căn theo `pool.tick_spacing`, chứa giá hiện tại (xem `tick_chua_gia`);
+    độ rộng = w tick làm tròn lên bội số của tick_spacing (spacing 1 → đúng w)."""
+    s = getattr(pool, "tick_spacing", 1)
+    tl = tick_chua_gia(pool)
+    tl -= tl % s
+    return tl, tl + -(-w // s) * s

@@ -5,9 +5,9 @@ Biện pháp: không có; hạ trần Q còn 75% / 50% / 25%; trả trễ D = 24
 
 Chế độ `--farm` (CH-6): kẻ tấn công cũng là farmer, phần khối lượng farmer danh nghĩa s ∈ {0; 0,3; 0,6}
 (`attacker_farm_share`) × {khong, delay24/72/168, claw24/72/168} (claw = delay + thu hồi khi sập ≥ 10%, chỉ owner
-có vị thế LP; với s = 0 không có owner nào như vậy nên bỏ) → `ket_qua/gd2/tomtat_farm.csv`.
+có vị thế LP; với s = 0 không có owner nào như vậy nên bỏ) → `ket_qua/gd2/tomtat_farm_v2.csv` (v2: rng theo vụ, clawback theo lịch sử LP — 15/10).
 
-Chạy: `python -m scenarios.quet_gd2 [--seeds 10] [--out ket_qua/gd2/tomtat.csv] [--nhanh] [--farm]`.
+Chạy: `python -m scenarios.quet_gd2 [--seeds 10] [--out ket_qua/gd2/tomtat_v2.csv] [--nhanh] [--farm]`.
 Chạy lại thì bỏ qua các (vụ, bp, victim, seed) đã có trong file; không lưu log thô (quá lớn).
 """
 from __future__ import annotations
@@ -122,5 +122,5 @@ if __name__ == "__main__":
     ap.add_argument("--nhanh", action="store_true")
     ap.add_argument("--farm", action="store_true", help="CH-6: kẻ tấn công cũng là farmer → tomtat_farm.csv")
     a = ap.parse_args()
-    out = a.out or ("ket_qua/gd2/tomtat_farm.csv" if a.farm else "ket_qua/gd2/tomtat.csv")
+    out = a.out or ("ket_qua/gd2/tomtat_farm_v2.csv" if a.farm else "ket_qua/gd2/tomtat_v2.csv")
     chay(a.seeds, Path(out), a.nhanh, a.farm)

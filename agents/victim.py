@@ -9,7 +9,7 @@ import math
 from collections import deque
 from typing import Any
 
-from agents.base import Market
+from agents.base import Market, khoang_quanh_gia, tick_chua_gia
 
 
 def l_v_sao(f: float, V: float, L_A: float, c_V: float) -> float:
@@ -20,7 +20,11 @@ def l_v_sao(f: float, V: float, L_A: float, c_V: float) -> float:
 
 
 class VictimToanTri:
-    """Biết V (khối lượng được trợ cấp mỗi cửa sổ); mỗi bước chỉnh L trong tick về L_V* nếu lệch > nguong."""
+    """Biết V (khối lượng được trợ cấp mỗi cửa sổ); mỗi bước chỉnh L trong tick về L_V* nếu lệch > nguong.
+
+    Trong bộ chạy, V = (n_farmers + m)·Q_eff gồm cả khối lượng farm của kẻ tấn công (m tài khoản ảo, CH-6): phí
+    từ khối lượng đó là thật (cơ chế pressure trader của bài gốc), nên `attacker_farm_share` lớn kéo victim vào
+    nhiều hơn — đúng ý đồ, không phải lỗi."""
 
     def __init__(self, owner: str, V: float, c_V: float, w: int = 1, t_vao: int = 0,
                  nguong: float = 0.01):
@@ -30,6 +34,7 @@ class VictimToanTri:
         self.V, self.c_V, self.w = V, c_V, w
         self.t_vao, self.nguong = t_vao, nguong
         self.tick_lower: int | None = None
+        self.tick_upper: int | None = None
         self.vi_the: list[int] = []      # position_id, mint sau nằm cuối
 
     def L_hien_tai(self, pool: Any) -> float:
@@ -51,15 +56,17 @@ class VictimToanTri:
         V = self.uoc_V(t, pool)
         if V is None:
             return
-        if self.tick_lower is None:
-            self.tick_lower = pool.tick
-        if not self.tick_lower <= pool.tick < self.tick_lower + self.w:
+        if self.tick_lower is None:                      # tick chứa giá, căn theo tick_spacing
+            self.tick_lower, self.tick_upper = khoang_quanh_gia(pool, self.w)
+        tick = tick_chua_gia(pool)
+        if not self.tick_lower <= tick < self.tick_upper:
             return
         L_minh = self.L_hien_tai(pool)
-        L_khac = pool.liquidity - L_minh
+        # giá ở đúng biên trên của pool.tick: L hoạt động của bể là của tick dưới → đọc L của tick chứa giá
+        L_khac = (pool.liquidity if tick == pool.tick else pool.liquidity_at(tick)) - L_minh
         muc_tieu = l_v_sao(pool.fee, V, L_khac, self.c_V)
         if muc_tieu > L_minh * (1 + self.nguong) and muc_tieu - L_minh > 0:
-            pid, _, _ = pool.mint(self.owner, self.tick_lower, self.tick_lower + self.w, muc_tieu - L_minh)
+            pid, _, _ = pool.mint(self.owner, self.tick_lower, self.tick_upper, muc_tieu - L_minh)
             self.vi_the.append(pid)
         elif muc_tieu < L_minh * (1 - self.nguong):
             can_rut = L_minh - muc_tieu
