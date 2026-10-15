@@ -26,11 +26,13 @@ def derived(df: pd.DataFrame, ph: dict | None = None, end: str = "t_b",
 
     - `eff_L` = L_active trung bình pha Post / tổng trợ cấp (L trên mỗi token1): thanh khoản còn lại mua được bằng trợ cấp;
     - `eff_gain` = (L_active Post − L_active Before) / tổng trợ cấp: phần thanh khoản tăng thêm thật; ≤ 0 → trợ cấp mất trắng;
-    - `leak_paper`, `leak_full` = lợi nhuận kẻ tấn công (bản bài gốc / bản đầy đủ) / tổng trợ cấp.
+    - `leak_paper`, `leak_full` = lợi nhuận kẻ tấn công (bản bài gốc / bản đầy đủ) / tổng trợ cấp;
+    - `leak_excess` = lợi nhuận tăng thêm so với bán thẳng (Theorem 6) / tổng trợ cấp.
+    Tổng trợ cấp = đã trả + còn treo (`subsidy_cost`).
     """
     ph = ph or phases(df)
     S = subsidy_cost(df)["total"]
-    out = dict(subsidy_total=S, eff_L=NAN, eff_gain=NAN, leak_paper=NAN, leak_full=NAN)
+    out = dict(subsidy_total=S, eff_L=NAN, eff_gain=NAN, leak_paper=NAN, leak_full=NAN, leak_excess=NAN)
     if not ph["breached"]:
         return out
     pl = pool_liquidity(df, ph)
@@ -40,6 +42,7 @@ def derived(df: pd.DataFrame, ph: dict | None = None, end: str = "t_b",
     if len(ap):
         out["leak_paper"] = _chia(float(ap.loc["TOTAL", "paper"]), S)
         out["leak_full"] = _chia(float(ap.loc["TOTAL", "full"]), S)
+        out["leak_excess"] = _chia(float(ap.loc["TOTAL", "excess"]), S)
     return out
 
 
@@ -55,11 +58,15 @@ def summarize(df: pd.DataFrame, end: str = "t_b", alpha_cost: float | None = Non
         for c in ("lift", "lift_trade", "RV", "RV_price", "vol_mean"):
             r[f"{c}_{ten}"] = float(bang.loc[ten, c])
     r.update(price_changes(df, ph))
-    r["subsidy_total"] = subsidy_cost(df)["total"]
+    sc = subsidy_cost(df)
+    r.update(subsidy_total=sc["total"], subsidy_paid=sc["paid"], subsidy_pending=sc["pending"],
+             subsidy_clawed=sc["clawed"], subsidy_to_attacker=sc["to_attacker"])
     pl = pool_liquidity(df, ph)
     r.update({f"L_{k}": pl[k] for k in ("mean_before", "mean_post", "ratio_post_before", "drop_at_tb")})
     for k in ("victim_loss_full", "victim_loss_nonalpha", "n_victims", "n_victims_loss",
-              "attacker_profit_paper", "attacker_net_cash1", "attacker_profit_full", "main_attacker"):
+              "attacker_profit_paper", "attacker_net_cash1", "attacker_profit_full", "main_attacker",
+              "attacker_ban_thang", "attacker_profit_excess", "attacker_x_dump", "attacker_farm_volume",
+              "attacker_farm_cost", "attacker_farm_subsidy", "attacker_farm_pnl", "attacker_farm_pending"):
         r[k] = NAN
     if ph["breached"]:
         vl = victim_loss(df, ph, end=end)
@@ -75,7 +82,12 @@ def summarize(df: pd.DataFrame, end: str = "t_b", alpha_cost: float | None = Non
         if len(ap):
             r.update(attacker_profit_paper=float(ap.loc["TOTAL", "paper"]),
                      attacker_net_cash1=float(ap.loc["TOTAL", "net_cash1"]),
-                     attacker_profit_full=float(ap.loc["TOTAL", "full"]))
+                     attacker_profit_full=float(ap.loc["TOTAL", "full"]),
+                     attacker_ban_thang=float(ap.loc["TOTAL", "ban_thang"]),
+                     attacker_profit_excess=float(ap.loc["TOTAL", "excess"]),
+                     attacker_x_dump=float(ap.loc["TOTAL", "x_dump"]),
+                     **{f"attacker_{k}": float(ap.loc["TOTAL", k]) for k in
+                        ("farm_volume", "farm_cost", "farm_subsidy", "farm_pnl", "farm_pending")})
     r.update({k: v for k, v in derived(df, ph, end, alpha_cost).items() if k != "subsidy_total"})
     meta = df.attrs.get("meta", {})
     r = {**{f"meta_{k}": meta[k] for k in ("seed", "sigma", "Q", "fee") if k in meta}, **r}

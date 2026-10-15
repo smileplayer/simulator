@@ -17,11 +17,27 @@ from metrics.timeseries import build_timeseries, step_frame
 LN_CO_SO = math.log(1.0001)
 
 
-def subsidy_cost(df: pd.DataFrame) -> dict:
-    """Chi phí trợ cấp (token1): `total` và `by_owner` (Series theo farmer) từ các dòng `subsidy`."""
+def subsidy_cost(df: pd.DataFrame, attackers: set[str] | None = None) -> dict:
+    """Chi phí trợ cấp của nền tảng (token1) từ dòng `subsidy` + khoản trả trễ chưa tới hạn trong meta (CH-2).
+
+    `paid` = Σ dòng `subsidy`; `pending` = `meta["subsidy_pending"]` (đã chốt, chưa tới hạn khi hết kịch bản —
+    vẫn là nghĩa vụ của nền tảng); `total` = paid + pending (chỉ số chính); `clawed` = `meta["subsidy_clawed"]`
+    (đã hủy nhờ clawback, báo riêng, **không** cộng). `by_owner`: Series đã trả theo owner. `to_attacker` = phần
+    trả + treo của owner trong `attackers` (mặc định owner có vai `attacker`), `pending_attacker` từ meta;
+    `to_farmers` = total − to_attacker.
+    """
+    meta = df.attrs.get("meta", {}) or {}
     sb = df[df["kind"] == "subsidy"]
     by_owner = sb.groupby("owner")["amount1"].sum()
-    return dict(total=float(sb["amount1"].sum()), by_owner=by_owner)
+    if attackers is None:
+        attackers = {o for o in by_owner.index if str(o).split(":")[0] == "attacker"}
+    paid = float(sb["amount1"].sum())
+    pending = float(meta.get("subsidy_pending", 0.0) or 0.0)
+    pend_att = float(meta.get("subsidy_pending_attacker", 0.0) or 0.0)
+    to_att = float(by_owner[by_owner.index.isin(attackers)].sum()) + pend_att
+    return dict(total=paid + pending, paid=paid, pending=pending, pending_attacker=pend_att,
+                clawed=float(meta.get("subsidy_clawed", 0.0) or 0.0), to_attacker=to_att,
+                to_farmers=paid + pending - to_att, by_owner=by_owner)
 
 
 def _trung_binh(s: pd.Series, w: tuple[int, int] | None) -> float:

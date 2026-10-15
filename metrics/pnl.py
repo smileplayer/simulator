@@ -114,34 +114,130 @@ def victim_loss(df: pd.DataFrame, ph: dict, end: str = "t_b", victims: set[str] 
     return out
 
 
+def _gia_ngoai(df: pd.DataFrame) -> pd.Series:
+    """P_e theo bước (token1/token0) từ dòng `step`; thiếu thì lấy giá bể cuối bước."""
+    s = df[df["kind"] == "step"].sort_values(["t", "seq"]).groupby("t").last()
+    pe = s["external_price"].astype(float) if "external_price" in s else pd.Series(np.nan, index=s.index)
+    return pe.fillna(s["sqrt_price_after"].astype(float) ** 2)
+
+
+def farm_pnl(df: pd.DataFrame, owner: str) -> dict:
+    """Lãi săn trợ cấp của `owner` trên cả log (token1): lệnh mua (`amount1 > 0`, token1 vào bể) = lệnh farm.
+
+    `farm_volume` = Σ v (token1 vào, gồm phí); `farm_cost` = Σ (v − P_e·x) với x = token0 nhận, P_e = giá ngoài
+    farmer thấy khi giao dịch (dòng `step` bước t; bước có cú xả của chính owner thì lấy P_e(t−1) vì bộ chạy
+    neo lại P_e theo giá bể sau cú xả); `farm_subsidy` = Σ dòng `subsidy` đã trả; `farm_pnl` = subsidy − cost.
+    Khoản treo/đã hủy không có dòng log — xem `subsidy_cost`.
+    """
+    a = df[df["owner"] == owner]
+    mua = a[(a["kind"] == "swap") & (a["amount1"] > 0) & (a["amount0"] < 0)]
+    ban_t = set(a.loc[(a["kind"] == "swap") & (a["amount0"] > 0), "t"].astype(int))
+    pe = _gia_ngoai(df)
+    gia = [float(pe.get(t - 1, pe[t])) if t in ban_t else float(pe[t]) for t in mua["t"].astype(int)]
+    v, x = mua["amount1"].astype(float), -mua["amount0"].astype(float)
+    cost = float((v - np.asarray(gia) * x).sum()) if len(mua) else 0.0
+    sub = float(a.loc[a["kind"] == "subsidy", "amount1"].sum())
+    return dict(farm_volume=float(v.sum()), farm_token0=float(x.sum()), farm_cost=cost,
+                farm_subsidy=sub, farm_pnl=sub - cost)
+
+
+def _truoc_burn_tuong(df: pd.DataFrame, ph: dict) -> int | None:
+    """Chỉ số (trong log sắp theo t, seq) của dòng burn tường đầu tiên từ `t_0`; không có → None."""
+    lo, hi = ph["wall_tick_lower"], ph["wall_tick_upper"]
+    ev = df.sort_values(["t", "seq"]).reset_index(drop=True)
+    b = ev.index[(ev["kind"] == "burn") & (ev["t"] >= ph["t_0"]) & (ev["tick_lower"] == lo) & (ev["tick_upper"] == hi)]
+    return int(b[0]) if len(b) else None
+
+
+def ban_thang(df: pd.DataFrame, ph: dict, x_ban: float, bo_owner: set[str] | frozenset = frozenset(),
+              alpha_cost: float | None = None, fee: float | None = None) -> dict:
+    """Phản thực Theorem 6: bán thẳng `x_ban` token0 vào bể **không tường, không victim** ngay trước lần burn
+    tường đầu tiên (token1).
+
+    Tái dựng từ log mọi vị thế còn mở tại thời điểm đó, bỏ vị thế trên đúng khoảng tường (tường + victim) và mọi
+    vị thế của `bo_owner`; dựng `engine.Pool` cùng giá, `quote_swap` bán `x_ban` (gồm phí) với giới hạn
+    z̄ = √(c_A/(1−f)) nếu biết `alpha_cost`. Trả `out` (token1 nhận), `x_sold`, `x_left`, `value`
+    = out + x_left·alpha_cost (phần không bán được giữ lại theo giá vốn), `L_nen` = L_active tái dựng, `P_truoc`.
+    """
+    from engine import Pool                                    # chỉ dùng để tính bán thẳng, không đổi log
+    meta = df.attrs.get("meta", {})
+    if fee is None:
+        fee = meta.get("fee")
+    if fee is None:
+        sw = df[(df["kind"] == "swap") & (df["amount0"] > 0)]
+        fee = float((sw["fee0"] / sw["amount0"]).median())
+    i = _truoc_burn_tuong(df, ph)
+    if i is None or i == 0 or x_ban <= 0:
+        return dict(out=0.0, x_sold=0.0, x_left=float(max(x_ban, 0.0)), value=float("nan"), L_nen=float("nan"),
+                    P_truoc=float("nan"))
+    ev = df.sort_values(["t", "seq"]).reset_index(drop=True).iloc[:i]
+    z = float(ev["sqrt_price_after"].iloc[-1])
+    lo, hi = ph["wall_tick_lower"], ph["wall_tick_upper"]
+    mb = ev[ev["kind"].isin(["mint", "burn"])].copy()
+    mb["dL"] = np.where(mb["kind"] == "mint", 1.0, -1.0) * mb["liquidity"].astype(float)
+    pool = Pool(float(fee), z)
+    for pid, g in mb.groupby("position_id"):
+        L = float(g["dL"].sum())
+        a, b, u = int(g["tick_lower"].iloc[0]), int(g["tick_upper"].iloc[0]), str(g["owner"].iloc[0])
+        if L <= 1e-12 * max(1.0, float(g["liquidity"].abs().max())) or (a == lo and b == hi) or u in bo_owner:
+            continue
+        pool.mint(u, a, b, L)
+    lim = None
+    if alpha_cost is not None and alpha_cost > 0:
+        lim = math.sqrt(alpha_cost / (1 - fee))
+        if lim >= z:                                           # đã dưới giá vốn: không bán
+            return dict(out=0.0, x_sold=0.0, x_left=float(x_ban), value=float(x_ban * alpha_cost),
+                        L_nen=float(pool.liquidity), P_truoc=z * z)
+    r = pool.quote_swap(True, amount_in=float(x_ban), sqrt_price_limit=lim)
+    x_left = max(float(x_ban) - r.amount_in, 0.0)
+    val = r.amount_out + x_left * (alpha_cost or 0.0)
+    return dict(out=float(r.amount_out), x_sold=float(r.amount_in), x_left=x_left, value=float(val),
+                L_nen=float(pool.liquidity), P_truoc=z * z)
+
+
 def attacker_profit(df: pd.DataFrame, ph: dict, end: str = "t_b", attackers: set[str] | None = None,
-                    alpha_cost: float | None = None) -> pd.DataFrame:
+                    alpha_cost: float | None = None, victims: set[str] | None = None) -> pd.DataFrame:
     """Lợi nhuận kẻ tấn công (token1), đo từ dòng tiền, **độc lập** với thiệt hại nạn nhân. Một dòng/attacker + `TOTAL`.
 
-    `paper` = Σ token1 nhận từ swap chiều sập trong `[t_0, t_end]` (đúng §5 bài gốc).
-    `net_cash1` = dòng token1 ròng về attacker trong `[t_m, t_end]` (mint/burn/swap/collect/subsidy).
-    `full` = net_cash1 + Δtoken0 × `alpha_cost` (mặc định `c_A` trong `df.attrs["meta"]`; không có thì giá bể cuối bước `t_0 − 1`).
+    Phần tấn công (bỏ lệnh farm = lệnh mua token0 và dòng `subsidy`, xem `farm_pnl`):
+    `paper` = Σ token1 nhận từ swap chiều sập trong `[t_0, t_end]` (đúng §5 bài gốc); `x_dump` = token0 đã bán;
+    `net_cash1` = dòng token1 ròng của phần tấn công trong `[t_m, t_end]` (mint/burn/swap bán/collect);
+    `delta_token0` = token0 ròng của phần tấn công; `full` = net_cash1 + Δtoken0 × `alpha_cost` + `farm_pnl`
+    (`alpha_cost` mặc định `c_A` trong meta; không có thì giá bể cuối bước `t_0 − 1`).
+    Bán thẳng (Theorem 6, `ban_thang`): `ban_thang` = giá trị khi bán cùng `x_dump` vào bể bỏ tường + victim;
+    `excess` = paper − ban_thang = lợi nhuận **tăng thêm** nhờ tấn công.
+    Farm (CH-6): `farm_volume`, `farm_cost`, `farm_subsidy`, `farm_pnl` trên cả log; `farm_pending` =
+    `meta["subsidy_pending_attacker"]` (gán cho `attacker:0`, không cộng vào `full`).
     """
     te = _t_end(ph, end)
-    if attackers is None:
-        attackers = identify_roles(df, ph, end)["attackers"]
+    if attackers is None or victims is None:
+        vai = identify_roles(df, ph, end)
+        attackers = vai["attackers"] if attackers is None else attackers
+        victims = vai["victims"] if victims is None else victims
+    meta = df.attrs.get("meta", {})
     if alpha_cost is None:
-        alpha_cost = df.attrs.get("meta", {}).get("c_A")
+        alpha_cost = meta.get("c_A")
     if alpha_cost is None:
         s = df[df["kind"] == "step"].groupby("t")["sqrt_price_after"].last()
         alpha_cost = float(s[ph["t_0"] - 1] ** 2)
     sap = _swap_sap(df, ph["t_0"], te)
     cua_so = df[(df["t"] >= ph["t_m"]) & (df["t"] <= te)]
+    farm_lenh = (cua_so["kind"] == "swap") & (cua_so["amount1"] > 0) & (cua_so["amount0"] < 0)
+    cua_so = cua_so[~farm_lenh & (cua_so["kind"] != "subsidy")]
     rows = {}
     for u in sorted(attackers):
         a = cua_so[cua_so["owner"] == u]
-        sub = a["kind"] == "subsidy"
-        cash1 = float(-a.loc[~sub, "amount1"].sum() + a["fee1"].where(a["kind"] == "collect", 0).sum()
-                      + a.loc[sub, "amount1"].sum())
+        cash1 = float(-a["amount1"].sum() + a["fee1"].where(a["kind"] == "collect", 0).sum())
         d0 = float(-a["amount0"].sum() + a["fee0"].where(a["kind"] == "collect", 0).sum())
-        paper = float(-sap.loc[sap["owner"] == u, "amount1"].sum())
-        rows[u] = dict(paper=paper, net_cash1=cash1, delta_token0=d0, alpha_cost=alpha_cost,
-                       full=cash1 + d0 * alpha_cost)
+        s_u = sap[sap["owner"] == u]
+        paper, x_dump = float(-s_u["amount1"].sum()), float(s_u["amount0"].sum())
+        bt = ban_thang(df, ph, x_dump, bo_owner=set(attackers) | set(victims), alpha_cost=alpha_cost)
+        fm = farm_pnl(df, u)
+        rows[u] = dict(paper=paper, x_dump=x_dump, ban_thang=bt["value"], ban_thang_x_sold=bt["x_sold"],
+                       excess=paper - bt["value"], net_cash1=cash1, delta_token0=d0, alpha_cost=alpha_cost,
+                       **fm, farm_pending=float(meta.get("subsidy_pending_attacker", 0.0) or 0.0)
+                       if u == "attacker:0" else 0.0,
+                       full=cash1 + d0 * alpha_cost + fm["farm_pnl"])
     out = pd.DataFrame.from_dict(rows, orient="index")
     if len(out):
         tong = out.drop(columns="alpha_cost").sum()
