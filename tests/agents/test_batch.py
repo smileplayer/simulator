@@ -34,3 +34,19 @@ def test_chay_bo_qua_phan_da_xong(tmp_path):
     assert [f.stat().st_mtime_ns for f in files] == mtime
     dfs = doc_ket_qua(tmp_path)
     assert len(dfs) == 3 and all("c_V" in d.attrs["meta"] for d in dfs)
+
+
+def test_bien_the_do_nhay():
+    """Biến thể "goc" tái lập đúng config RQ1; f001 giữ k và σ/f; vol đặt vol_prep = vol_post = vol_pre."""
+    import json
+    from scenarios.batch import FILE_TO_HOP, cau_hinh, cau_hinh_bien_the
+    for vu in json.loads(FILE_TO_HOP.read_text(encoding="utf-8"))[:3]:
+        a, g = cau_hinh(vu), cau_hinh_bien_the(vu, "goc")
+        assert g.pop("bien_the") == "goc" and a == g
+        f = cau_hinh_bien_the(vu, "f001")
+        assert f["fee"] == 0.0001 and abs(f["sigma"] / f["fee"] - a["sigma"] / a["fee"]) < 1e-9
+        assert f["k"] == a["k"] and abs(f["c_V"] / a["c_V"] - 0.04) < 1e-12
+        assert f["scenario_id"] == a["scenario_id"]                   # cùng dòng ngẫu nhiên → so cặp được
+        v = cau_hinh_bien_the(vu, "vol")
+        assert v["vol_prep"] == v["vol_post"] == a["vol_pre"]
+        assert cau_hinh_bien_the(vu, "vol_prep")["vol_post"] == a["vol_post"]

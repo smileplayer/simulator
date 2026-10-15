@@ -4,7 +4,7 @@ Tổ hợp = mảng trực giao L27 (6 yếu tố × 3 mức: L_A, k, σ, Q, bg_
 xuất hiện đều 3 lần) + 3 vụ trợ cấp dạng log. `k` đặt c_V = k·f·V/L_A với V = n_farmers·Q, k ∈ [0,64; 1)
 nên L_V*/L_A = 1/√k − 1 ∈ (0; 0,25] — tường chiếm ≥ 80% như 25/29 vụ bài gốc.
 
-Chạy: `python -m scenarios.batch [--seeds 5] [--out ket_qua/rq1_tohop] [--nhanh]`.
+Chạy: `python -m scenarios.batch [--seeds 5] [--out ket_qua/rq1_tohop] [--nhanh] [--bien_the vol|vol_prep|vol_post|f001]`.
 Mỗi (vụ, seed) ghi `<id>_s<seed>.csv` (log) + `.meta.json`; chạy lại thì bỏ qua file đã có.
 """
 from __future__ import annotations
@@ -68,8 +68,39 @@ def cau_hinh(vu: dict, goc: dict | None = None) -> dict:
     return ap_k(cfg)
 
 
-def chay(seeds: int, out: Path, nhanh: bool = False) -> None:
-    """Chạy mọi (vụ, seed), ghi dần; bỏ qua cặp đã có file. --nhanh: 3 vụ × 1 seed để đo giờ."""
+# Độ nhạy RQ1 (CH, 15/10): biến thể môi trường, cùng mã vụ nên cùng dòng ngẫu nhiên (cặp với bộ gốc).
+# "vol": giá ngoài pha tường và pha sau đi như pha trước (vol_prep = vol_post = vol_pre); "vol_prep"/"vol_post": chỉ
+# đổi một; "f001": phí 0,01% (tier tickSpacing 1 của PancakeSwap v3), giữ không thứ nguyên k (c_V = k·f·V/L_A tự đổi)
+# và σ/f (σ × 0,04).
+BIEN_THE = {
+    "goc": {},
+    "vol": {"vol_prep": "vol_pre", "vol_post": "vol_pre"},
+    "vol_prep": {"vol_prep": "vol_pre"},
+    "vol_post": {"vol_post": "vol_pre"},
+    "f001": {"fee": 0.0001, "sigma_nhan": 0.04},
+}
+
+
+def cau_hinh_bien_the(vu: dict, ten: str = "goc") -> dict:
+    """Config đầy đủ của một vụ theo biến thể độ nhạy `ten` (xem BIEN_THE); "goc" = `cau_hinh(vu)`."""
+    bt = BIEN_THE[ten]
+    goc = nap_config("co_so")
+    vu = dict(vu)
+    if "fee" in bt:
+        goc["fee"] = bt["fee"]
+    if "sigma_nhan" in bt:
+        vu["sigma"] = vu.get("sigma", goc["sigma"]) * bt["sigma_nhan"]
+    cfg = cau_hinh(vu, goc)
+    for k in ("vol_prep", "vol_post"):
+        if k in bt:
+            cfg[k] = cfg[bt[k]]
+    cfg["bien_the"] = ten
+    return cfg
+
+
+def chay(seeds: int, out: Path, nhanh: bool = False, bien_the: str = "goc") -> None:
+    """Chạy mọi (vụ, seed), ghi dần; bỏ qua cặp đã có file. --nhanh: 3 vụ × 1 seed để đo giờ.
+    `bien_the`: biến thể độ nhạy (BIEN_THE); "goc" tái lập đúng bộ RQ1."""
     out.mkdir(parents=True, exist_ok=True)
     ds = json.loads(FILE_TO_HOP.read_text(encoding="utf-8"))
     if nhanh:
@@ -80,7 +111,7 @@ def chay(seeds: int, out: Path, nhanh: bool = False) -> None:
         p = out / f"{vu['id']}_s{s}.csv"
         if p.exists():
             continue
-        df = run_frame(cau_hinh(vu), s)
+        df = run_frame(cau_hinh(vu) if bien_the == "goc" else cau_hinh_bien_the(vu, bien_the), s)
         df.to_csv(p, index=False)
         p.with_suffix(".meta.json").write_text(json.dumps(df.attrs["meta"], ensure_ascii=False,
                                                          default=lambda o: o.tolist()), encoding="utf-8")
@@ -108,8 +139,9 @@ if __name__ == "__main__":
     ap.add_argument("--out", default="ket_qua/rq1_tohop")
     ap.add_argument("--nhanh", action="store_true")
     ap.add_argument("--tao", action="store_true", help="ghi lại scenarios/configs/rq1_tohop.json")
+    ap.add_argument("--bien_the", default="goc", choices=list(BIEN_THE), help="biến thể độ nhạy RQ1")
     a = ap.parse_args()
     if a.tao or not FILE_TO_HOP.exists():
         FILE_TO_HOP.write_text(json.dumps(to_hop_rq1(), ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"đã ghi {FILE_TO_HOP}")
-    chay(a.seeds, Path(a.out), a.nhanh)
+    chay(a.seeds, Path(a.out), a.nhanh, a.bien_the)
