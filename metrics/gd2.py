@@ -12,6 +12,7 @@ chính `loi_tang_them` = `dc_excess` + `dc_farm_pnl` so trên mọi cặp.
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -63,8 +64,9 @@ def them_cot(df: pd.DataFrame) -> pd.DataFrame:
     if "dc_excess" in d:
         d["loi_tang_them"] = d["dc_excess"] + d["dc_farm_pnl"]
         d["loi_tang_them_treo"] = d["loi_tang_them"] + d["dc_farm_treo"].fillna(0.0)
-    d["loi_tan_cong"] = d["attacker_profit_excess"] + farm
-    d["loi_tan_cong_treo"] = d["loi_tan_cong"] + (treo.fillna(0.0) if isinstance(treo, pd.Series) else treo)
+    if "attacker_profit_excess" in d:
+        d["loi_tan_cong"] = d["attacker_profit_excess"] + farm
+        d["loi_tan_cong_treo"] = d["loi_tan_cong"] + (treo.fillna(0.0) if isinstance(treo, pd.Series) else treo)
     d["breached"] = d["breached"].astype(float)
     return d
 
@@ -120,7 +122,8 @@ def hieu_cap(P: pd.DataFrame, cot: str, can_sap: bool, kieu: str = "trung_vi", m
         mau = _ma_tran_mau(P["scenario_id"].to_numpy(), B_MAC_DINH, SEED_BOOT)
     if isinstance(mau, np.ndarray):
         th = _thong_ke(d[mau], kieu)
-        with np.errstate(all="ignore"):
+        with np.errstate(all="ignore"), warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
             ma, mb = np.nanmean(an[mau], axis=1), np.nanmean(bn[mau], axis=1)
     else:
         th = np.array([_thong_ke(d[i][None], kieu)[0] for i in mau])
@@ -144,7 +147,7 @@ def bang_danh_doi(df: pd.DataFrame, nhom: tuple[str, ...] = ("victim_type",), ch
     """Bảng dài: mỗi dòng = (nhóm..., bp, chỉ số) với hiệu cặp so với `bp_goc` + CI, % thay đổi + CI.
     `df` là bảng tóm tắt GĐ2 (đã/ chưa `them_cot`). Chỉ số thiếu cột thì bỏ qua. `chi_so` = None → `CHI_SO_V3`
     nếu có cột `dc_excess`, không thì `CHI_SO`."""
-    if "loi_tan_cong" not in df:
+    if "loi_tan_cong" not in df and "attacker_profit_excess" in df:
         df = them_cot(df)
     if chi_so is None:
         chi_so = CHI_SO_V3 if "dc_excess" in df else CHI_SO

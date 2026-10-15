@@ -42,9 +42,14 @@ def phases(df: pd.DataFrame, width: int = 1, W: int = 24, breach: float = 0.10,
            wall: tuple[int, int] | None = None) -> dict:
     """Tìm mốc `t_m, t_50, t_peak, t_0, t_oot, t_b` (bước) và cửa sổ bốn pha.
 
-    `wall` = (tick_lower, tick_upper) nếu muốn chỉ định tường; mặc định tự dò theo đỉnh thanh khoản.
+    `wall` = (tick_lower, tick_upper) nếu muốn chỉ định tường; không cho mà `df.attrs["meta"]["wall_range"]` có
+    (tường rộng, GĐ3) thì dùng nó và `width` = hi − lo; không thì tự dò theo đỉnh thanh khoản các khoảng rộng `width`.
     Không có cú sập ≥ `breach` thì `t_b`, `t_oot` = None và `breached` = False.
     """
+    meta = df.attrs.get("meta", {}) or {}
+    if wall is None and meta.get("wall_range") is not None:             # tường rộng (GĐ3, kẻ tấn công nới tường)
+        wall = (int(meta["wall_range"][0]), int(meta["wall_range"][1]))
+        width = wall[1] - wall[0]
     wl = wall_liquidity(df, width)
     if wl.empty:
         raise ValueError(f"log không có mint/burn nào rộng {width} tick")
@@ -52,6 +57,7 @@ def phases(df: pd.DataFrame, width: int = 1, W: int = 24, breach: float = 0.10,
         lo = int(wl.groupby("tick_lower")["L_wall"].max().idxmax())
     else:
         lo = int(wall[0])
+        width = int(wall[1]) - lo
     hi = lo + width
     e = wl[wl["tick_lower"] == lo].reset_index(drop=True)
     peak = float(e["L_wall"].max())

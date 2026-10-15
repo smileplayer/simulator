@@ -20,12 +20,33 @@ from metrics.indicators import vwap
 CO_SO = 1.0001
 
 
-def _t_end(ph: dict, end: str) -> int:
-    """Bước kết thúc cửa sổ sập: `ph["t_b"]` hoặc `ph["t_oot"]`."""
+def moc_thay_the(df: pd.DataFrame, ph: dict) -> int:
+    """Mốc kết thúc thay thế khi giá không sập đủ ngưỡng (không có `t_b`): `t_0 + W` (cùng độ dài cửa sổ Post,
+    tính từ lúc rút tường), cắt ở bước cuối của log; không có `t_0` → bước cuối (bước)."""
+    t_cuoi = int(df["t"].max())
+    return t_cuoi if ph.get("t_0") is None else min(int(ph["t_0"]) + int(ph.get("W", 24)), t_cuoi)
+
+
+def _t_end(ph: dict, end: str, df: pd.DataFrame | None = None) -> int:
+    """Bước kết thúc cửa sổ sập: `ph["t_b"]` hoặc `ph["t_oot"]`. Thiếu mốc: có `df` → `moc_thay_the(df, ph)`,
+    không có → ValueError (giữ hành vi cũ cho chỗ cần đúng mốc bài gốc)."""
     t = ph["t_b"] if end == "t_b" else ph["t_oot"]
     if t is None:
+        if df is not None:
+            return moc_thay_the(df, ph)
         raise ValueError(f"vụ không có {end} (giá không sập đủ ngưỡng)")
     return int(t)
+
+
+def _lp_phu(df: pd.DataFrame, ph: dict, w_max: int) -> pd.DataFrame:
+    """Mint/burn của mọi vị thế **phủ** tick tường (tick_lower ≤ lo, tick_upper ≥ hi) rộng ≤ `w_max` tick
+    (w_max = 1 ⇔ đúng tick tường như bài gốc; lớn hơn để nhận victim dải rộng GĐ3 mà không gộp LP nền rộng)."""
+    lo, hi = ph["wall_tick_lower"], ph["wall_tick_upper"]
+    mb = df[df["kind"].isin(["mint", "burn"]) & (df["tick_lower"] <= lo) & (df["tick_upper"] >= hi)
+            & ((df["tick_upper"] - df["tick_lower"]) <= max(w_max, hi - lo))]
+    mb = mb.sort_values(["t", "seq"]).copy()
+    mb["dL"] = np.where(mb["kind"] == "mint", 1.0, -1.0) * mb["liquidity"].astype(float)
+    return mb
 
 
 def _lp_tuong(df: pd.DataFrame, ph: dict) -> pd.DataFrame:
@@ -43,12 +64,18 @@ def _swap_sap(df: pd.DataFrame, t_a: int, t_b: int) -> pd.DataFrame:
     return sw[(sw["amount0"] > 0) & (sw["amount1"] < 0)]
 
 
-def identify_roles(df: pd.DataFrame, ph: dict, end: str = "t_b") -> dict:
+def identify_roles(df: pd.DataFrame, ph: dict, end: str = "t_b", w_max: int = 1,
+                   khong_sap: str = "loi") -> dict:
     """Suy vai trò như bài gốc. Trả dict tập owner: `victims`, `wall_providers`, `pressure_traders`,
-    `attackers`, và `main_attacker` (str hoặc None), `wall_share` (Series thị phần tường trước `t_0`)."""
-    te = _t_end(ph, end)
+    `attackers`, và `main_attacker` (str hoặc None), `wall_share` (Series thị phần tường trước `t_0`).
+
+    `w_max` (tick): victim = còn L > 0 tại `t_end` trên vị thế **phủ** tick tường rộng ≤ w_max (mặc định 1 = đúng
+    tick tường, như bài gốc; GĐ3 dùng ≥ 200 cho victim dải rộng). Tường/wall provider vẫn theo đúng tick tường.
+    `khong_sap`: "loi" (mặc định) → ValueError khi không có `t_end`; "moc_thay_the" → dùng `moc_thay_the`."""
+    te = _t_end(ph, end, df if khong_sap == "moc_thay_the" else None)
     mb = _lp_tuong(df, ph)
-    L_cuoi = mb[mb["t"] <= te].groupby("owner")["dL"].sum()
+    mp = _lp_phu(df, ph, w_max) if w_max > 1 else mb
+    L_cuoi = mp[mp["t"] <= te].groupby("owner")["dL"].sum()
     victims = set(L_cuoi[L_cuoi > 1e-9 * max(1.0, L_cuoi.abs().max())].index)
     trong = mb[(mb["t"] >= ph["t_m"]) & (mb["t"] <= te)]
     wall_prov = set(trong.loc[trong["kind"] == "mint", "owner"]) & set(trong.loc[trong["kind"] == "burn", "owner"])
@@ -69,20 +96,38 @@ def _luong_vi_the(L: float, lo: int, hi: int, z: float) -> tuple[float, float]:
     return L * (1 / zc - 1 / zb), L * (zc - za)
 
 
-def victim_loss(df: pd.DataFrame, ph: dict, end: str = "t_b", victims: set[str] | None = None) -> pd.DataFrame:
+def victim_loss(df: pd.DataFrame, ph: dict, end: str = "t_b", victims: set[str] | None = None,
+                w_max: int = 1, khong_sap: str = "loi") -> pd.DataFrame:
     """Thiệt hại từng victim (token1) + dòng `TOTAL`. `victims` = None → suy như bài gốc.
 
     Cột: nạp `x_dep, y_dep`; nhận lại `x_back, y_back` (burn tới `t_end` + phần còn kẹt theo giá cuối `t_end`);
     `p_alpha` (VWAP [t_b, t_b+1]); `E_nonalpha` = y_dep − y_back − p_alpha·x_back (bài gốc, chỉ đếm non-alpha);
     `E_full` = (y_dep + p_alpha·x_dep) − (y_back + p_alpha·x_back) (kế hoạch, so với "ôm" định giá tại t_b);
     `loss_nonalpha`, `loss_full` = max{0, E}; `fees` = phí đã collect (token1, token0 theo p_alpha) — tách riêng, không trừ.
+
+    Không sập (không có `t_b`): `khong_sap` = "loi" (mặc định, như cũ) → ValueError; "nan" → bảng một dòng
+    `TOTAL` toàn NaN (có kiểm soát, cột `moc` = "khong_sap"); "moc_thay_the" → `t_end` = `t_b` = `moc_thay_the`
+    (t_0 + W), p_alpha = VWAP quanh mốc đó (gần nhất có swap), cột `moc` = "thay_the". `w_max`: xem `identify_roles`.
     """
-    te = _t_end(ph, end)
+    co_tb = ph.get(end if end == "t_b" else "t_oot") is not None and ph.get("t_b") is not None
+    if not co_tb and khong_sap == "nan":
+        cot = ["x_dep", "y_dep", "x_back", "y_back", "p_alpha", "E_nonalpha", "E_full", "loss_nonalpha",
+               "loss_full", "fees"]
+        out = pd.DataFrame([{c: math.nan for c in cot}], index=["TOTAL"])
+        out["moc"] = "khong_sap"
+        return out
+    thay = df if (not co_tb and khong_sap == "moc_thay_the") else None
+    te = _t_end(ph, end, thay)
     if victims is None:
-        victims = identify_roles(df, ph, end)["victims"]
+        victims = identify_roles(df, ph, end, w_max=w_max, khong_sap="moc_thay_the" if thay is not None else "loi")["victims"]
     P = vwap(df)
-    t_b = _t_end(ph, "t_b")
-    p_alpha = float((P[t_b] + P.get(t_b + 1, P[t_b])) / 2)
+    t_b = _t_end(ph, "t_b", thay)
+    if t_b not in P.index:                                    # bước không có swap: lấy VWAP gần nhất trước đó
+        truoc = P[P.index <= t_b]
+        t_b_p = int(truoc.index[-1]) if len(truoc) else int(P.index[0])
+    else:
+        t_b_p = t_b
+    p_alpha = float((P[t_b_p] + P.get(t_b_p + 1, P[t_b_p])) / 2)
     s = df[df["kind"] == "step"].sort_values(["t", "seq"]).groupby("t").last()
     z_end = float(s.loc[te, "sqrt_price_after"])
 
@@ -111,6 +156,8 @@ def victim_loss(df: pd.DataFrame, ph: dict, end: str = "t_b", victims: set[str] 
         tong = out.drop(columns="p_alpha").sum()
         tong["p_alpha"] = p_alpha
         out.loc["TOTAL"] = tong
+    if thay is not None:
+        out["moc"] = "thay_the"
     return out
 
 
