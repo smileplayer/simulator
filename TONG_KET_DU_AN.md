@@ -98,7 +98,11 @@ Tiêu chuẩn kiểm định cũng đổi (Đức chốt 14/10): kiểm theo **p
 | 10 | 15/10 | A | Clawback chỉ thu hồi owner **đang** có LP → thưởng chốt sau khi rút tường lọt | Kẻ tấn công né clawback bằng cách rút trước | Thu hồi theo lịch sử địa chỉ: owner từng có LP trong cửa sổ D | C |
 | 11 | 15/10 | C | Cặp phản thực (có/không biện pháp) chỉ khớp ngẫu nhiên tới khi trạng thái bể tách nhau (bể cạn thì bỏ lượt rút số) | Hiệu biện pháp lẫn nhiễu | Tách bộ sinh số theo nguồn, mỗi bước luôn rút đủ số | C ✓ |
 | 12 | 15/10 | C | Clawback so với giá **lúc chốt** → thưởng chốt sau cú sập có mốc đã thấp | Kẻ tấn công vẫn né được | Mốc = giá đầu cửa sổ tích lũy thưởng | C ✓ |
-| 13 | 15/10 | B | `ket_qua/gd2/tomtat*.csv` tính bằng metrics cũ (chưa có excess, farm sai) | Không dùng được cho RQ2 | Chạy lại bản `_v2` sau khi C xong | **Đức chạy** |
+| 13 | 15/10 | B | `ket_qua/gd2/tomtat*.csv` tính bằng metrics cũ (chưa có excess, farm sai) | Không dùng được cho RQ2 | Chạy lại bản `_v2` | Đức chạy ✓ |
+| 14 | 15/10 | B | 969 lượt không sập → lợi nhuận NaN (suy vai theo bài gốc cần có sập) | Bỏ NaN làm lệch so sánh | Lợi nhuận theo địa chỉ thật `attacker:0` (cột `dc_*`), báo tỷ lệ sập riêng | C ✓ |
+| 15 | 15/10 | C | Phản thực "bán thẳng" bán cả kho một lần → excess +370 khi không có victim | Lớn hơn cả tín hiệu ở RQ1 (~300) | Phản thực phát lại log (bỏ tường + victim) → 0 đúng khi không victim | C ✓ |
+| 16 | 15/10 | B | Định giá chi phí farm khác nhau giữa B và C (lệch 136) | Bảng không nhất quán | Thống nhất theo `metrics.pnl.farm_pnl` | C ✓ |
+| 17 | 15/10 | B | Lợi tăng thêm không đơn điệu theo trần (L27_25 thích nghi: 2.586 → 4.493 ở cap75) | Trái Theorem 6 | Lỗi phản thực: phát lại nguyên lượng mua farmer (lấy từ đường giá có victim đỡ) → farmer phản thực tối ưu lại trên bể phản thực | C ✓, **cần chạy lại v4** |
 
 **Hạ tầng:**
 - `.claude/settings.json` cấm `git push` → Đức sửa.
@@ -159,11 +163,15 @@ Yếu tố seed chéo **đã hết** (hoán vị seed 0–4 vs 5–9: p = 0,66, 
 
 ## 7. Việc tiếp theo
 
-### Ngay bây giờ (cập nhật 15/10 chiều)
-- ✓ RQ1 chạy lại sau CH-8 (13/13 Đạt). ✓ GĐ2 v2 đã chạy + B làm bảng đánh đổi, Q*, hình, bản nháp mục 7.
-- ✓ C chuẩn bị v3: lợi nhuận theo địa chỉ thật + phản thực phát lại log (excess = 0 khi không victim), vùng k nhỏ, cảnh báo rủi ro (warn), trần động (dyncap), lưới cap mịn, lưới (σ, Q).
-1. **Đức:** `/chot` → `git pull` → chạy `python -m scenarios.quet_gd2 --luoi` (~5 phút), `python -m scenarios.quet_gd2` (~43 phút), `python -m scenarios.quet_gd2 --k_nho` (~29 phút); `--farm` không bắt buộc (~54 phút). Đẩy file `ket_qua/gd2/*_v3.csv` lên.
-2. **B:** bảng đánh đổi v3 dùng `dc_excess` (phản thực phát lại), Q* theo lưới cap mịn, bản đồ nhiệt (σ, Q) ba vùng thiết kế, vùng k nhỏ; cập nhật mục 7.
+### Ngay bây giờ (cập nhật 15/10 tối)
+- ✓ GĐ2 v3 đã chạy và B đã phân tích (bản đồ ba vùng khớp lý thuyết 25/25 ô, Q* toàn tri = k) — nhưng phát hiện lỗi phản thực (#17) → số lợi tăng thêm phải chạy lại.
+1. **Đức:** `/chot` → `git pull` → chạy `python -m scenarios.quet_gd2 --luoi` (~5 phút), `python -m scenarios.quet_gd2` (~45 phút), `python -m scenarios.quet_gd2 --k_nho` (~28 phút), `python -m scenarios.quet_gd2 --farm` (~50 phút) → `ket_qua/gd2/*_v4.csv`, đẩy lên.
+2. **B:** chạy lại `metrics.chay_gd2` + `plots.ve_gd2` trên v4, cập nhật bản nháp mục 7 (kiểm lại tính đơn điệu theo trần).
+
+### Kết quả GĐ2 v3 (trước sửa #17 — xu hướng dự kiến giữ, số lợi tăng thêm sẽ đổi)
+- **Bản đồ ba vùng (toàn tri) khớp lý thuyết 25/25 ô:** (i) σ = f; (ii) Q ≤ 12k; (iii) Q ≥ 24k (ranh Q_eff = 18k). Vùng 4 "ngoài giả định": σ = 0,0025 (Giả định 1), Q = 96k (Giả định 2: 35–37% lệnh farmer rời tick tường).
+- **Q\*:** toàn tri Q*/Q = k (28/30 vụ); thích nghi: hạ trần không đuổi được (21/30 vụ còn ở cap05).
+- **Cảnh báo rủi ro (warn40) có biên đánh đổi tốt nhất:** cắt 94% lợi kẻ tấn công cả với victim thích nghi, mất < 2,3% khối lượng. Trần động ≈ cap25. Clawback cắt ~52% phần farm. Không biện pháp nào chặn cú sập.
 
 ### Kết quả GĐ2 v2 đáng chú ý
 - Hạ trần: toàn tri cap50 → thiệt hại −100%, lợi kẻ tấn công −94%, mất khối lượng −26%; thích nghi chỉ −40%/−43%. **Q\* toàn tri khớp Lemma 4/Theorem 6** (ngưỡng = k ở 28/30 vụ).
