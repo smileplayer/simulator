@@ -22,13 +22,13 @@ def main(gd3: str = "ket_qua/gd3") -> list[Path]:
     gon = pd.read_csv(bang / "gon.csv")
     f = [ra / "ban_do_vung.png", ra / "theo_alpha.png", ra / "lp_lanh_manh.png"]
     ve_ban_do_vung(pd.read_csv(bang / "doi_chieu_giai_tich.csv"), gon, f[0],
-                   "Range-aware φ = min(1, (w/w₀)^α): khi nào giảm vốn victim (so với pro-rata, 10 seed/ô)")
-    ve_theo_alpha(gon, f[1], "Lợi kẻ tấn công và lãi victim theo α (so với pro-rata cùng vụ + seed)")
+                   "Range-aware φ = min(1, (w/w₀)^α): khi nào giảm vốn nạn nhân (so với pro-rata, 10 seed/ô)")
+    ve_theo_alpha(gon, f[1], "Lợi kẻ tấn công và lãi nạn nhân theo α (so với pro-rata cùng vụ + seed)")
     ve_lp(gon, f[2], "Cái giá với LP lành mạnh (vốn 1.000 token1, pha bình thường)")
     if (bang / "so_sanh_wA.csv").exists():
         f += [ra / "theo_wA.png", ra / "so_sanh_wA.png"]
         ve_theo_wA(pd.read_csv(bang / "wA_trung_vi.csv"), pd.read_csv(bang / "gon_wA.csv"), f[3],
-                   "Kẻ tấn công nới tường w_A (α = 2): vốn victim và lợi tăng thêm so với pro-rata (tường 1 tick)")
+                   "Kẻ tấn công nới tường w_A (α = 2): vốn nạn nhân và lợi tăng thêm so với pro-rata (tường 1 tick)")
         ve_so_sanh_wA(pd.read_csv(bang / "so_sanh_wA.csv"), f[4],
                       "Tường 1 tick vs tường tối ưu: range-aware còn tác dụng không? (α ≥ 1,5, mỗi k 9 mức φ)")
     return f

@@ -23,8 +23,8 @@ def main(gd2: str = "ket_qua/gd2", phien: str = "v4") -> list[Path]:
     bang, ra = d / f"bang{hau}", d / f"hinh{hau}"
     ra.mkdir(parents=True, exist_ok=True)
     f = {k: ra / f"{k}.png" for k in ("pareto", "danh_doi_farm", "ba_vung", "q_sao", "q_sao_knho")}
-    ve_pareto({"vùng RQ1 (k ∈ {0,64; 0,80; 0,95}, victim nhỏ)": pd.read_csv(bang / "danh_doi.csv"),
-               "vùng k nhỏ (k ∈ {0,10; 0,25; 0,45}, victim lớn, kẻ tấn công farm 0,3)":
+    ve_pareto({"vùng RQ1 (k ∈ {0,64; 0,80; 0,95}, nạn nhân nhỏ)": pd.read_csv(bang / "danh_doi.csv"),
+               "vùng k nhỏ (k ∈ {0,10; 0,25; 0,45}, nạn nhân lớn, kẻ tấn công farm 0,3)":
                    pd.read_csv(bang / "danh_doi_knho.csv")},
               f["pareto"], "Biên đánh đổi: biện pháp so với không biện pháp (30 vụ × 10 seed, CI 95% bootstrap cặp)")
     fm = pd.read_csv(bang / "danh_doi_farm.csv")
@@ -32,9 +32,9 @@ def main(gd2: str = "ket_qua/gd2", phien: str = "v4") -> list[Path]:
     ve_ba_vung(pd.read_csv(bang / "ba_vung.csv"), f["ba_vung"],
                "Ba vùng thiết kế trên lưới (σ, Q) quanh co_so (c_V cố định, 10 seed/ô)")
     ve_q_sao(pd.read_csv(bang / "q_sao_vu.csv"), f["q_sao"],
-             "Ngưỡng trần làm victim rút r_V = Q*_V/Q — vùng RQ1 (lưới cap 9 mức)")
+             "Ngưỡng trần làm nạn nhân rút r_V = Q*_V/Q — vùng RQ1 (lưới cap 9 mức)")
     ve_q_sao(pd.read_csv(bang / "q_sao_vu_knho.csv"), f["q_sao_knho"],
-             "Ngưỡng trần làm victim rút r_V = Q*_V/Q — vùng k nhỏ (lưới cap 4 mức)")
+             "Ngưỡng trần làm nạn nhân rút r_V = Q*_V/Q — vùng k nhỏ (lưới cap 4 mức)")
     return list(f.values())
 
 

@@ -11,8 +11,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from matplotlib.ticker import FuncFormatter
+
 from metrics.phases import PHA, label_phases, phases, wall_liquidity
 from metrics.timeseries import build_timeseries
+
+# kiểu chung cho mọi hình của bài (RQ1, GĐ2, GĐ3): một họ font, một bộ cỡ chữ, một độ phân giải
+DPI = 160
+matplotlib.rcParams.update({
+    "font.family": ["Inter", "DejaVu Sans"],          # Inter nếu máy có; DejaVu (kèm matplotlib) đỡ glyph thiếu
+    "font.size": 9, "axes.titlesize": 9, "axes.labelsize": 9, "xtick.labelsize": 8, "ytick.labelsize": 8,
+    "legend.fontsize": 8, "figure.titlesize": 11, "axes.unicode_minus": True, "hatch.linewidth": 0.8,
+})
 
 # bảng màu phân loại (thứ tự cố định), mặt nền, chữ
 MAU = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]
@@ -22,8 +32,27 @@ TEN_VAI = {"bg": "nền", "farmer": "farmer", "arb": "arb", "attacker": "kẻ t�
 MAU_PHA = {"Before": "#f1f0ec", "Prep": "#e6eef8", "Attack": "#fbe6dc", "Post": "#eeeeea"}
 
 
+def so_vn(v: float, nd: int | None = None) -> str:
+    """Số theo quy ước tiếng Việt: phẩy thập phân, chấm ngăn nghìn, dấu trừ U+2212 (`nd` = số chữ số sau phẩy;
+    None = tự gọn). Ví dụ 1234.5 → "1.234,5", 0.0025 → "0,0025"."""
+    if v is None or (isinstance(v, float) and not np.isfinite(v)):
+        return "–"
+    if nd is not None:
+        v = round(float(v), nd) + 0.0                     # tránh "−0"
+        s = f"{v:,.{nd}f}"
+    elif abs(v) >= 1e5 or float(v).is_integer():
+        s = f"{v:,.0f}"
+    else:
+        s = f"{v:,.6g}"
+    return s.translate(str.maketrans({",": ".", ".": ","})).replace("-", "\u2212")
+
+
+TRUC_VN = FuncFormatter(lambda v, _: so_vn(round(v, 10)))
+
+
 def _kieu(ax) -> None:
-    """Trục nhạt, lưới ngang mảnh, chữ màu chữ (không dùng màu chuỗi)."""
+    """Trục nhạt, lưới ngang mảnh, chữ màu chữ (không dùng màu chuỗi); số trên trục theo kiểu Việt (phẩy thập
+    phân). Trục log đặt sau sẽ tự thay formatter."""
     ax.set_facecolor(NEN)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
@@ -34,6 +63,8 @@ def _kieu(ax) -> None:
     ax.set_axisbelow(True)
     ax.xaxis.label.set_color(CHU_PHU)
     ax.yaxis.label.set_color(CHU_PHU)
+    ax.xaxis.set_major_formatter(TRUC_VN)
+    ax.yaxis.set_major_formatter(TRUC_VN)
 
 
 def _hinh(nrows: int, ncols: int, size: tuple[float, float], **kw):
@@ -85,9 +116,9 @@ def ve_timeline(df: pd.DataFrame, path: str | Path, tieu_de: str = "") -> dict:
     khac = mb[~mb["role"].isin(["attacker", "victim"])].groupby("t")["dL"].sum().reindex(xs, fill_value=0).cumsum()
     if (khac.abs() > 0).any():
         lop.append(("bg", khac.clip(lower=0)))
-    a2.stackplot(xs, *[s.values for _, s in lop], colors=[MAU_VAI[v] for v, _ in lop],
+    a2.stackplot(xs, *[s.values / 1e8 for _, s in lop], colors=[MAU_VAI[v] for v, _ in lop],
                  labels=[TEN_VAI[v] for v, _ in lop], edgecolor=NEN, linewidth=0.5, step="post")
-    a2.set_ylabel("L trên tick tường")
+    a2.set_ylabel("L trên tick tường (×10⁸)")
     a2.legend(frameon=False, fontsize=8, labelcolor=CHU, loc="upper left")
 
     vai_co = [v for v in MAU_VAI if f"vol_{v}" in ts.columns and ts[f"vol_{v}"].sum() > 0]
@@ -95,13 +126,13 @@ def ve_timeline(df: pd.DataFrame, path: str | Path, tieu_de: str = "") -> dict:
     for v in vai_co:
         a3.bar(xs, ts[f"vol_{v}"], bottom=day, width=1.0, color=MAU_VAI[v], label=TEN_VAI[v], linewidth=0)
         day = day + ts[f"vol_{v}"].values
-    a3.set_ylabel("khối lượng / giờ (token1)")
+    a3.set_ylabel("khối lượng (token1/giờ)")
     a3.set_xlabel("thời gian (giờ)")
     a3.legend(frameon=False, fontsize=8, labelcolor=CHU, ncol=len(vai_co), loc="upper left")
     if tieu_de:
         fig.suptitle(tieu_de, color=CHU, fontsize=11, x=0.01, ha="left")
     fig.tight_layout()
-    fig.savefig(path, dpi=160, facecolor=NEN)
+    fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
     return ph
 
@@ -117,12 +148,12 @@ def ve_hop_rv(tom_tat: pd.DataFrame, path: str | Path) -> None:
     for b in bp["boxes"]:
         b.set_facecolor(MAU[0] + "55")
     for i, d in enumerate(data, start=1):
-        ax.text(i + 0.3, np.median(d), f"{np.median(d):.3f}", va="center", fontsize=8, color=CHU_PHU)
+        ax.text(i + 0.3, np.median(d), so_vn(np.median(d), 3), va="center", fontsize=8, color=CHU_PHU)
     ax.set_yscale("log")
-    ax.set_ylabel("RV = √Σr² (r theo Δtick)")
+    ax.set_ylabel("RV = √Σr² (log-lợi suất, không đơn vị)")
     ax.set_title(f"Biến động theo pha, {len(tom_tat)} vụ mô phỏng", color=CHU, fontsize=10, loc="left")
     fig.tight_layout()
-    fig.savefig(path, dpi=160, facecolor=NEN)
+    fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
 
 
@@ -136,7 +167,7 @@ def _cot_cap(ax, nhom: list[str], mo_phong: np.ndarray, bai_goc: np.ndarray, tie
         for xi, yi in zip(x + dx, y):
             if yi > 0:
                 ax.text(xi, yi + 1, f"{yi:.0f}", ha="center", va="bottom", fontsize=7, color=CHU_PHU)
-    ax.set_xticks(x, nhom)
+    ax.set_xticks(x, [n.replace(".", ",") for n in nhom])
     ax.set_ylim(0, 105)
     ax.set_title(tieu_de, color=CHU, fontsize=10, loc="left")
 
@@ -146,10 +177,11 @@ def ve_bang4(b4: pd.DataFrame, path: str | Path) -> None:
     fig, axs = _hinh(1, 3, (11, 3.4), sharey=True)
     for ax, p in zip(axs, ("Prep", "Attack", "Post")):
         _cot_cap(ax, list(b4.index), b4[f"{p}_mo_phong_%"].values, b4[f"{p}_bai_goc_%"].values, f"Lift {p}")
+        ax.set_xlabel("volume lift (lần mức Before)")
     axs[0].set_ylabel("% số vụ")
     axs[0].legend(frameon=False, fontsize=8, labelcolor=CHU, loc="upper right")
     fig.tight_layout()
-    fig.savefig(path, dpi=160, facecolor=NEN)
+    fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
 
 
@@ -158,8 +190,9 @@ def ve_bang7(b7: pd.DataFrame, path: str | Path) -> None:
     fig, ax = _hinh(1, 1, (6.5, 3.4))
     _cot_cap(ax, list(b7.index), b7["drop_mo_phong_%"].values, b7["drop_bai_goc_%"].values,
              "Độ tụt thanh khoản tick tường tại $t_b$")
+    ax.set_xlabel("độ tụt (L_max − L(t_b))/L_max (%)")
     ax.set_ylabel("% số vụ")
     ax.legend(frameon=False, fontsize=8, labelcolor=CHU, loc="upper left")
     fig.tight_layout()
-    fig.savefig(path, dpi=160, facecolor=NEN)
+    fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
