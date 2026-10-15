@@ -46,8 +46,9 @@ class Attacker:
         return self.t_rut is not None and self.t_rut <= t < self.t_rut + self.so_buoc_xa
 
     def _L_victim(self, pool: Any) -> float:
+        # vị thế nạn nhân phủ tick tường (GĐ3: dải rộng căn giữa; w = 1 thì đúng tick tường như trước)
         return sum(p.liquidity for p in pool.positions()
-                   if p.owner.startswith("victim:") and p.tick_lower == self.tick_lower)
+                   if p.owner.startswith("victim:") and p.tick_lower <= self.tick_lower < p.tick_upper)
 
     def _den_luc_rut(self, t: int, pool: Any) -> bool:
         if self.t_0 is not None and t >= self.t_0:

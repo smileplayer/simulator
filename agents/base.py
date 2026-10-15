@@ -43,10 +43,15 @@ def tick_chua_gia(pool: Any) -> int:
     return pool.tick
 
 
-def khoang_quanh_gia(pool: Any, w: int) -> tuple[int, int]:
+def khoang_quanh_gia(pool: Any, w: int, vi_tri: str = "tren") -> tuple[int, int]:
     """Khoảng [tick_lower, tick_upper) căn theo `pool.tick_spacing`, chứa giá hiện tại (xem `tick_chua_gia`);
-    độ rộng = w tick làm tròn lên bội số của tick_spacing (spacing 1 → đúng w)."""
+    độ rộng = w tick làm tròn lên bội số của tick_spacing (spacing 1 → đúng w).
+
+    `vi_tri` (GĐ3): "tren" = tick chứa giá là tick dưới cùng, dải đi lên (mặc định GĐ1/2); "giua" = dải căn giữa,
+    lùi ⌊n/2⌋ ô spacing xuống (n = số ô); "duoi" = tick chứa giá là tick trên cùng, dải đi xuống. w = 1: cả ba như nhau."""
     s = getattr(pool, "tick_spacing", 1)
     tl = tick_chua_gia(pool)
     tl -= tl % s
-    return tl, tl + -(-w // s) * s
+    n = -(-w // s)
+    lui = {"tren": 0, "giua": n // 2, "duoi": n - 1}[vi_tri] * s
+    return tl - lui, tl - lui + n * s

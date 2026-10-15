@@ -33,12 +33,19 @@ class VictimToanTri:
     kết quả ở các ô đó thuộc vùng "ngoài giả định", không dùng để kiểm Lemma 4/Theorem 6."""
 
     def __init__(self, owner: str, V: float, c_V: float, w: int = 1, t_vao: int = 0,
-                 nguong: float = 0.01):
+                 nguong: float = 0.01, c_von: float | None = None, vi_tri: str = "tren"):
         """`V`: token1 mỗi cửa sổ; `c_V`: token1 mỗi đơn vị L mỗi cửa sổ; `w`: độ rộng (tick);
-        `t_vao`: bước sớm nhất được vào; `nguong`: lệch tương đối tối thiểu để chỉnh vị thế."""
+        `t_vao`: bước sớm nhất được vào; `nguong`: lệch tương đối tối thiểu để chỉnh vị thế.
+
+        GĐ3: `c_von` (token1 trên mỗi token1 vốn mỗi cửa sổ, quyết định chốt 5) ≠ None → mục tiêu theo vốn và theo
+        trọng số phí của bể (`pool.fee_weight` = φ): X = √(f·V·W·g/c_von) − W, L mục tiêu = X/φ(w), với
+        W = Σ L_j·φ(w_j) của LP khác trong tick chứa giá, g = φ(w)·ℓ(w), ℓ = L trên mỗi token1 vốn của dải mình
+        (tính lúc vào). φ ≡ 1, c_von = c_V·ℓ(1) ⇒ trùng Lemma 4. `vi_tri`: "tren" | "giua" | "duoi" (`khoang_quanh_gia`)."""
         self.owner = owner
         self.V, self.c_V, self.w = V, c_V, w
         self.t_vao, self.nguong = t_vao, nguong
+        self.c_von, self.vi_tri = c_von, vi_tri
+        self.l_von: float | None = None
         self.tick_lower: int | None = None
         self.tick_upper: int | None = None
         self.vi_the: list[int] = []      # position_id, mint sau nằm cuối
@@ -63,14 +70,20 @@ class VictimToanTri:
         if V is None:
             return
         if self.tick_lower is None:                      # tick chứa giá, căn theo tick_spacing
-            self.tick_lower, self.tick_upper = khoang_quanh_gia(pool, self.w)
+            self.tick_lower, self.tick_upper = khoang_quanh_gia(pool, self.w, self.vi_tri)
+            if self.c_von is not None:
+                from agents.do_rong import von_tren_L
+                self.l_von = 1.0 / von_tren_L(pool.sqrt_price, self.tick_lower, self.tick_upper)
         tick = tick_chua_gia(pool)
         if not self.tick_lower <= tick < self.tick_upper:
             return
         L_minh = self.L_hien_tai(pool)
-        # giá ở đúng biên trên của pool.tick: L hoạt động của bể là của tick dưới → đọc L của tick chứa giá
-        L_khac = (pool.liquidity if tick == pool.tick else pool.liquidity_at(tick)) - L_minh
-        muc_tieu = l_v_sao(pool.fee, V, L_khac, self.c_V)
+        if self.c_von is None:
+            # giá ở đúng biên trên của pool.tick: L hoạt động của bể là của tick dưới → đọc L của tick chứa giá
+            L_khac = (pool.liquidity if tick == pool.tick else pool.liquidity_at(tick)) - L_minh
+            muc_tieu = l_v_sao(pool.fee, V, L_khac, self.c_V)
+        else:
+            muc_tieu = self.muc_tieu_theo_von(pool, V, tick)
         if muc_tieu > L_minh * (1 + self.nguong) and muc_tieu - L_minh > 0:
             pid, _, _ = pool.mint(self.owner, self.tick_lower, self.tick_upper, muc_tieu - L_minh)
             self.vi_the.append(pid)
@@ -87,15 +100,28 @@ class VictimToanTri:
                     self.vi_the.remove(pid)
 
 
+    def muc_tieu_theo_von(self, pool: Any, V: float, tick: int) -> float:
+        """GĐ3: L mục tiêu (đơn vị L) khi chi phí theo vốn và phí chia theo L·φ(w) (xem `agents.do_rong`)."""
+        phi = pool.fee_weight or (lambda w: 1.0)
+        W = sum(p.liquidity * phi(p.tick_upper - p.tick_lower) for p in pool.positions()
+                if p.tick_lower <= tick < p.tick_upper and p.id not in self.vi_the)
+        if W <= 0:
+            return 0.0                       # như Lemma 4: tick trống thì không vào
+        ph = phi(self.tick_upper - self.tick_lower)
+        g = ph * self.l_von
+        return max(0.0, math.sqrt(pool.fee * V * W * g / self.c_von) - W) / ph
+
+
 class VictimThichNghi(VictimToanTri):
     """Không biết V hay Q: ước V từ phí cả bể trong H bước gần nhất (dữ liệu on-chain công khai), rồi tối ưu
     như Lemma 4. Không phân biệt khối lượng được trợ cấp với khối lượng nền/arb, và phản ứng trễ H bước."""
 
     def __init__(self, owner: str, c_V: float, window: int = 24, H: int = 24, w: int = 1, t_vao: int = 0,
-                 nguong: float = 0.10):
+                 nguong: float = 0.10, c_von: float | None = None, vi_tri: str = "tren"):
         """`window`: số bước một cửa sổ (đơn vị của V và c_V); `H`: số bước lịch sử dùng để ước V;
         `nguong` mặc định 10% (V̂ nhiễu theo từng bước, ngưỡng 1% làm vị thế bị chỉnh liên tục)."""
-        super().__init__(owner, V=float("nan"), c_V=c_V, w=w, t_vao=t_vao, nguong=nguong)
+        super().__init__(owner, V=float("nan"), c_V=c_V, w=w, t_vao=t_vao, nguong=nguong, c_von=c_von,
+                         vi_tri=vi_tri)
         self.window, self.H = window, H
         self._doc_den = 0                                # chỉ số dòng log đã đọc
         self._phi_buoc: deque[tuple[int, float]] = deque()   # (bước, phí token1 cả bể trong bước đó)

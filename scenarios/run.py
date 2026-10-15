@@ -1,6 +1,6 @@
 """Bộ chạy kịch bản (INTERFACE mục 3): ghép bể engine thật + giao dịch nền + farmer + victim + attacker + arb.
 
-Thứ tự trong mỗi bước t: đặt pool.t → giao dịch nền bg:0 → farmer (+ farmer của kẻ tấn công) → victim → attacker → arb:0 (tắt khi
+Thứ tự trong mỗi bước t: đặt pool.t → giao dịch nền bg:0 → farmer (+ farmer của kẻ tấn công) → victim → LP lành mạnh `lp:*` (GĐ3) → attacker → arb:0 (tắt khi
 attacker đang xả) → chốt trợ cấp cuối cửa sổ → thu hồi (clawback) → trả khoản tới hạn → (trần động: đọc L tick chứa giá) → dòng `step`.
 Trần động đổi trần đầu bước (trước giao dịch nền). Bước cuối: collect phí cho mọi vị thế LP.
 
@@ -21,6 +21,7 @@ from agents.arb import Arbitrageur
 from agents.base import tick_chua_gia
 from agents.attacker import Attacker
 from agents.farmer import Farmer, thuong_log, thuong_tuyen_tinh
+from agents.do_rong import LUOI_W, LPLanhManh, tao_phi, w_sao_hinh_hoc
 from agents.victim import VictimThichNghi, VictimToanTri
 from defenses.thuong import LichTraThuong, Q_hieu_luc, ten_bien_phap
 from defenses.tran_dong import TranDong, c_V_hieu_luc
@@ -125,7 +126,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     W, T, fee = cfg["subsidy_window"], cfg["steps"], cfg["fee"]
 
     z0 = sqrt_price_at_tick(0) * 1.0001 ** 0.25          # giữa tick 0
-    pool = Pool(fee, z0)
+    phi = tao_phi(cfg.get("phi"))                         # GĐ3: φ(w) chia phí theo độ rộng; None = pro-rata
+    pool = Pool(fee, z0, fee_weight=phi)
     tt = ThiTruongKichBan(z0 ** 2, cfg["vol_pre"], dong["gia"])
 
     pool.t = 0
@@ -156,13 +158,30 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     m_att = s_att / (1 - s_att) * cfg["n_farmers"]
     V_ky_vong = (cfg["n_farmers"] + m_att) * Q_eff        # victim toàn tri: biết luật (kể cả trần mới)
 
+    luoi_w = tuple(cfg.get("luoi_w", LUOI_W))
+    vi_tri_v = cfg.get("vi_tri_victim", "tren")
+    w_victim = cfg.get("w_victim", 1)
+    if w_victim == "tu_chon":                             # GĐ3: w* = argmax φ(w)·ℓ(w) (biết φ — luật công khai)
+        w_victim = w_sao_hinh_hoc(phi, z0, luoi_w, tick=tick_at_sqrt_price(z0), vi_tri=vi_tri_v)
+    c_von = cfg.get("c_V_von")                            # GĐ3: chi phí theo vốn (token1/token1 vốn/cửa sổ)
+    if c_von is not None:
+        c_von = c_V_hieu_luc(c_von, defense)
+
     def tao_victim(k: int):
-        chung = dict(c_V=c_V_hieu_luc(cfg["c_V"], defense), w=cfg.get("w_victim", 1), t_vao=cfg["t_m"] + cfg["victim_delay"] * (k + 1))
+        chung = dict(c_V=c_V_hieu_luc(cfg["c_V"], defense), w=w_victim, t_vao=cfg["t_m"] + cfg["victim_delay"] * (k + 1),
+                     c_von=c_von, vi_tri=vi_tri_v)
         if loai_victim == "adaptive":                     # chỉ thấy phí quá khứ của bể
             return VictimThichNghi(f"victim:{k}", window=W, H=cfg.get("victim_H", 24), **chung)
         return VictimToanTri(f"victim:{k}", V=V_ky_vong, **chung)
 
     victims = [tao_victim(k) for k in range(cfg["n_victims"])]
+    lp_lm = []                                            # GĐ3: LP lành mạnh (không bị nhắm), owner lp:k
+    for k, d in enumerate(cfg.get("lp_lanh_manh") or []):
+        w_lp = d.get("w", "tu_chon")
+        if w_lp == "tu_chon":
+            w_lp = w_sao_hinh_hoc(phi, z0, luoi_w, tick=tick_at_sqrt_price(z0), vi_tri=d.get("vi_tri", "giua"))
+        lp_lm.append(LPLanhManh(f"lp:{k}", d.get("von", 1000.0), int(w_lp), d.get("t_vao", 0),
+                                d.get("t_ra", cfg["t_m"] - 1), d.get("vi_tri", "giua"), d.get("lenh_mau", 1000.0)))
     lich = [(int(t), float(r)) for t, r in cfg.get("wall_schedule", [[cfg["t_m"], 1.0]])]
     att = Attacker("attacker:0", L_A=cfg["L_A"], t_m=cfg["t_m"], kho_token0=cfg["attacker_inventory"],
                    c_A=cfg["c_A"], w=cfg.get("w_attacker", 1), dung_tuong=lich, t_0=cfg.get("t_0"),
@@ -219,6 +238,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
             a.act(t, pool, tt)
         for a in victims:
             a.act(t, pool, tt)
+        for a in lp_lm:
+            a.act(t, pool, tt)
         da_co_tuong = att.tick_lower is not None
         att.act(t, pool, tt)
         if not da_co_tuong and att.tick_lower is not None:   # vừa dựng tường → P_e neo giữa tick tường
@@ -266,7 +287,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
                          wall_tick=att.tick_lower, attacker_inventory_left=att.kho, P0=z0 ** 2,
                          dyncap_t_bao_dau=None if tran_dong is None else tran_dong.t_bao_dau,
                          dyncap_so_buoc=0 if tran_dong is None else tran_dong.so_buoc_bat,
-                         pe_farmer=np.array(pe_farmer), Q_buoc=np.array(Q_buoc))   # mảng: pandas chép attrs nhanh
+                         pe_farmer=np.array(pe_farmer), Q_buoc=np.array(Q_buoc),
+                         w_victim_chon=w_victim, lp_lanh_manh_kq=[a.tom_tat(W) for a in lp_lm])   # mảng: pandas chép attrs nhanh
     return pool.log
 
 
