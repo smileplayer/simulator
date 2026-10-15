@@ -104,6 +104,7 @@ Tiêu chuẩn kiểm định cũng đổi (Đức chốt 14/10): kiểm theo **p
 | 16 | 15/10 | B | Định giá chi phí farm khác nhau giữa B và C (lệch 136) | Bảng không nhất quán | Thống nhất theo `metrics.pnl.farm_pnl` | C ✓ |
 | 17 | 15/10 | B | Lợi tăng thêm không đơn điệu theo trần (L27_25 thích nghi: 2.586 → 4.493 ở cap75) | Trái Theorem 6 | Lỗi phản thực: phát lại nguyên lượng mua farmer (lấy từ đường giá có victim đỡ) → farmer phản thực tối ưu lại trên bể phản thực | C ✓, **cần chạy lại v4** |
 | 18 | 15/10 | Đức | `python -m scenarios.quet_gd2 --luoi` lỗi NameError: hàm `to_hop_luoi` bị xóa nhầm khi sửa #17; test không bao phủ chế độ `--luoi` | Không chạy được lưới σ×Q | Khôi phục hàm từ commit trước; thêm 4 test khói cho mọi chế độ quét | CH + C ✓ |
+| 19 | 15/10 | A | Engine: khi giá rời tường lớn, L·φ còn lại < 1e-9 lần tường bị `_clean` làm tròn về 0 và kéo L về 0 → bể coi như rỗng, mất phí vị thế nhỏ (chỉ khi có φ, tức GĐ3) | Sai phân bổ phí GĐ3 | Bỏ `_clean`, cộng lại trực tiếp các vị thế đang hoạt động khi phép trừ gần triệt tiêu; +25 test; GĐ1/GĐ2 lệch ≤ 1,8e-12 | A ✓ |
 
 **Hạ tầng:**
 - `.claude/settings.json` cấm `git push` → Đức sửa.
@@ -184,9 +185,17 @@ Bảng: `ket_qua/gd2/bang/`, hình: `ket_qua/gd2/hinh/`, bản nháp: `ket_qua/b
 
 **Giới hạn mô hình cần ghi trong bài:** (a) lợi của phương án bán thẳng phụ thuộc Q (farmer mua đỡ cú bán) — Theorem 6 coi không đổi → vài vụ Q nhỏ có "lợi tăng thêm" tăng nhẹ khi hạ trần; (b) victim toàn tri tin V = n·Q kể cả khi trần không ràng buộc; (c) giá sập theo VWAP chỉ 52% (CI 38–67).
 
+### GĐ3 (RQ3) — kết quả giải tích và sơ bộ (15/10)
+- **Lựa chọn độ rộng của victim** chỉ phụ thuộc g(w) = φ(w)·ℓ(w) (ℓ = L trên mỗi đơn vị vốn): w* = argmax g. Với φ = min(1,(w/w₀)^α), w* nhảy thẳng 1 → w₀; ngưỡng **α\* ≈ 1** ⇒ φ phải ít nhất tuyến tính (siêu tuyến tính để chắc) — xác nhận giả thuyết của đồ án.
+- **Nhưng range-aware KHÔNG cắt được phần vốn trên đường sập** ở w₀ ≤ 200: cú sập sâu 600–5.000 tick ≫ nửa dải → victim vẫn mất ~50% vốn dù trải rộng. Cần w₀ ≳ 1.000 tick.
+- **Kênh tác động thật là lượng vốn victim bỏ vào:** tường một tick bị phạt φ(1) → nhường phí cho victim. Range-aware giảm vốn victim ⇔ u < (1/√k − 1)² (u = w₀^(1−α) + w₀·B/L_A): đúng khi victim lớn (k < 1/4), **sai ở vùng RQ1 (k ≥ 0,64): range-aware hút victim vào nhiều hơn** (vốn ×4–9,5, lợi kẻ tấn công 75 → 650). Vùng victim lớn: vốn ×0,17–0,44, lợi kẻ tấn công 9.416 → 2.368.
+- LP lành mạnh dải cố định 10 tick mất gần hết phí khi w₀ > 10 (cái giá hiệu quả vốn).
+- Chưa xét: kẻ tấn công nới rộng tường để né phạt φ(1) (phản ứng tối ưu tự nhiên, quyết định chốt #2).
+
 ### Ngay bây giờ
-1. **Đức:** `/chot` (đẩy test khói của C, phân tích v4 của B, SYNC, tổng kết).
-2. Chọn hướng tiếp theo (mục "Xa hơn"): GĐ3 range-aware nhiều tick, hoặc hoàn thiện bản thảo mục 5–7.
+1. **Đức:** `/chot` → `git pull` → `python -m scenarios.quet_gd3` (~5,5 phút) → đẩy `ket_qua/gd3/tomtat.csv`.
+2. **B:** tổng hợp GĐ3 (tỷ lệ vốn victim, dc_excess, phí/vốn LP theo α, w₀, k; CI); sửa `phases`/`victim_loss` khi không sập, `identify_roles` cho victim dải rộng.
+3. **Đức quyết:** có thêm kẻ tấn công tự chọn độ rộng tường (né phạt φ) không.
 
 ### Xa hơn
 9. **GĐ3 / RQ3:** range-aware nhiều tick (engine đã có `fee_weight`); `c_V` theo vốn; tường nhiều tick.
