@@ -104,7 +104,7 @@ def test_q_sao_khop_lemma4():
     # excess = 5 > 0 ngay cả khi không victim → tiêu chí A không bao giờ an toàn
     assert (q["qs_A_lo"] == 0).all()
     t = tom_tat_q_sao(q)
-    assert set(t["tieu_chi"]) == {"V", "A", "gop", "r_V"}
+    assert set(t["tieu_chi"]) == {"V", "A", "gop", "r_V", "con_o_muc_thap_nhat"}
 
 
 def test_ve_gd2(tmp_path):
@@ -119,3 +119,83 @@ def test_ve_gd2(tmp_path):
     ve_q_sao(q_sao_vu(d), tmp_path / "d.png")
     for f in "abcd":
         assert (tmp_path / f"{f}.png").stat().st_size > 1000
+
+
+# ---------------------------------------------------------------- v3: dc_*, k hiệu dụng, giả định, ba vùng
+
+def _bang_v3(**kw):
+    """Như `_bang` nhưng thêm cột v3: dc_excess = 100·L_V/L_A, dc_farm_pnl = 50 (lãi farm có cả khi không victim)."""
+    d = _bang(**kw)
+    return d.assign(dc_excess=100 * d["LV_chia_LA"], dc_farm_pnl=50.0, dc_farm_treo=5.0, dc_lai_tong=1e4)
+
+
+def test_them_cot_v3_va_chi_so():
+    d = them_cot(_bang_v3())
+    assert (d["loi_tang_them"] == d["dc_excess"] + 50).all() and (d["loi_tang_them_treo"] == d["loi_tang_them"] + 5).all()
+    dai = bang_danh_doi(d, B=20)
+    assert {"dc_excess", "loi_tang_them", "dc_lai_tong"} <= set(dai["chi_so"])
+    assert "attacker_profit_excess" not in set(dai["chi_so"])
+    h = dai[dai["chi_so"] == "loi_tang_them"].iloc[0]
+    assert h["n_loai_khong_sap"] == 0                     # chỉ số dc_* không loại cặp không sập
+
+
+def test_q_sao_v3_bo_lai_farm_va_k_hieu_dung():
+    d = _bang_v3(bps=tuple(MUC), k=0.64)
+    q = q_sao_vu(d)
+    # tiêu chí A dùng dc_excess (= 0 khi victim rút) — lãi farm 50 không làm "không an toàn"
+    assert (q["qs_A_lo"] == 0.5).all() and (q["qs_A_hi"] == 0.75).all()
+    q2 = q_sao_vu(d.assign(farm_share=0.3))
+    assert q2["k_hieu_dung"].to_numpy() == pytest.approx(0.64 * 0.7)
+
+
+def _log_gia(ra_tick: bool) -> pd.DataFrame:
+    """Log giả 4 bước Prep: tường tick [0, 1), farmer mua 1 token1/bước (trần 1/bước), giá sau lệnh ở tick 0 hoặc 3."""
+    dong = [dict(t=0, kind="mint", owner="attacker:0", tick_lower=0, tick_upper=1, amount1=0.0, tick_after=np.nan)]
+    for t in range(4):
+        dong.append(dict(t=t, kind="swap", owner="farmer:0", tick_lower=np.nan, tick_upper=np.nan, amount1=1.0,
+                         tick_after=3 if (ra_tick and t % 2) else 0))
+    df = pd.DataFrame(dong)
+    df.attrs["meta"] = dict(t_m=0, t_rut=4, n_farmers=1, Q_eff=24.0, subsidy_window=24)
+    return df
+
+
+def test_kiem_gia_dinh():
+    from metrics.gd2 import kiem_gia_dinh
+    r = kiem_gia_dinh(_log_gia(False))
+    assert r["lap_day"] == pytest.approx(1.0) and r["ra_tick"] == 0 and r["tick_xa_nhat"] == 0
+    r = kiem_gia_dinh(_log_gia(True))
+    assert r["ra_tick"] == pytest.approx(0.5) and r["tick_xa_nhat"] == 3
+
+
+def test_ba_vung():
+    from metrics.gd2 import ba_vung
+    dong = []
+    for sg in (0.0025, 0.01):
+        for Q in (6000, 48000):
+            k = 0.75 * 24000 / Q
+            lv = max(0.0, math.sqrt(1 / k) - 1) if sg > 0.0025 else 0.0
+            for s in range(3):
+                dong.append(dict(victim_type="omniscient", bp="khong", sigma=sg, Q=Q, k=k, seed=s, meta_fee=0.0025,
+                                 vol_farmer=(10 if sg == 0.0025 else 100) * Q, LV_chia_LA=lv, dc_excess=100 * lv,
+                                 dc_farm_pnl=0.0, dc_farm_treo=0.0, victim_loss_full=50 * lv, breached=True,
+                                 attacker_profit_excess=0.0))
+    gd = pd.DataFrame([dict(victim_type="omniscient", bp="khong", sigma=0.01, Q=48000, lap_day=1.0, ra_tick=0.3,
+                            tick_xa_nhat=50)])
+    b = ba_vung(pd.DataFrame(dong), gd).set_index(["sigma", "Q"])
+    assert b.loc[(0.0025, 6000), "vung"] == "i_khong_KL" and b.loc[(0.0025, 6000), "vung_ly_thuyet"] == "i_khong_KL"
+    assert b.loc[(0.01, 6000), "vung"] == "ii_an_toan" and b.loc[(0.01, 6000), "khop_ly_thuyet"]
+    assert b.loc[(0.01, 48000), "vung"] == "iii_co_lai" and b.loc[(0.01, 48000), "vung_ly_thuyet"] == "iii_co_lai"
+    assert bool(b.loc[(0.01, 48000), "vp_GD2"]) and bool(b.loc[(0.01, 48000), "ngoai_gia_dinh"])
+
+
+def test_ve_v3(tmp_path):
+    from metrics.gd2 import ba_vung
+    from plots.hinh_gd2 import ve_ba_vung, ve_pareto
+    d = _bang_v3(bps=tuple(MUC), victim=("omniscient", "adaptive"))
+    dai = bang_danh_doi(d, B=20)
+    ve_pareto({"a": dai, "b": dai}, tmp_path / "p.png")
+    lu = d.assign(sigma=0.01, meta_fee=0.0025)
+    lu = pd.concat([lu, lu.assign(sigma=0.0025, vol_farmer=1.0)])
+    lu = lu[lu["bp"].isin(["khong", "cap50"])]
+    ve_ba_vung(ba_vung(lu), tmp_path / "b.png")
+    assert (tmp_path / "p.png").stat().st_size > 1000 and (tmp_path / "b.png").stat().st_size > 1000

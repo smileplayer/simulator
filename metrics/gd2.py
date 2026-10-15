@@ -4,8 +4,10 @@ Cặp phản thực = cùng `scenario_id` + `seed` + `victim_type` (+ `farm_shar
 đã ghép chặt, CH-8). CI 95% = bootstrap **cặp** phân cụm theo vụ (lấy lại vụ có hoàn lại, rồi cặp trong vụ),
 dùng `metrics.validate._mau_bootstrap` như `bootstrap_cap`.
 
-Quy ước CH 15/10: chỉ số chỉ đo được khi giá sập ≥ 10% (`breached`) — lợi nhuận, thiệt hại victim, thanh khoản
-sau sập — so trên cặp **cả hai đều sập**; số cặp bị loại ghi ở cột `n_loai_khong_sap`. Tỷ lệ sập là chỉ số riêng.
+Quy ước CH 15/10: chỉ số chỉ đo được khi giá sập ≥ 10% (`breached`) — thiệt hại victim, thanh khoản sau sập,
+lợi nhuận suy vai bản v2 — so trên cặp **cả hai đều sập**; số cặp bị loại ghi ở cột `n_loai_khong_sap`. Tỷ lệ sập
+là chỉ số riêng. Bản v3 có lợi nhuận theo địa chỉ thật `dc_*` (đo được cả khi không sập) → chỉ số lợi kẻ tấn công
+chính `loi_tang_them` = `dc_excess` + `dc_farm_pnl` so trên mọi cặp.
 """
 from __future__ import annotations
 
@@ -36,16 +38,31 @@ CHI_SO = [
     ("subsidy_total", "chi_phi", False, "trung_vi", "trợ cấp đã trả + treo (token1)"),
     ("subsidy_clawed", "chi_phi", False, "trung_vi", "trợ cấp bị thu hồi (token1)"),
 ]
-MUC_CAP = {"khong": 1.0, "cap75": 0.75, "cap50": 0.5, "cap25": 0.25}
+# v3: lợi kẻ tấn công theo địa chỉ thật (có cả khi không sập) thay các chỉ số suy vai
+CHI_SO_V3 = [c for c in CHI_SO if c[0] not in ("attacker_profit_excess", "attacker_farm_pnl", "loi_tan_cong",
+                                              "loi_tan_cong_treo")] + [
+    ("dc_excess", "loi_ich", False, "trung_vi", "lợi nhuận tăng thêm so với phát lại không victim (token1)"),
+    ("dc_farm_pnl", "loi_ich", False, "trung_vi", "lãi farm kẻ tấn công (token1)"),
+    ("loi_tang_them", "loi_ich", False, "trung_vi", "lợi tăng thêm của kẻ tấn công = dc_excess + farm (token1)"),
+    ("loi_tang_them_treo", "loi_ich", False, "trung_vi", "lợi tăng thêm + thưởng treo (token1)"),
+    ("dc_lai_tong", "loi_ich", False, "trung_vi", "lãi tổng theo địa chỉ, gồm bán kho theo c_A (token1)"),
+]
+MUC_CAP = {"khong": 1.0, "cap90": 0.9, "cap75": 0.75, "cap60": 0.6, "cap50": 0.5, "cap25": 0.25, "cap15": 0.15,
+           "cap10": 0.10, "cap05": 0.05}
+TOL_LV = 1e-3           # L_V/L_A ≤ 0,001 coi như victim không vào
 TOL_LOSS = 1.0          # victim loss ≤ 1 token1 coi như 0
 
 
 def them_cot(df: pd.DataFrame) -> pd.DataFrame:
-    """Thêm `loi_tan_cong` = excess + farm_pnl và `loi_tan_cong_treo` = + `attacker_farm_pending` (token1);
-    thiếu cột farm (bảng không farm) thì farm = 0. NaN giữ nguyên khi không sập."""
+    """Thêm `loi_tan_cong` = excess + farm_pnl và `loi_tan_cong_treo` = + `attacker_farm_pending` (token1, suy vai,
+    NaN khi không sập; thiếu cột farm thì farm = 0). Có cột v3 `dc_*` → thêm `loi_tang_them` = dc_excess +
+    dc_farm_pnl và `loi_tang_them_treo` = + dc_farm_treo (token1, theo địa chỉ thật, có cả khi không sập)."""
     d = df.copy()
     farm = d["attacker_farm_pnl"] if "attacker_farm_pnl" in d else 0.0
     treo = d["attacker_farm_pending"] if "attacker_farm_pending" in d else 0.0
+    if "dc_excess" in d:
+        d["loi_tang_them"] = d["dc_excess"] + d["dc_farm_pnl"]
+        d["loi_tang_them_treo"] = d["loi_tang_them"] + d["dc_farm_treo"].fillna(0.0)
     d["loi_tan_cong"] = d["attacker_profit_excess"] + farm
     d["loi_tan_cong_treo"] = d["loi_tan_cong"] + (treo.fillna(0.0) if isinstance(treo, pd.Series) else treo)
     d["breached"] = d["breached"].astype(float)
@@ -122,12 +139,15 @@ def hieu_cap(P: pd.DataFrame, cot: str, can_sap: bool, kieu: str = "trung_vi", m
     return out
 
 
-def bang_danh_doi(df: pd.DataFrame, nhom: tuple[str, ...] = ("victim_type",), chi_so=CHI_SO,
+def bang_danh_doi(df: pd.DataFrame, nhom: tuple[str, ...] = ("victim_type",), chi_so=None,
                   B: int = B_MAC_DINH, seed: int = SEED_BOOT, bp_goc: str = BP_GOC) -> pd.DataFrame:
     """Bảng dài: mỗi dòng = (nhóm..., bp, chỉ số) với hiệu cặp so với `bp_goc` + CI, % thay đổi + CI.
-    `df` là bảng tóm tắt GĐ2 (đã/ chưa `them_cot`). Chỉ số thiếu cột thì bỏ qua."""
+    `df` là bảng tóm tắt GĐ2 (đã/ chưa `them_cot`). Chỉ số thiếu cột thì bỏ qua. `chi_so` = None → `CHI_SO_V3`
+    nếu có cột `dc_excess`, không thì `CHI_SO`."""
     if "loi_tan_cong" not in df:
         df = them_cot(df)
+    if chi_so is None:
+        chi_so = CHI_SO_V3 if "dc_excess" in df else CHI_SO
     dong = []
     nhom = [c for c in nhom if c in df.columns]
     for khoa_nhom, g in df.groupby(nhom, sort=True) if nhom else [((), df)]:
@@ -165,7 +185,8 @@ def bang_gon(dai: pd.DataFrame, nhom: tuple[str, ...] = ("victim_type",)) -> pd.
     """Bảng rộng một dòng / (nhóm, bp) cho bài báo: % thay đổi [CI] của các chỉ số chính, hiệu tỷ lệ sập (điểm %)."""
     nhom = [c for c in nhom if c in dai.columns]
     cs = {"victim_loss_full": "thiet_hai_victim_%", "loi_tan_cong": "loi_tan_cong_%",
-          "loi_tan_cong_treo": "loi_tan_cong_treo_%", "vol_tong": "khoi_luong_%",
+          "loi_tan_cong_treo": "loi_tan_cong_treo_%", "loi_tang_them": "loi_tang_them_%",
+          "loi_tang_them_treo": "loi_tang_them_treo_%", "vol_tong": "khoi_luong_%",
           "L_mean_post": "L_post_%", "subsidy_total": "tro_cap_%"}
     dong = []
     for k, g in dai.groupby(nhom + ["bp"], sort=True):
@@ -212,34 +233,41 @@ def _khoang(an_toan: dict[float, bool]) -> tuple[float, float, str]:
     return lo, hi, chu
 
 
-def q_sao_vu(df: pd.DataFrame, tol_loss: float = TOL_LOSS) -> pd.DataFrame:
-    """`Q*` thực nghiệm theo vụ × loại victim từ các mức trần `MUC_CAP` (r = Q_eff/Q).
+def q_sao_vu(df: pd.DataFrame, tol_loss: float = TOL_LOSS, tol_lv: float = TOL_LV) -> pd.DataFrame:
+    """`Q*` thực nghiệm theo vụ × loại victim từ các mức trần có trong dữ liệu (`MUC_CAP`, r = Q_eff/Q).
 
-    Mỗi mức: trung vị qua seed (chỉ lượt sập) của `victim_loss_full` và `loi_tan_cong` (token1), trung vị
-    `LV_chia_LA` (mọi lượt). An toàn theo victim (V): loss ≤ `tol_loss`; theo kẻ tấn công (A): lợi ≤ 0;
-    gộp: V hoặc A. Khoảng `(lo, hi]` của Q*/Q cho từng tiêu chí (xem `_khoang`). Nội suy ngưỡng vào của victim
-    `r_V`: theo Lemma 4, victim vào ⇔ (1 + L_V/L_A)² > 1 với (1 + L_V/L_A)² = fQ_eff·n/(c_V·L_A) ∝ r — toàn tri
-    khớp đường qua gốc y = r/k̂ ⇒ r_V = k̂; thích nghi (V̂ gồm cả arb/nền) khớp y = a + b·r trên ≥ 2 mức có
-    L_V > 0 ⇒ r_V = (1 − a)/b. `r_V_ly_thuyet` = k (toàn tri)."""
+    Mỗi mức: trung vị qua seed của `LV_chia_LA`, `victim_loss_full` (chỉ lượt sập) và lợi **tấn công** (token1;
+    v3: `dc_excess` mọi lượt — không gồm lãi farm vì Theorem 6 so tấn công với bán thẳng, lãi farm có cả khi
+    không tấn công; v2: `loi_tan_cong` lượt sập). An toàn theo victim (V): victim không vào
+    (L_V/L_A ≤ `tol_lv`) hoặc thiệt hại ≤ `tol_loss`; theo kẻ tấn công (A): lợi ≤ 0; gộp: V hoặc A. Khoảng
+    `(lo, hi]` của Q*/Q cho từng tiêu chí (xem `_khoang`). Nội suy ngưỡng vào `r_V`: Lemma 4 cho
+    (1 + L_V/L_A)² = f·V̂/(c_V·L_A) = (V̂/(n·Q))/k — toàn tri V̂ = n·Q_eff ⇒ đường qua gốc y = r/k̂, r_V = k̂;
+    thích nghi khớp y = a + b·r trên các mức có L_V > 0 ⇒ r_V = (1 − a)/b (≤ 0: hạ trần không đuổi được).
+    `Vhat_{tag}` = k·(1 + L_V/L_A)² = V̂/(n·Q) ngầm định từ L_V của victim (đơn vị: phần của trần gốc).
+    Có `farm_share` s → k hiệu dụng = k·(1 − s) (victim toàn tri tính cả khối lượng farm của kẻ tấn công)."""
     if "loi_tan_cong" not in df:
         df = them_cot(df)
+    v3 = "loi_tang_them" in df
     d = df[df["bp"].isin(MUC_CAP)].assign(r=lambda x: x["bp"].map(MUC_CAP))
     dong = []
     for (vu, vt), g in d.groupby(["scenario_id", "victim_type"], sort=True):
         r0 = g.iloc[0]
-        row = dict(scenario_id=vu, victim_type=vt) | {c: r0[c] for c in DAC_TRUNG if c in g}
-        av, aa, ag, y = {}, {}, {}, {}
+        # victim toàn tri tính V gồm farm của kẻ tấn công: V = (n + m)·Q_eff, n/(n + m) = 1 − farm_share
+        k_ = float(r0["k"]) * (1 - float(r0["farm_share"]) if "farm_share" in g else 1.0)
+        row = dict(scenario_id=vu, victim_type=vt, k_hieu_dung=k_) | {c: r0[c] for c in DAC_TRUNG if c in g}
+        av, aa, ag, y, lois = {}, {}, {}, {}, {}
         for r, h in g.groupby("r"):
             s = h[h["breached"] > 0]
             loss = s["victim_loss_full"].median() if len(s) else math.nan
-            loi = s["loi_tan_cong"].median() if len(s) else math.nan
+            loi = h["dc_excess"].median() if v3 else (s["loi_tan_cong"].median() if len(s) else math.nan)
             lv = h["LV_chia_LA"].median()
             tag = f"{int(round(r * 100))}"
-            row |= {f"loss_{tag}": loss, f"loi_{tag}": loi, f"LV_{tag}": lv, f"n_sap_{tag}": len(s)}
-            av[r] = bool(loss <= tol_loss) if not math.isnan(loss) else True     # không sập: không thiệt hại
+            row |= {f"loss_{tag}": loss, f"loi_{tag}": loi, f"LV_{tag}": lv, f"n_sap_{tag}": len(s),
+                    f"Vhat_{tag}": k_ * (1 + lv) ** 2 if lv > tol_lv else math.nan}
+            av[r] = bool(lv <= tol_lv or (not math.isnan(loss) and loss <= tol_loss) or len(s) == 0)
             aa[r] = bool(loi <= 0) if not math.isnan(loi) else True
             ag[r] = av[r] or aa[r]
-            y[r] = (1 + lv) ** 2
+            y[r], lois[r] = (1 + lv) ** 2, loi
         for ten, at in (("V", av), ("A", aa), ("gop", ag)):
             lo, hi, chu = _khoang(at)
             row |= {f"qs_{ten}_lo": lo, f"qs_{ten}_hi": hi, f"ghi_chu_{ten}": chu}
@@ -251,11 +279,14 @@ def q_sao_vu(df: pd.DataFrame, tol_loss: float = TOL_LOSS) -> pd.DataFrame:
         elif len(rr) >= 2:
             b, a = np.polyfit(rr, yy, 1)
             r_v = float((1 - a) / b) if b > 0 else math.nan
-        k_ = float(r0["k"])
+        r_min = min(y)
+        mang = [lois[r] for r in sorted(lois)]
         row |= dict(r_V=r_v, r_V_ly_thuyet=k_ if vt == "omniscient" else math.nan,
                     k_trong_khoang_V=bool(row["qs_V_lo"] < k_ <= row["qs_V_hi"]),
-                    r_V_ngoai_suy=bool(r_v < min(MUC_CAP.values())) if not math.isnan(r_v) else False,
-                    don_dieu_loi=bool(np.all(np.diff([row.get(f"loi_{t}", np.nan) for t in (25, 50, 75, 100)]) >= -1e-6)))
+                    r_V_ngoai_suy=bool(r_v < r_min) if not math.isnan(r_v) else False,
+                    r_thap_nhat=r_min, victim_con_o_muc_thap_nhat=not av[r_min],
+                    # Theorem 6: Π_A không giảm theo Q — cho phép nhiễu 5% mức không hạ trần + 1 token1
+                    don_dieu_loi=bool(np.all(np.diff(mang) >= -(0.05 * abs(mang[-1]) + 1.0))))
         dong.append(row)
     return pd.DataFrame(dong)
 
@@ -267,6 +298,10 @@ def tom_tat_q_sao(qv: pd.DataFrame) -> pd.DataFrame:
     dong = []
     for vt, g in qv.groupby("victim_type"):
         r = g["r_V"]
+        if "victim_con_o_muc_thap_nhat" in g:
+            dong.append(dict(victim_type=vt, tieu_chi="con_o_muc_thap_nhat", khoang=f"r = {g['r_thap_nhat'].min():g}",
+                             so_vu=int(g["victim_con_o_muc_thap_nhat"].sum()),
+                             vu=",".join(g.loc[g["victim_con_o_muc_thap_nhat"], "scenario_id"])))
         dong.append(dict(victim_type=vt, tieu_chi="r_V", khoang=f"trung vị {r.median():.2f}", so_vu=int(r.notna().sum()),
                          vu=f"r_V<=0: {int((r <= 0).sum())}; k trong khoảng Q*_V: {int(g['k_trong_khoang_V'].sum())}"
                             f"/{len(g)}; lợi kẻ tấn công đơn điệu theo trần: {int(g['don_dieu_loi'].sum())}/{len(g)}"))
@@ -276,3 +311,63 @@ def tom_tat_q_sao(qv: pd.DataFrame) -> pd.DataFrame:
                 dong.append(dict(victim_type=vt, tieu_chi=ten, khoang=f"({lo:g}; {hi:g}]", so_vu=len(h),
                                  vu=",".join(h["scenario_id"])))
     return pd.DataFrame(dong)
+
+
+# ---------------------------------------------------------------- bản đồ ba vùng (σ, Q)
+
+def kiem_gia_dinh(df: pd.DataFrame) -> dict:
+    """Kiểm hai giả định của Theorem 3/6 trên một log (cần `df.attrs["meta"]`), trong pha Prep [t_m, t_rut).
+
+    `lap_day` = trung vị khối lượng farmer mỗi bước / (n_farmers·Q_eff/subsidy_window) — Giả định 1 (trần ràng
+    buộc) đúng khi ≈ 1; `ra_tick` = tỷ lệ lệnh farmer làm giá rời tick tường — Giả định 2 (mọi giao dịch được
+    trợ cấp nằm trong một tick) đúng khi ≈ 0; `tick_xa_nhat` = số tick giá vượt khỏi tường lớn nhất."""
+    m = df.attrs["meta"]
+    t0, t1 = int(m["t_m"]), int(m.get("t_rut") or m["t_0"])
+    mint = df[(df["kind"] == "mint") & (df["owner"] == "attacker:0")]
+    if mint.empty:
+        return dict(lap_day=math.nan, ra_tick=math.nan, tick_xa_nhat=math.nan)
+    lo, hi = int(mint["tick_lower"].iloc[0]), int(mint["tick_upper"].iloc[0])
+    sw = df[(df["kind"] == "swap") & df["owner"].astype(str).str.startswith("farmer") & (df["t"] >= t0) & (df["t"] < t1)]
+    tran = float(m["n_farmers"]) * float(m["Q_eff"]) / float(m["subsidy_window"])
+    v = sw.groupby("t")["amount1"].sum().reindex(range(t0, t1), fill_value=0.0)
+    ngoai = (sw["tick_after"] >= hi) | (sw["tick_after"] < lo)
+    xa = np.maximum(sw["tick_after"] - (hi - 1), lo - sw["tick_after"]).clip(lower=0)
+    return dict(lap_day=float(v.median() / tran), ra_tick=float(ngoai.mean()) if len(sw) else 0.0,
+                tick_xa_nhat=float(xa.max()) if len(sw) else 0.0)
+
+
+def ba_vung(luoi: pd.DataFrame, gia_dinh: pd.DataFrame | None = None, nguong_kl: float = 0.5,
+            tol_lv: float = TOL_LV, nguong_lap_day: float = 0.8, nguong_ra_tick: float = 0.05) -> pd.DataFrame:
+    """Bản đồ ba vùng thiết kế trên lưới (σ, Q) (`tomtat_luoi_v3.csv`), mỗi ô = (victim_type, bp, σ, Q):
+    trung vị qua seed của `vol_farmer` (token1), `LV_chia_LA`, `loi_tang_them` (token1), thiệt hại victim.
+
+    Vùng thực nghiệm: (i) `khong_KL` — khối lượng farmer < `nguong_kl` × lớn nhất theo σ cùng Q (trợ cấp không
+    tạo khối lượng); (ii) `an_toan` — có khối lượng, victim không vào hoặc lợi tăng thêm ≤ 0; (iii) `co_lai`.
+    Vùng lý thuyết: (i) σ ≤ σ₀ = f (Theorem 1, P_e = P₀); (ii) k_eff = k/r ≥ 1 (Lemma 4: victim toàn tri không
+    vào ⇔ Q_eff ≤ c_V·L_A/(f·n)); (iii) còn lại. `gia_dinh` (từ `kiem_gia_dinh`, cột sigma, Q, bp, victim_type)
+    → thêm `lap_day`, `ra_tick`, cờ `vp_GD1` (lap_day < `nguong_lap_day`), `vp_GD2` (ra_tick > `nguong_ra_tick`)
+    và `ngoai_gia_dinh` (vùng iv: vi phạm một trong hai)."""
+    d = them_cot(luoi) if "loi_tang_them" not in luoi else luoi
+    d = d.assign(r=d["bp"].map(MUC_CAP))
+    k = ["victim_type", "bp", "sigma", "Q"]
+    g = d.groupby(k)
+    out = pd.DataFrame(dict(vol_farmer=g["vol_farmer"].median(), LV=g["LV_chia_LA"].median(),
+                            loi=g["loi_tang_them"].median(), dc_excess=g["dc_excess"].median(),
+                            loss=g["victim_loss_full"].median(), ty_le_sap=g["breached"].mean(),
+                            k=g["k"].first(), r=g["r"].first(), f=g["meta_fee"].first() if "meta_fee" in d else 0.0025,
+                            n=g.size())).reset_index()
+    vmax = out.groupby(["victim_type", "bp", "Q"])["vol_farmer"].transform("max")
+    kl = out["vol_farmer"] >= nguong_kl * vmax
+    an = (out["LV"] <= tol_lv) | (out["loi"] <= 0)
+    out["vung"] = np.where(~kl, "i_khong_KL", np.where(an, "ii_an_toan", "iii_co_lai"))
+    out["k_eff"] = out["k"] / out["r"]
+    out["vung_ly_thuyet"] = np.where(out["sigma"] <= out["f"], "i_khong_KL",
+                                     np.where(out["k_eff"] >= 1, "ii_an_toan", "iii_co_lai"))
+    if gia_dinh is not None:
+        gd = gia_dinh.groupby(k)[["lap_day", "ra_tick", "tick_xa_nhat"]].median().reset_index()
+        out = out.merge(gd, on=k, how="left")
+        out["vp_GD1"] = out["lap_day"] < nguong_lap_day
+        out["vp_GD2"] = out["ra_tick"] > nguong_ra_tick
+        out["ngoai_gia_dinh"] = out["vp_GD1"] | out["vp_GD2"]
+    out["khop_ly_thuyet"] = out["vung"] == out["vung_ly_thuyet"]
+    return out
