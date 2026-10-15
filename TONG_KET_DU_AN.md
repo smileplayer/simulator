@@ -159,19 +159,17 @@ Yếu tố seed chéo **đã hết** (hoán vị seed 0–4 vs 5–9: p = 0,66, 
 
 ## 7. Việc tiếp theo
 
-### Ngay bây giờ
-1. ~~C hoàn tất CH-8~~ ✓ (15/10).
-2. ~~B chạy lại RQ1 trên log mới~~ ✓ (15/10). Còn: soát mô tả Hình 6.1 với timeline mới; xem vì sao 25/295 lượt không xác định được victim.
-3. **Đức chạy** (Chỉ huy sẽ báo lệnh chính xác khi C xong):
-   - `python -m scenarios.quet_gd2` (~15 phút) → `ket_qua/gd2/tomtat_v2.csv`
-   - `python -m scenarios.quet_gd2 --farm` (~47 phút) → `ket_qua/gd2/tomtat_farm_v2.csv`
-4. **`/chot`** để commit + push.
+### Ngay bây giờ (cập nhật 15/10 chiều)
+- ✓ RQ1 chạy lại sau CH-8 (13/13 Đạt). ✓ GĐ2 v2 đã chạy + B làm bảng đánh đổi, Q*, hình, bản nháp mục 7.
+- ✓ C chuẩn bị v3: lợi nhuận theo địa chỉ thật + phản thực phát lại log (excess = 0 khi không victim), vùng k nhỏ, cảnh báo rủi ro (warn), trần động (dyncap), lưới cap mịn, lưới (σ, Q).
+1. **Đức:** `/chot` → `git pull` → chạy `python -m scenarios.quet_gd2 --luoi` (~5 phút), `python -m scenarios.quet_gd2` (~43 phút), `python -m scenarios.quet_gd2 --k_nho` (~29 phút); `--farm` không bắt buộc (~54 phút). Đẩy file `ket_qua/gd2/*_v3.csv` lên.
+2. **B:** bảng đánh đổi v3 dùng `dc_excess` (phản thực phát lại), Q* theo lưới cap mịn, bản đồ nhiệt (σ, Q) ba vùng thiết kế, vùng k nhỏ; cập nhật mục 7.
 
-### Sau khi có GĐ2 v2
-5. **C + B:** bảng đánh đổi mỗi biện pháp (giảm thiệt hại / giảm `excess` vs mất khối lượng, thanh khoản), bootstrap cặp, tách victim toàn tri/thích nghi và trợ cấp tuyến tính/log; `Q*` thực nghiệm.
-6. **B:** bản đồ nhiệt `(σ, Q)` (bản đồ ba vùng thiết kế).
-7. **C:** mở rộng vùng `k` nhỏ để có vùng tấn công có lãi thật (Theorem 6).
-8. **C:** biện pháp còn lại §7.3 cảnh báo rủi ro (tăng `c_V`) và §7.4 trần động.
+### Kết quả GĐ2 v2 đáng chú ý
+- Hạ trần: toàn tri cap50 → thiệt hại −100%, lợi kẻ tấn công −94%, mất khối lượng −26%; thích nghi chỉ −40%/−43%. **Q\* toàn tri khớp Lemma 4/Theorem 6** (ngưỡng = k ở 28/30 vụ).
+- Trả trễ 24–72 không tác dụng; 168 = hạ σ trá hình. Clawback 168 (attacker farm 0,6) cắt lợi kẻ tấn công −74…−77% nhưng không bảo vệ victim.
+- Không biện pháp nào làm giá thôi sập. Victim thích nghi khó bảo vệ (ước V từ phí cả bể, gồm nền + arb).
+- Vùng k nhỏ (victim lớn): lợi nhuận tăng thêm ~8.500 (RQ1 ~300); cap25, warn40, dyncap cắt còn ~2.200–3.000.
 
 ### Xa hơn
 9. **GĐ3 / RQ3:** range-aware nhiều tick (engine đã có `fee_weight`); `c_V` theo vốn; tường nhiều tick.

@@ -49,6 +49,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
   - **CH-7:** mục 5.5 + phần lift Prep (Q 12k/24k/48k → 1,33/1,81/2,91; nhóm 12k: 78% < 1,5×) trong `ket_qua/ban_nhap/`.
   - Phát hiện: seed là yếu tố chéo (chuỗi ngẫu nhiên chung giữa vụ) → giao C. `ket_qua/gd2/tomtat*.csv` tính bằng metrics cũ → cần chạy lại bản `_v2`.
 - **RQ1 sau CH-8 (15/10, subagent, 300 log mới) — 13/13 Đạt:** sập ≥ 10% 98%; Attack > 5× 25%; **Post < 1× 80% (CI 71–88; bài gốc 79%)**; RV Post cao nhất 96%; **giá sập < −10% VWAP 52% (CI 38–67) — mong manh**, phụ trước burn 79%. Trung vị lift Prep 1,79 · Attack 3,65 · Post 0,855; excess 299 (CI 146–602), leak_excess 0,057. **Seed hết chéo** (hoán vị p = 0,66; SD theo seed 7,7 điểm % ≈ nhiễu nhị thức) → CI lồng nhau là CI chính. Bản nháp mục 5.5, 6 đã cập nhật. Việc dở: soát đoạn mô tả Hình 6.1 (mục 6.2) với timeline mới; 25/295 lượt không xác định được victim — xem nguyên nhân.
+- **GĐ2 v2 (15/10, subagent):** `metrics/gd2.py`, `metrics/chay_gd2.py` (`python -m metrics.chay_gd2` ≈ 75 s → `ket_qua/gd2/bang/`), `plots/hinh_gd2.py`, `plots/ve_gd2.py` (→ `ket_qua/gd2/hinh/`), 8 test, bản nháp `ket_qua/ban_nhap/muc7_ket_qua_RQ2.md`. So cặp với `khong`; lợi nhuận chỉ trên cặp cùng sập (loại 5/300 toàn tri, 35/300 thích nghi), tỷ lệ sập báo riêng. Kết quả (toàn tri / thích nghi): cap50 thiệt hại −100%/−40%, lợi kẻ tấn công −94%/−43%, khối lượng −26%; cap25 −100%/−59%, −96%/−61%, khối lượng −39%; delay24/72 ≈ 0; delay168 = hạ σ trá hình (σ = 0,005 farmer ngừng); claw168 (farm 0,6) lợi kẻ tấn công −74%/−77%, victim không đổi. Không biện pháp nào làm giá thôi sập. **Q\* toàn tri khớp Lemma 4/Theorem 6** (ngưỡng = k ở 28/30 vụ); thích nghi: lưới quá thô (Q* < 0,25Q ở 26/30 vụ). Đề nghị cho C (a)–(d) → CH giao.
 
 ## Vai C — Tác nhân, thí nghiệm
 - **Trạng thái:** `INTERFACE.md` ĐÃ CHỐT 14/10, sửa cùng ngày (ĐỔI INTERFACE): **farmer chỉ mua**, `arb:0` bán ngược lại cuối bước; thêm `Pool.fee`. Đã có:
@@ -91,6 +92,8 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
   - Victim toàn tri tính V gồm khối lượng farm của attacker: ghi chú docstring + INTERFACE (đúng ý đồ).
   - RQ1 chạy lại 300 log (32 s). co_so seed 0 trước → sau: lift_Post 0,684 → 0,693; sập −50,3% → −49,6%; victim loss 379 → 444; excess 756 → 907.
   - **Chờ Đức chạy:** `python -m scenarios.quet_gd2` (~15 phút → `ket_qua/gd2/tomtat_v2.csv`) và `python -m scenarios.quet_gd2 --farm` (~47 phút → `ket_qua/gd2/tomtat_farm_v2.csv`); ngắt thì chạy lại đúng lệnh.
+- **GĐ2 v3 (15/10, subagent):** `scenarios/quet_gd2.py:loi_nhuan_dia_chi` (lợi nhuận theo địa chỉ thật `attacker:0`, có cả khi không sập, cột `dc_*`); `phat_lai_ban_thang` (phản thực phát lại log, bỏ tường + victim → `dc_excess` = 0 đúng khi không victim; test); `--k_nho` (k ∈ {0,10; 0,25; 0,45}, farm 0,3); `defenses/tran_dong.py`: `warn15/20/40` (c_V ×1,5/2/4, §7.3), `dyncap` (báo động khi L tick > 3× trung vị 24 bước → trần 0,25Q trong 24 bước, §7.4). **ĐỔI INTERFACE 15/10 (warn, dyncap).** KN_L27_01 toàn tri: excess khong 8.522 · cap50 4.636 · cap25 2.219 · claw72 8.407 · warn40 3.052 · dyncap 2.246; victim thích nghi gần như không bị warn/cap chặn. Toàn repo 224 qua. Thêm (15/10): lưới cap mịn (mặc định 16 bp: khong, cap90/75/60/50/25/15/10/05, delay24/72/168, warn15/20/40, dyncap; `--k_nho` 10 bp); `--luoi` σ {0,0025…0,04} × Q {6k…96k}, giữ **c_V** của co_so (CH duyệt: giữ k thì không thấy vùng victim), bp khong + cap50; chi phí farm attacker theo `metrics.pnl.farm_pnl`.
+- **Chờ Đức chạy (v3):** `python -m scenarios.quet_gd2 --luoi` (~5 phút → `ket_qua/gd2/tomtat_luoi_v3.csv`); `python -m scenarios.quet_gd2` (~43 phút → `tomtat_v3.csv`); `python -m scenarios.quet_gd2 --k_nho` (~29 phút → `tomtat_knho_v3.csv`); `--farm` không bắt buộc (~54 phút → `tomtat_farm_v3.csv`). Ngắt thì chạy lại đúng lệnh.
 
 ---
 
@@ -98,6 +101,8 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 15/10/2026 | B | Bảng đánh đổi GĐ2 v2, Q* (toàn tri khớp Lemma 4), 4 hình, bản nháp mục 7 | tests/metrics 89 qua |
+| 15/10/2026 | C | GĐ2 v3: lợi nhuận theo địa chỉ thật + phản thực phát lại log, vùng k nhỏ, **ĐỔI INTERFACE** warn/dyncap | toàn repo 224 qua |
 | 15/10/2026 | B | Chạy lại RQ1 trên 300 log sau CH-8: 13/13 Đạt, Post<1 80%, giá sập VWAP 52% (CI 38–67, mong manh); seed hết chéo (p = 0,66); cập nhật bản nháp | tests/metrics 81 qua |
 | 15/10/2026 | C | CH-8: **ĐỔI INTERFACE** — dòng ngẫu nhiên theo vụ + theo nguồn (ghép cặp chặt), tick theo spacing/biên, clawback theo lịch sử LP + mốc giá đầu cửa sổ; RQ1 chạy lại 300 log; GĐ2 `_v2` chờ Đức chạy | toàn repo 208 qua |
 | 15/10/2026 | CH | Chuyển sang subagent; A xong CH-4 (engine đúng, +7 test), B xong CH-1/2/5/7 (farm_pnl, excess, subsidy treo, bootstrap; RQ1 300 log 13/13 Đạt); giao CH-8 cho C | toàn repo 198 qua |
