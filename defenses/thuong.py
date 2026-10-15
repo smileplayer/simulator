@@ -2,7 +2,7 @@
 
 Config: `defense = null` | `{"name": "cap", "ty_le": r}` (Q_eff = r·Q) hoặc `{"name": "cap", "Q_cap": x}`
 | `{"name": "delay", "D": số bước, "don_vi": "token1" | "token0", "chiet_khau": δ mỗi bước,
-"clawback": ngưỡng sập (tùy chọn, ví dụ 0.10)}`.
+"clawback": ngưỡng sập (tùy chọn, ví dụ 0.10)}`; `warn` (§7.3) và `dyncap` (§7.4) ở `defenses/tran_dong.py`.
 
 Giả định của trả trễ (cần nêu khi báo cáo): thưởng chốt cuối mỗi cửa sổ, trả sau D bước. Farmer quy về hiện tại
 bằng δ^D (thiếu kiên nhẫn / rủi ro nền tảng) và không dự báo giá. Với `don_vi = "token0"`, thưởng đổi ra token0
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections import deque
 
-TEN_HOP_LE = {None, "cap", "delay"}
+TEN_HOP_LE = {None, "cap", "delay", "warn", "dyncap"}   # warn, dyncap: xem defenses/tran_dong.py
 
 
 def ten_bien_phap(defense: dict | None) -> str | None:

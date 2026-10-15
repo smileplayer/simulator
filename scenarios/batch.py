@@ -46,15 +46,17 @@ def ap_k(cfg: dict) -> dict:
     return cfg
 
 
-def to_hop_rq1() -> list[dict]:
-    """30 vụ: {id, các tham số ghi đè lên co_so}. 27 vụ L27 trợ cấp tuyến tính + 3 vụ dạng log."""
-    ten = list(MUC)
+def to_hop_rq1(muc: dict | None = None, tien_to: str = "") -> list[dict]:
+    """30 vụ: {id, các tham số ghi đè lên co_so}. 27 vụ L27 trợ cấp tuyến tính + 3 vụ dạng log.
+    `muc`: bảng mức (mặc định MUC); `tien_to`: thêm trước mã vụ (vd "KN_" cho vùng k nhỏ GĐ2)."""
+    muc = MUC if muc is None else muc
+    ten = list(muc)
     vu = []
     for i, dong in enumerate(mang_L27()):
-        vu.append({"id": f"L27_{i:02d}", "subsidy_form": "linear",
-                   **{t: MUC[t][m] for t, m in zip(ten, dong)}})
+        vu.append({"id": f"{tien_to}L27_{i:02d}", "subsidy_form": "linear",
+                   **{t: muc[t][m] for t, m in zip(ten, dong)}})
     for j, m in enumerate([1, 0, 2]):                    # log ở mức giữa, thấp, cao (cùng mức mọi yếu tố)
-        vu.append({"id": f"LOG_{j}", "subsidy_form": "log", **{t: MUC[t][m] for t in ten}})
+        vu.append({"id": f"{tien_to}LOG_{j}", "subsidy_form": "log", **{t: muc[t][m] for t in ten}})
     return vu
 
 

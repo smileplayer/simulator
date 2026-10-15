@@ -1,7 +1,8 @@
 """Bộ chạy kịch bản (INTERFACE mục 3): ghép bể engine thật + giao dịch nền + farmer + victim + attacker + arb.
 
 Thứ tự trong mỗi bước t: đặt pool.t → giao dịch nền bg:0 → farmer (+ farmer của kẻ tấn công) → victim → attacker → arb:0 (tắt khi
-attacker đang xả) → chốt trợ cấp cuối cửa sổ → thu hồi (clawback) → trả khoản tới hạn → dòng `step`. Bước cuối: collect phí cho mọi vị thế LP.
+attacker đang xả) → chốt trợ cấp cuối cửa sổ → thu hồi (clawback) → trả khoản tới hạn → (trần động: đọc L tick chứa giá) → dòng `step`.
+Trần động đổi trần đầu bước (trước giao dịch nền). Bước cuối: collect phí cho mọi vị thế LP.
 
 Chạy: `python -m scenarios.run scenarios/configs/co_so.json [seed] [duong_dan.csv]`.
 """
@@ -17,10 +18,12 @@ import numpy as np
 import pandas as pd
 
 from agents.arb import Arbitrageur
+from agents.base import tick_chua_gia
 from agents.attacker import Attacker
 from agents.farmer import Farmer, thuong_log, thuong_tuyen_tinh
 from agents.victim import VictimThichNghi, VictimToanTri
 from defenses.thuong import LichTraThuong, Q_hieu_luc, ten_bien_phap
+from defenses.tran_dong import TranDong, c_V_hieu_luc
 from engine import MAX_TICK, MIN_TICK, EventLog, Pool, sqrt_price_at_tick, tick_at_sqrt_price
 
 THU_MUC_CONFIG = Path(__file__).parent / "configs"
@@ -81,11 +84,18 @@ def dai_nen(P0: float, band: float, n: int) -> list[tuple[int, int]]:
     return ds
 
 
-def _tao_thuong(cfg: dict, Q: float):
+def _tao_thuong(cfg: dict, Q: float, tran: list[float] | None = None):
+    """Luật thưởng (token1) + trần cho farmer (None với dạng log). `tran` (list một phần tử, trần động): luật đọc
+    trần hiện hành `tran[0]` mỗi lần gọi."""
+    s = cfg["sigma"]
     if cfg["subsidy_form"] == "linear":
-        return thuong_tuyen_tinh(cfg["sigma"], Q), Q
+        if tran is not None:
+            return (lambda v: s * min(v, tran[0])), Q
+        return thuong_tuyen_tinh(s, Q), Q
     if cfg["subsidy_form"] == "log":
-        return thuong_log(cfg["sigma"], Q), None
+        if tran is not None:
+            return (lambda v: s * tran[0] * math.log2(1 + v / tran[0])), None
+        return thuong_log(s, Q), None
     raise ValueError(f"subsidy_form lạ: {cfg['subsidy_form']}")
 
 
@@ -130,7 +140,9 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
 
     Q_eff = Q_hieu_luc(cfg["Q"], defense)                 # hạ trần (nếu có)
     lich_tra = LichTraThuong.tu_defense(defense)          # trả trễ (nếu có); mặc định trả ngay
-    thuong, Q_tran = _tao_thuong(cfg, Q_eff)              # luật nền tảng trả
+    tran_dong = TranDong.tu_defense(defense, Q_eff)       # trần động (nếu có)
+    Q_nay = [Q_eff]                                       # trần hiện hành (đổi mỗi bước khi có trần động)
+    thuong, Q_tran = _tao_thuong(cfg, Q_eff, Q_nay if tran_dong is not None else None)   # luật nền tảng trả
     he_so = lich_tra.he_so_cam_nhan
     thuong_farmer = (lambda v: he_so * thuong(v)) if he_so != 1.0 else thuong   # farmer chiết khấu δ^D
     v_buoc = Q_eff / W                                    # farmer rải đều trần qua cửa sổ
@@ -145,7 +157,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     V_ky_vong = (cfg["n_farmers"] + m_att) * Q_eff        # victim toàn tri: biết luật (kể cả trần mới)
 
     def tao_victim(k: int):
-        chung = dict(c_V=cfg["c_V"], w=cfg.get("w_victim", 1), t_vao=cfg["t_m"] + cfg["victim_delay"] * (k + 1))
+        chung = dict(c_V=c_V_hieu_luc(cfg["c_V"], defense), w=cfg.get("w_victim", 1), t_vao=cfg["t_m"] + cfg["victim_delay"] * (k + 1))
         if loai_victim == "adaptive":                     # chỉ thấy phí quá khứ của bể
             return VictimThichNghi(f"victim:{k}", window=W, H=cfg.get("victim_H", 24), **chung)
         return VictimToanTri(f"victim:{k}", V=V_ky_vong, **chung)
@@ -165,9 +177,25 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     else:
         thuong_att, san_tro_cap = None, farmers
 
+    def ap_tran(Q_t: float) -> None:
+        """Trần động: đặt trần hiện hành cho luật thưởng, farmer (trần + bước), victim toàn tri (V kỳ vọng)."""
+        Q_nay[0] = Q_t
+        for a in san_tro_cap:
+            so_tk = m_att if a.owner == att.owner else 1.0
+            if Q_tran is not None:
+                a.Q = so_tk * Q_t
+            a.v_tran = so_tk * Q_t / W
+        for v in victims:
+            if isinstance(v, VictimToanTri) and not isinstance(v, VictimThichNghi):
+                v.V = (cfg["n_farmers"] + m_att) * Q_t
+
     doc_log = 0                                           # chỉ số dòng log đã quét để tìm mint/burn trong bước
     for t in range(T):
         pool.t = t
+        if tran_dong is not None:
+            Q_t = tran_dong.Q_hien_tai(t)
+            if Q_t != Q_nay[0]:
+                ap_tran(Q_t)
         if t % W == 0:                                        # giá đầu cửa sổ tích lũy (tham chiếu của clawback)
             gia_dau_cua_so = pool.sqrt_price ** 2
         # giao dịch nền: số lệnh Poisson, cỡ log-chuẩn (token1), mua/bán đều — rút đủ cả bước trước khi khớp
@@ -217,6 +245,9 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
             for pid in sorted({int(i) for i in pool.log.to_frame()["position_id"].dropna()}):
                 if any(x > 0 for x in pool.fees_owed(pid)):
                     pool.collect(pid)
+        if tran_dong is not None:                             # nền tảng đọc L tick chứa giá cuối bước
+            tick = tick_chua_gia(pool)
+            tran_dong.quan_sat(t, pool.liquidity if tick == pool.tick else pool.liquidity_at(tick))
         pool.log.append(t, "step", "platform", external_price=tt.external_price(t),
                         sqrt_price_after=pool.sqrt_price, tick_after=pool.tick,
                         liquidity_active_after=pool.liquidity)
@@ -228,7 +259,9 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     pool.log.meta = dict(cfg, seed=seed, Q_eff=Q_eff, subsidy_pending=lich_tra.con_treo(P_cuoi),
                          subsidy_pending_attacker=lich_tra.con_treo(P_cuoi, att.owner),
                          subsidy_clawed=lich_tra.da_thu_hoi, attacker_farm_accounts=m_att, t_rut=att.t_rut,
-                         wall_tick=att.tick_lower, attacker_inventory_left=att.kho, P0=z0 ** 2)
+                         wall_tick=att.tick_lower, attacker_inventory_left=att.kho, P0=z0 ** 2,
+                         dyncap_t_bao_dau=None if tran_dong is None else tran_dong.t_bao_dau,
+                         dyncap_so_buoc=0 if tran_dong is None else tran_dong.so_buoc_bat)
     return pool.log
 
 

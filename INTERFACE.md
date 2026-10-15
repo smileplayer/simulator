@@ -92,7 +92,9 @@ def run(config: dict, seed: int) -> "EventLog":   # scenarios/run.py
 
 Cấu hình kịch bản là `dict` (đọc từ JSON trong `scenarios/configs/`), tối thiểu có: `fee`, `sigma`, `Q`, `subsidy_form` (`"linear"` | `"log"`), `subsidy_window` (số bước, mặc định `24`), `steps`, `L_A`, `c_V`, `n_farmers`, `victim_type` (`"omniscient"` | `"adaptive"`), `defense` (`null` hoặc tên + tham số).
 
-**Thứ tự trong mỗi bước `t`** (bộ chạy đảm bảo): đặt `pool.t = t` → giao dịch nền `bg:*` → farmer (gồm farmer của `attacker:0` nếu `attacker_farm_share` > 0) → victim → attacker → `arb:0` → (nếu `t+1` chia hết cho `subsidy_window`) nền tảng chốt thưởng → thu hồi (clawback, nếu có) → ghi các dòng `subsidy` tới hạn → dòng `step`.
+**Biện pháp `defense` (GĐ2; ĐỔI 15/10 — thêm `warn`, `dyncap`):** `{"name": "cap", "ty_le" | "Q_cap"}` (§7.1); `{"name": "delay", "D", "don_vi", "chiet_khau", "clawback"?}` (§7.2, `defenses/thuong.py`); `{"name": "warn", "he_so": h}` (§7.3: c_V của mọi victim × h); `{"name": "dyncap", "ty_le": r (hoặc "Q_dyn"), "m": 3, "N": 24, "H": 24}` (§7.4, `defenses/tran_dong.py`: cuối bước, nếu L tick chứa giá > m × trung vị L của N bước không báo động gần nhất → từ bước sau, trong H bước kể từ lần báo cuối, trần = r·Q cho luật thưởng, farmer (trần, bước rải), farmer của `attacker:0` và V của victim toàn tri; đổi trần đầu bước, thưởng cửa sổ tính theo trần lúc chốt). Meta thêm `dyncap_t_bao_dau` (bước tín hiệu đầu, None nếu không báo) và `dyncap_so_buoc` (số bước trần thấp).
+
+**Thứ tự trong mỗi bước `t`** (bộ chạy đảm bảo): đặt `pool.t = t` → giao dịch nền `bg:*` → farmer (gồm farmer của `attacker:0` nếu `attacker_farm_share` > 0) → victim → attacker → `arb:0` → (nếu `t+1` chia hết cho `subsidy_window`) nền tảng chốt thưởng → thu hồi (clawback, nếu có) → ghi các dòng `subsidy` tới hạn → (trần động, nếu có: nền tảng đọc L tick chứa giá) → dòng `step`.
 
 **Quy ước tác nhân (đã chốt 14/10):**
 - **Arbitrageur `arb:0`** là tác nhân riêng, hành động **cuối** mỗi bước (trước dòng `step`): swap kéo giá bể về `P_e(t)` bằng `sqrt_price_limit`. Hết thanh khoản thì dừng ở đó. Khối lượng của `arb:*` được ghi log như mọi swap, B có thể lọc theo `role`.
