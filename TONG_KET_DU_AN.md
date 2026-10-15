@@ -197,14 +197,26 @@ Bảng: `ket_qua/gd3/bang/`, hình: `ket_qua/gd3/hinh/`, bản nháp: `ket_qua/b
 | 0,95 | 4,5–10,4 | +277…+736% |
 
   Victim thích nghi luôn giảm vốn (0,15–0,90×).
-- **Khi kẻ tấn công được nới tường (giải tích + `--nhanh`):** k < 1/4 → nới tới w₀, vốn victim ≈ 1,00–1,03× pro-rata (range-aware vô hiệu; KN_L27_10: mức giảm lợi kẻ tấn công co từ −62% xuống −8%); k ≥ 1/4 → kẻ tấn công chọn u* = 1/(4k), vốn victim = 1/(4k(1/√k − 1)) × pro-rata (1,56× / 2,63× / 9,9× ở k = 0,64 / 0,80 / 0,95). **Kết luận dự kiến: họ φ = min(1,(w/w₀)^α) không phải biện pháp phòng thủ trước kẻ tấn công biết thích nghi.** Chờ số đầy đủ từ `quet_gd3 --w_A`.
+- **Khi kẻ tấn công được nới tường (số đầy đủ `tomtat_wA.csv`, chọn w_A tối ưu theo trung vị 10 seed; thường w₀/4–w₀/2):**
+
+| k | Victim | Vốn victim: tường 1 tick → tối ưu | Lợi kẻ tấn công: tường 1 tick → tối ưu |
+|---|---|---|---|
+| 0,10 | toàn tri | 0,17–0,68 → 0,71–1,01 | −75…−6% → −28…−3% |
+| 0,25 | cả hai | 0,16–0,81 → 0,56–1,02 | → +8…+22% |
+| 0,64 | toàn tri | → 1,47–1,57 (giải tích 1,56) | → −3…+20% |
+| 0,80 | toàn tri | → 2,40–2,70 (giải tích 2,63) | → +79…+111% |
+| 0,95 | toàn tri | → 10,1–10,6 (giải tích 9,9) | → +610…+740% |
+
+  Khớp giải tích 46/54 ô (36/36 ở k ≥ 0,45). Victim thích nghi chỉ được bảo vệ không nhất quán theo k.
+- **Kết luận RQ3:** range-aware đổi được cách victim chọn độ rộng (α\* ≈ 1) nhưng (1) không giảm phần vốn bị cú sập quét qua (≈ 0,5), (2) tác dụng duy nhất là phạt tường một tick — kẻ tấn công vô hiệu hóa bằng cách nới tường, (3) ở vùng RQ1 còn hút victim vào nhiều hơn, (4) LP dải hẹp cố định mất 50–100% phí. ⇒ **φ dạng lũy thừa không phải biện pháp phòng thủ đáng tin cậy; cảnh báo rủi ro (GĐ2) tốt hơn hẳn.**
 - **Cái giá:** LP dải cố định 10 tick mất 51–100% phí khi w₀ ≥ 50; LP tự chọn w thu thêm 44–77%; khi giá bị ghim, độ sâu trên mỗi đơn vị vốn còn ≈ 1/w₀.
 - **Giới hạn mô hình:** luật chọn w bỏ qua biến động; victim toàn tri rút giữa hai bước xả (phần bị lấy bị chặn bởi lượng xả mỗi bước); trượt giá `lp*_truot` là của cả bể, đo trước tường.
 
 ### Ngay bây giờ
-1. **Đức:** `/chot` → `git pull` → `python -m scenarios.quet_gd3 --w_A` (~15 phút) → đẩy `ket_qua/gd3/tomtat_wA.csv`.
-2. **B:** `python -m metrics.chay_gd3` + `plots.ve_gd3` trên `tomtat_wA.csv`, chốt mục 8 (RQ3).
-3. Sau đó: hoàn thiện bản thảo mục 5–8, slide trình bày.
+- ✓ RQ1, RQ2, RQ3 đều đã có số liệu cuối (15/10).
+1. **Đức:** `/chot`.
+2. Hoàn thiện bản thảo: ghép mục 5–8 (`ket_qua/ban_nhap/`), soát Hình 6.1, thống nhất hình; phần giới hạn mô hình.
+3. Slide trình bày 5–7 phút; dàn ý báo cáo nền tảng CLMM (A, hạn 15/11).
 
 ### Xa hơn
 9. **GĐ3 / RQ3:** range-aware nhiều tick (engine đã có `fee_weight`); `c_V` theo vốn; tường nhiều tick.
