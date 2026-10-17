@@ -1,6 +1,6 @@
 # 2. Nền tảng CLMM (Concentrated Liquidity Market Maker)
 
-> Bản nháp của vai A (Engine), 15/10/2026. Viết cho người đọc chưa quen Uniswap v3. Mọi ví dụ số trong mục này đã được tính lại bằng chính engine của đồ án (`engine/`), phí 0,3% trừ khi ghi khác. Quy ước xuyên suốt: **token0** là token phụ (alpha), **token1** là token định giá (USDT); giá `P` = số token1 đổi được một token0; `z = √P`.
+> Bản nháp của vai A (Engine), 15/10/2026. Viết cho người đọc chưa quen Uniswap v3. Mọi ví dụ số trong mục này đã được tính lại bằng chính engine của đồ án (`engine/`), phí 0,3% trừ khi ghi khác. Sáu hình sinh bằng `python -m plots.ve_nen_tang` → `ket_qua/nen_tang/` (17/10). Quy ước xuyên suốt: **token0** là token phụ (alpha), **token1** là token định giá (USDT); giá `P` = số token1 đổi được một token0; `z = √P`.
 
 ---
 
@@ -32,7 +32,9 @@ tức đường cong `x·y = L²` bị tịnh tiến sao cho vị thế cạn to
 
 Dải càng hẹp, cùng một số vốn mua được càng nhiều `L` — nhưng chỉ khi giá còn nằm trong dải. Đây vừa là lý do CLMM hấp dẫn (trượt giá thấp, phí trên mỗi đồng vốn cao) vừa là gốc của tấn công trong bài gốc: một "tường" một tick cho trượt giá gần 0 với vốn nhỏ. Bán 100 token0 vào dải `[0,90 ; 1,00]` (L ≈ 19.487) làm giá giảm ≈ 1,02%; bán cùng lượng đó vào tường một tick (L ≈ 2·10⁷) chỉ làm giá giảm ≈ 0,001%.
 
-> **Hình 2.1 (cần vẽ):** trục ngang `x`, trục dọc `y`. Đường `x·y = k` của v2 (hyperbol đầy đủ) và đoạn hyperbol ảo của một vị thế v3 bị cắt ở hai điểm `p_a`, `p_b` (đoạn thực tô đậm, phần ảo nét đứt). Bên cạnh: biểu đồ cột `L` theo giá — v2 là dải thấp phẳng trên toàn trục; v3 là cột cao hẹp.
+![Hình 2.1](../nen_tang/hinh_2_1.png)
+
+**Hình 2.1.** Trái: đường cong x·y = L² của v2 và đoạn dự trữ thực của vị thế v3 [0,90; 1,10] cùng L ≈ 10.219 (chấm cam: trạng thái tại P = 1). Phải: thanh khoản L theo giá của ba cách đặt cùng 1.000 USDT (v2, dải [0,90; 1,10], một tick), trục log.
 
 ---
 
@@ -76,7 +78,9 @@ Ngược lại, từ số vốn tính ra `L` (`liquidity_for_amounts`): ví dụ
 
 Cả hai chiều LP đều kém "cứ giữ token" — đó là tổn thất tạm thời (IL), mục 2.5. Với tường một tick, giá chỉ cần đi 0,01% là vị thế đã đổi **toàn bộ** sang token còn lại: 1.000 USDT ở tick `[−1, 0)` thành ≈ 1.000,05 token0 ngay khi giá xuống dưới 0,9999; nếu giá sau đó sập còn 0,5 thì phần đó chỉ còn ≈ 500 USDT. Đây chính là cơ chế thiệt hại của nạn nhân trong bài gốc.
 
-> **Hình 2.2 (cần vẽ):** đồ thị lượng token0 và token1 của vị thế `[0,90 ; 1,10]`, L ≈ 10.219, theo giá `P ∈ [0,7 ; 1,3]` — hai đường gãy đúng ở `p_a`, `p_b`; chồng thêm đường giá trị vị thế và đường giá trị "cứ giữ" để thấy IL.
+![Hình 2.2](../nen_tang/hinh_2_2.png)
+
+**Hình 2.2.** Vị thế 1.000 USDT trên [0,90; 1,10] (L ≈ 10.219) khi giá đi từ 0,7 tới 1,3. Trái: lượng token0 và USDT, gãy đúng ở hai biên. Phải: giá trị vị thế so với cứ giữ 475,6 token0 + 524,4 USDT; phần tô là tổn thất tạm thời.
 
 ---
 
@@ -116,7 +120,9 @@ Kết quả: nhận 598,02 token1, phí 1,80 token0; A nhận 1,048 (nửa phí 
 
 **Quy ước biên.** Đi xuống chạm đúng biên tick `i` đã khởi tạo thì `tick = i − 1` dù giá đang nằm đúng `z(i)` (giá ở **mép trên** của tick `i − 1`). Hệ quả thực tế: tường `[−1, 0)` đặt ngay dưới `P₀ = 1` chưa hoạt động, nhưng kích hoạt ngay khi có lệnh bán đầu tiên (test `test_tuong_ngay_duoi_gia_kich_hoat_khi_ban`). Lỗi #9 trong `TONG_KET_DU_AN.md` (tác nhân lấy `tick_lower = pool.tick`) bắt nguồn từ quy ước này.
 
-> **Hình 2.3 (cần vẽ):** biểu đồ cột `L_active` theo tick (−12…+6) của ví dụ trên (bậc 2·10⁶ trong `[−5, 5)`, bậc 10⁶ ở hai bên), mũi tên giá đi từ tick 0 xuống tick −7, đánh dấu điểm "qua tick −5", ghi lượng vào/phí từng đoạn.
+![Hình 2.3](../nen_tang/hinh_2_3.png)
+
+**Hình 2.3.** L_active theo tick trong ví dụ hai vị thế A [−10, 10) và B [−5, 5). Bán 600 token0 đi hết đoạn L = 2·10⁶ tới tick −5 (501,54 token0), qua tick −5 thì L giảm còn 10⁶, rồi dừng ở P ≈ 0,99930 (tick −7).
 
 ---
 
@@ -136,7 +142,9 @@ f_inside(l, u) = f_g − f_below(l) − f_above(u)
 
 - Mỗi vị thế lưu **checkpoint** `f_inside,last` lúc mint/collect gần nhất; phí được hưởng = `L · (f_inside − f_inside,last)`. Giá trị tuyệt đối của `f_inside` vô nghĩa (phụ thuộc quy ước khởi tạo); chỉ **hiệu** giữa hai thời điểm là có nghĩa.
 
-> **Hình 2.4 (cần vẽ):** trục tick với hai biên `l`, `u` và giá hiện tại ở ba vị trí (dưới / trong / trên dải); mỗi trường hợp tô vùng "below", "inside", "above" của `f_g` và ghi `f_o(l)`, `f_o(u)` là vùng nào. Như hình 3 của whitepaper v3 nhưng vẽ lại.
+![Hình 2.4](../nen_tang/hinh_2_4.png)
+
+**Hình 2.4.** feeGrowthOutside với ba vị trí giá (dưới / trong / trên dải [l, u)): f_o(l), f_o(u) luôn là phí ở phía bên kia biên so với giá, nên phí trong dải = f_g − below(l) − above(u).
 
 **Vì sao LP vào sau làm loãng phí.** Phí trên mỗi đơn vị `L` là `phí/L_active`: thêm `L` mới không tạo thêm phí (khối lượng `V` do trader quyết định), chỉ chia mỏng phần có sẵn. Ví dụ: LP1 có `L = 10⁶` trên `[−10, 10)`; trader bán 100 token0 → phí 0,30 token0, LP1 nhận đủ. LP2 nạp thêm `L = 10⁶` cùng dải; trader mua lại bằng 100 token1 → phí 0,30 token1, mỗi bên 0,15. LP2 không nhận gì của swap trước (checkpoint lúc mint), nhưng từ đó LP1 chỉ còn nửa. Trong bài gốc, lợi nhuận nạn nhân `Π_V = f·Q·L_V/(L_A + L_V) − c_V·L_V` có đúng dạng này: tường `L_A` lớn là "LP vào trước" chiếm phần lớn phí, và nạn nhân vào càng nhiều thì lợi suất của chính họ càng giảm (Lemma 4).
 
@@ -165,7 +173,9 @@ Ví dụ: tường A một tick `L = 2·10⁷` và nạn nhân V trải `w = 100
 
 **Tường thanh khoản một tick do khuyến khích (Lu et al., USENIX Security 2026).** Cùng "nguyên thủy" vị thế một tick như JIT, nhưng giữ **nhiều ngày** và nhắm vào chương trình trợ cấp khối lượng: tường làm trượt giá ≈ 0 → trader săn điểm giao dịch tới trần `Q` → phí cao → nạn nhân vào cùng tick → kẻ tấn công rút tường và xả token0 qua thanh khoản của nạn nhân. Bài gốc tìm 29 vụ trên BSC, ở 25/29 vụ tường chiếm ≥ 80% thanh khoản tick. Vì tường tồn tại nhiều ngày, phí hai tầng theo thời gian của Capponi et al. xếp nó vào nhóm "dài hạn" và không phân biệt được; Tang et al. (2025) chứng minh với chia phí pro-rata thì độ rộng vị thế tự nó không mang thông tin ("twin games": vị thế `w` tick ≡ `w` vị thế một tick). Hai điểm này là lý do đồ án thử chia phí theo **độ rộng** `φ(w)` ở GĐ3.
 
-> **Hình 2.5 (cần vẽ):** ba pha của tường trên biểu đồ `L` theo tick — (a) tường cao một tick ngay dưới giá, (b) nạn nhân chồng thêm vào cùng tick, (c) tường biến mất, mũi tên giá sập xuyên qua phần nạn nhân, nạn nhân còn toàn token0. Có thể dùng lại số liệu một lượt RQ1.
+![Hình 2.5](../nen_tang/hinh_2_5.png)
+
+**Hình 2.5.** Tường một tick qua ba pha, số của kịch bản cơ sở seed 0: (a) kẻ tấn công dựng tường 4·10⁸ ở tick −53; (b) nạn nhân vào 0,62·10⁸ (tường vẫn chiếm 87%); (c) tường rút, cú xả đưa giá từ 0,995 xuống 0,501, phần nạn nhân kẹt lại thành toàn token0.
 
 ---
 
@@ -209,7 +219,9 @@ engine/
 
 **Lỗi đã sửa (`TONG_KET_DU_AN.md` #19, 15/10).** Khi giá đi qua tick, `L_active` và `Σ L·φ` được cập nhật bằng phép **trừ** `liquidityNet`. Khi giá rời một tường rất lớn mà chỉ còn một vị thế nhỏ, phép trừ hai số gần bằng nhau để lại phần dư mà sai số float có thể cùng cỡ. Bản cũ có hàm `_clean` làm tròn về 0 mọi phần dư < 1e-9 lần lượng vừa trừ; với `φ`, `L·φ` của vị thế nhỏ còn lại (`L` nhỏ × `φ` nhỏ) rơi dưới ngưỡng → bị làm tròn về 0 và kéo cả `L` về 0 → bể coi như rỗng, giá nhảy qua vị thế nhỏ, vị thế mất phí. Ví dụ (test `test_vi_the_nho_trong_so_sau_tuong_lon`): tường `L = 10⁹`, `w = 100`, `φ = 1` rời dải, chỉ còn vị thế `L = 10`, `w = 1`, `φ = 0,01` → `L·φ = 0,1`, nhỏ hơn 1e-9 lần tường. Sửa: bỏ `_clean`; khi phần dư ≤ 1e-6 lượng vừa trừ, **cộng lại trực tiếp** `(Σ L, Σ L·φ)` từ các vị thế đang chứa giá (`_active_sums`, chính xác, chỉ chạy ở các lần qua tick "nguy hiểm"). Thêm 25 test; 6 log RQ1 chạy lại lệch ≤ 1,8e-12 → kết quả GĐ1/GĐ2 không đổi (lỗi chỉ ảnh hưởng GĐ3).
 
-> **Hình 2.6 (cần vẽ):** sơ đồ khối: tác nhân (farmer, arb, victim, attacker) → `quote_swap`/`swap`/`mint`/`burn`/`collect` → `Pool` (trạng thái theo tick) → `EventLog` → `metrics/` (vai B). Mũi tên phụ "phát lại log" từ `EventLog` quay về một `Pool` mới (dùng cho kiểm định và phản thực).
+![Hình 2.6](../nen_tang/hinh_2_6.png)
+
+**Hình 2.6.** Kiến trúc ba lớp: tác nhân gọi engine qua quote_swap / swap / mint / burn / collect; Pool ghi mỗi sự kiện vào EventLog; metrics chỉ đọc log. Nhánh nét đứt: phát lại log trên một Pool mới để kiểm định engine và tính phản thực "bán thẳng".
 
 ---
 
