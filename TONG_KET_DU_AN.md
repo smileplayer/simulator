@@ -231,7 +231,8 @@ Bảng: `ket_qua/gd3/bang/`, hình: `ket_qua/gd3/hinh/`, bản nháp: `ket_qua/b
 - ✓ RQ1, RQ2, RQ3 đều đã có số liệu cuối (15/10).
 - ✓ Bài báo ghép đủ mục 1–10 ở `../02_Bao_cao_va_trinh_bay/bai_bao.tex` (LNCS), biên dịch được (16/10).
 - ✓ 16–17/10: tùy chọn `--w0` cho `scenarios/quet_gd3.py`; Đức chạy xong; quét w₀ ∈ {1.000; 2.000} (17/10, `ket_qua/gd3/tomtat_w0lon.csv`, `tomtat_wA_w0lon.csv`): nạn nhân chọn đúng w₀; phần vốn trên đường sập chỉ giảm (0,11–0,37) ở vụ sập nông 2–6% (~200–600 tick < w/2), sập sâu 9–50% vẫn 0,5; kẻ tấn công thường giữ tường một tick (37/72 cấu hình) vì nới hàng trăm tick làm tường loãng; α ≥ 1,5: lợi kẻ tấn công −6…−32% ở k = 0,45–0,64 và với nạn nhân thích nghi ở k ≥ 0,45, nhưng k = 0,80/0,95 toàn tri vẫn bị hút 2,5–8,7× (lợi kẻ tấn công tới +60%/+472%) → kết luận RQ3 không đổi. Đã viết vào bài báo (mục RQ3). Commit + push 17/10.
-1. Bản thảo: điền tác giả, chốt trích dẫn preprint, soát Hình 6.1; báo cáo nền tảng CLMM còn 6 hình "cần vẽ" (A, hạn 15/11).
+- ✓ 17/10: sáu hình nền tảng CLMM (`python -m plots.ve_nen_tang` → `ket_qua/nen_tang/`), gắn vào `nen_tang_CLMM.md`; Hình 2.5 đưa vào bài báo. Bài báo lọc preprint (giữ 5 bài quan trọng).
+1. Bản thảo: điền tác giả, soát Hình 6.1. Đã dọn 17/10: xóa bộ GĐ2 v1, v3 và chế độ `--phien v3`.
 2. Slide 5–7 phút theo `ket_qua/ban_nhap/dan_y_slide.md`.
 
 ### Cải tiến tùy chọn (đề xuất 17/10)

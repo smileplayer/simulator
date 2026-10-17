@@ -120,6 +120,8 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 17/10/2026 | B | Xóa bộ GĐ2 v1 (`tomtat.csv`, `tomtat_farm.csv`) và v3 (`tomtat_*_v3.csv`, `bang_v3/`, `hinh_v3/`); `chay_gd2`, `ve_gd2` chỉ còn v4 mặc định (Đức duyệt) | toàn repo qua |
+| 17/10/2026 | B | `plots/ve_nen_tang.py`: sáu hình Hình 2.1–2.6 cho báo cáo nền tảng CLMM → `ket_qua/nen_tang/`; gắn vào `ket_qua/ban_nhap/nen_tang_CLMM.md` | toàn repo 284 qua |
 | 17/10/2026 | CH | Đọc kết quả w₀ lớn (`tomtat_w0lon.csv`, `tomtat_wA_w0lon.csv`): phần vốn trên đường sập chỉ giảm ở vụ sập nông; kẻ tấn công thường giữ tường một tick; kết luận RQ3 không đổi. Viết vào bài báo (mục RQ3), BAN_THAO mục 9.3, muc8, TONG_KET | — |
 | 17/10/2026 | CH | Chốt: xóa `tai_lieu_do_an/` (118 MB, bản chép) và bộ GĐ2 v2 (`tomtat_v2`, `tomtat_farm_v2`, `bang_v2/`, `hinh_v2/`) + bỏ chế độ `--phien v2` trong `metrics.chay_gd2`, `plots.ve_gd2`; gộp `CLAUDE.md` vào `../CLAUDE.md` (mục "Simulator"); sửa đường dẫn trong README, `/vai`, SYNC, TONG_KET | toàn repo 284 qua |
 | 16/10/2026 | CH (phiên gốc đồ án) | `scenarios/quet_gd3.py`: thêm `--w0` (thay lưới w₀ + nới lưới độ rộng `luoi_w`, file `_w0lon`); không đổi INTERFACE, chế độ cũ giữ nguyên; chờ Đức chạy w₀ = 1000, 2000. Bài báo LaTeX ở `../02_Bao_cao_va_trinh_bay/bai_bao.tex` | tests/agents (gd3, quet) 7 qua; toàn repo 284 qua (trước khi sửa) |
