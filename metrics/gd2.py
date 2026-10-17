@@ -341,7 +341,7 @@ def kiem_gia_dinh(df: pd.DataFrame) -> dict:
 
 def ba_vung(luoi: pd.DataFrame, gia_dinh: pd.DataFrame | None = None, nguong_kl: float = 0.5,
             tol_lv: float = TOL_LV, nguong_lap_day: float = 0.8, nguong_ra_tick: float = 0.05) -> pd.DataFrame:
-    """Bản đồ ba vùng thiết kế trên lưới (σ, Q) (`tomtat_luoi_v3.csv`), mỗi ô = (victim_type, bp, σ, Q):
+    """Bản đồ ba vùng thiết kế trên lưới (σ, Q) (`tomtat_luoi_v4.csv`), mỗi ô = (victim_type, bp, σ, Q):
     trung vị qua seed của `vol_farmer` (token1), `LV_chia_LA`, `loi_tang_them` (token1), thiệt hại victim.
 
     Vùng thực nghiệm: (i) `khong_KL` — khối lượng farmer < `nguong_kl` × lớn nhất theo σ cùng Q (trợ cấp không

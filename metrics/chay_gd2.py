@@ -1,13 +1,13 @@
-"""Bảng GĐ2 (RQ2) bằng một lệnh: `python -m metrics.chay_gd2 [--phien v4|v3] [--gd2 ket_qua/gd2] [--B 2000] [--nhanh]`.
+"""Bảng GĐ2 (RQ2) bằng một lệnh: `python -m metrics.chay_gd2 [--gd2 ket_qua/gd2] [--B 2000] [--nhanh]`.
 
-**v4 (mặc định; v3 cùng cấu trúc → `bang_v3/`)** đọc `tomtat_v4.csv` (16 bp × victim), `tomtat_knho_v4.csv` (vùng k nhỏ, farm 0,3),
+**v4** đọc `tomtat_v4.csv` (16 bp × victim), `tomtat_knho_v4.csv` (vùng k nhỏ, farm 0,3),
 `tomtat_farm_v4.csv` (× farm_share), `tomtat_luoi_v4.csv` (lưới σ × Q) → `ket_qua/gd2/bang/`. v4 sửa phản thực
 bán thẳng của v3 (farmer trong pha xả tối ưu lại trên bể phản thực). Tệp:
 `danh_doi*.csv` (bảng dài: hiệu cặp so với `khong`, CI, % thay đổi), `gon*.csv` (bảng rộng), `ty_le_sap*.csv`,
 `q_sao_vu*.csv`, `q_sao_tomtat*.csv`, `don_dieu_gop*.csv` / `don_dieu_vu*.csv` (kiểm
 đơn điệu theo trần, Theorem 6), `ba_vung.csv`, `luoi_gia_dinh.csv` (kiểm Giả định 1–2: chạy lại 25 ô ×
 2 victim × 2 bp × 3 seed ≈ 10 s, lần sau đọc lại file; xóa file để chạy lại).
-(Bộ v2 đã xóa ngày 17/10/2026; còn trong lịch sử git trước commit đó.)
+(Bộ v1, v2, v3 đã xóa ngày 17/10/2026; còn trong lịch sử git. Tham số `phien` giữ để đọc bộ khác cùng cấu trúc nếu chạy lại.)
 `--nhanh`: B = 200.
 """
 from __future__ import annotations
@@ -50,7 +50,7 @@ def _ghi(out: dict, ra: Path) -> list[Path]:
 
 
 def main(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None, phien: str = "v4") -> list[Path]:
-    """Bảng cho bộ `_v4` (mặc định, → `bang/`) hoặc `_v3` (→ `bang_v3/`; cùng cấu trúc). Trả danh sách file."""
+    """Bảng cho bộ `_v4` (→ `bang/`; phiên khác cùng cấu trúc → `bang_<phien>/`). Trả danh sách file."""
     d = Path(gd2)
     ra = Path(ra) if ra else d / ("bang" if phien == "v4" else f"bang_{phien}")
     tt = them_cot(pd.read_csv(d / f"tomtat_{phien}.csv"))
@@ -88,7 +88,7 @@ def main(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None, phien: 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--gd2", default="ket_qua/gd2")
-    ap.add_argument("--phien", default="v4", choices=["v4", "v3"])
+    ap.add_argument("--phien", default="v4")
     ap.add_argument("--B", type=int, default=2000)
     ap.add_argument("--nhanh", action="store_true")
     a = ap.parse_args()
