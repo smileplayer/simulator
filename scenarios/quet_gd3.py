@@ -46,6 +46,17 @@ KHOA = ["scenario_id", "alpha", "w0", "victim_type", "seed"]
 ALPHA_WA = [1.5, 2.0, 3.0]
 LUOI_PHI_WA = [(0.0, 0)] + [(a, w0) for a in ALPHA_WA for w0 in W0]
 KHOA_WA = ["scenario_id", "alpha", "w0", "w_A", "victim_type", "seed"]
+LUOI_W_GD3 = None      # None → lưới mặc định agents.do_rong.LUOI_W; --w0 nới lưới để victim/LP chọn được w₀ lớn
+
+
+def dat_w0(w0s: list[int]) -> None:
+    """--w0: thay lưới w₀ (GĐ3 và --w_A) và nới lưới độ rộng victim/LP tới max(w₀) (thêm 500, 1000, 2000, 5000)."""
+    global W0, LUOI_PHI, LUOI_PHI_WA, LUOI_W_GD3
+    from agents.do_rong import LUOI_W
+    W0 = sorted(w0s)
+    LUOI_PHI = [(0.0, 0)] + [(a, w0) for a in ALPHA for w0 in W0]
+    LUOI_PHI_WA = [(0.0, 0)] + [(a, w0) for a in ALPHA_WA for w0 in W0]
+    LUOI_W_GD3 = tuple(sorted({*LUOI_W, *(w for w in (500, 1000, 2000, 5000) if w <= max(W0)), *W0}))
 
 
 def muc_w_A(w0: int) -> list[int]:
@@ -70,6 +81,8 @@ def cau_hinh_gd3(vu: dict, alpha: float, w0: int, victim: str, w_A: int = 1) -> 
     cfg.update(phi=None if alpha == 0 else {"alpha": alpha, "w0": w0}, victim_type=victim, w_victim="tu_chon",
                vi_tri_victim="giua", c_V_von=cfg["c_V"] * l_tren_von(1, z0, 0), lp_lanh_manh=LP_LANH_MANH,
                w_attacker=w_A, vi_tri_tuong="tren", tuong_von_co_dinh=True)
+    if LUOI_W_GD3 is not None:
+        cfg["luoi_w"] = LUOI_W_GD3
     return cfg
 
 
@@ -152,7 +165,7 @@ def danh_sach_viec(seeds: int, nhanh: bool = False, w_A: bool = False) -> list[t
     × 1 seed. `w_A`: lưới LUOI_PHI_WA × muc_w_A(w₀); mặc định w_A = None (tường một tick, như bản đầu)."""
     ds, phi = to_hop_gd3(), (LUOI_PHI_WA if w_A else LUOI_PHI)
     if nhanh:
-        ds, phi, seeds = [ds[0], ds[3]], [(0.0, 0), (2.0, 50)], 1
+        ds, phi, seeds = [ds[0], ds[3]], [(0.0, 0), (2.0, W0[len(W0) // 2])], 1
     if w_A:
         return [(vu, a, w0, vt, sd, wa) for vu in ds for a, w0 in phi for wa in muc_w_A(w0) for vt in LOAI_VICTIM
                 for sd in range(seeds)]
@@ -198,7 +211,12 @@ if __name__ == "__main__":
     ap.add_argument("--out", default=None)
     ap.add_argument("--nhanh", action="store_true")
     ap.add_argument("--w_A", action="store_true", help="kẻ tấn công nới tường w_A ∈ {1, w₀/4, w₀/2, w₀}, vốn cố định")
+    ap.add_argument("--w0", type=int, nargs="+", default=None,
+                    help="thay lưới w₀ (vd --w0 1000 2000), nới lưới độ rộng; file ra thêm hậu tố _w0lon")
     a = ap.parse_args()
     goc = "ket_qua/gd3/tomtat_wA.csv" if a.w_A else "ket_qua/gd3/tomtat.csv"
+    if a.w0:
+        dat_w0(a.w0)
+        goc = goc.replace(".csv", "_w0lon.csv")
     out = a.out or (goc.replace(".csv", "_nhanh.csv") if a.nhanh else goc)
     chay(a.seeds, Path(out), a.nhanh, a.w_A)
