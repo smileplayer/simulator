@@ -25,7 +25,8 @@
 **Cách làm việc (đổi theo thời gian):**
 1. 14/10: 3 phiên Claude trên máy Đức, chung một thư mục, đồng bộ bằng file + git local.
 2. 14/10 tối: chuyển lên cloud, 4 phiên riêng, đồng bộ qua GitHub nhánh `main` (push sau mỗi việc).
-3. **15/10 (hiện tại):** một phiên Chỉ huy gọi A/B/C làm **subagent** trong cùng container → không push/pull giữa các vai; **chỉ commit + push khi Đức gõ `/chot`**.
+3. **15/10:** một phiên Chỉ huy gọi A/B/C làm **subagent** trong cùng container → không push/pull giữa các vai; **chỉ commit + push khi Đức gõ `/chot`**.
+4. **16–17/10 (hiện tại):** làm việc trên máy Đức từ phiên mở ở thư mục gốc đồ án. Luật của `04_Simulator/CLAUDE.md` gộp vào `../CLAUDE.md` (mục "Simulator"); xóa bản chép `tai_lieu_do_an/` (118 MB) và bộ kết quả GĐ2 v2.
 
 **8 quyết định kỹ thuật đã chốt** (không đi ngược khi chưa hỏi Đức): engine cross-tick từ GĐ1; độ rộng `w` là tham số tác nhân; victim tối ưu theo Lemma 4 (hai loại toàn tri / thích nghi); `MC(v)` của farmer tính từ bể thật; `c_V` theo vốn ở GĐ3; range-aware = chia lại phí có trọng số `L_i·φ(w_i)/Σ L_j·φ(w_j)`; range-aware vô hiệu ở một tick; thử cả trợ cấp tuyến tính và log.
 
@@ -169,7 +170,7 @@ Yếu tố seed chéo **đã hết** (hoán vị seed 0–4 vs 5–9: p = 0,66, 
 **Lợi nhuận tăng thêm thật của tấn công rất nhỏ trong bộ RQ1:** `excess` trung vị 299 (CI 146–602), dương ở 277/295 lượt, ≈ 2% lợi nhuận "paper" (14.532); tỷ lệ rò rỉ trợ cấp 0,057× thay vì 3,2×. Phần lớn "lợi nhuận" là bán kho vào thanh khoản nền. Lý do: bộ RQ1 chọn `k` để tường ≥ 80% → nạn nhân nhỏ (`L_V/L_A ≈ 0,15`).
 → RQ2 phải báo `attacker_profit_excess`, không báo `paper`. Cần xét thêm vùng `k` nhỏ (nạn nhân lớn) để thấy khi nào tấn công thật sự có lãi (Theorem 6).
 
-### GĐ2 (bản cũ, chỉ để tham khảo — sẽ thay bằng `_v2`)
+### GĐ2 bản đầu (lịch sử, đã thay bằng v4; số cuối ở mục 7)
 - Hạ trần 75/50/25%: victim thích nghi `L_V/L_A` 0,73/0,53/0,34, thiệt hại giảm 3.300 → 700; victim toàn tri về 0 ngay từ cap 75%.
 - Trả trễ với farmer thuần: không tác dụng lên victim, chỉ giảm chi phí trợ cấp.
 - Kẻ tấn công farm 60% (trung vị lãi farm): +2.199 (không biện pháp) → +1.797 (delay72) → +101 (clawback72) → −634 (clawback168).
@@ -225,16 +226,20 @@ Bảng: `ket_qua/gd3/bang/`, hình: `ket_qua/gd3/hinh/`, bản nháp: `ket_qua/b
 - **Cái giá:** LP dải cố định 10 tick mất 51–100% phí khi w₀ ≥ 50; LP tự chọn w thu thêm 44–77%; khi giá bị ghim, độ sâu trên mỗi đơn vị vốn còn ≈ 1/w₀.
 - **Giới hạn mô hình:** luật chọn w bỏ qua biến động; victim toàn tri rút giữa hai bước xả (phần bị lấy bị chặn bởi lượng xả mỗi bước); trượt giá `lp*_truot` là của cả bể, đo trước tường.
 
-### Ngay bây giờ
-- ✓ RQ1, RQ2, RQ3 đều đã có số liệu cuối (15/10).
-1. **Đức:** `/chot`.
-2. Hoàn thiện bản thảo: ghép mục 5–8 (`ket_qua/ban_nhap/`), soát Hình 6.1, thống nhất hình; phần giới hạn mô hình.
-3. Slide trình bày 5–7 phút; dàn ý báo cáo nền tảng CLMM (A, hạn 15/11).
+### Ngay bây giờ (cập nhật 17/10)
+- ✓ RQ1, RQ2, RQ3 đều đã có số liệu cuối (15/10); `/chot` đã chạy (commit `6333edb`).
+- ✓ Bài báo ghép đủ mục 1–10 ở `../02_Bao_cao_va_trinh_bay/bai_bao.tex` (LNCS), biên dịch được (16/10).
+- ✓ 16/10: thêm tùy chọn `--w0` cho `scenarios/quet_gd3.py` (thay lưới w₀, nới lưới độ rộng victim/LP; file ra hậu tố `_w0lon`). Chạy thử `--nhanh` được, 7 test liên quan qua. **Chưa commit.**
+1. **Đức chạy:** `python -m scenarios.quet_gd3 --w0 1000 2000` rồi `python -m scenarios.quet_gd3 --w_A --w0 1000 2000` (đặt `PYTHONIOENCODING=utf-8` trước) → viết đoạn "w₀ lớn" vào mục 8.
+2. Bản thảo: điền tác giả, chốt trích dẫn preprint, soát Hình 6.1; báo cáo nền tảng CLMM còn 6 hình "cần vẽ" (A, hạn 15/11).
+3. Slide 5–7 phút theo `ket_qua/ban_nhap/dan_y_slide.md`.
 
-### Xa hơn
-9. **GĐ3 / RQ3:** range-aware nhiều tick (engine đã có `fee_weight`); `c_V` theo vốn; tường nhiều tick.
-10. **A:** dàn ý báo cáo nền tảng CLMM (hạn 15/11).
-11. **B:** hoàn thiện mục 5–6 bài báo; mục 7 (RQ2) khi có số.
+### Cải tiến tùy chọn (đề xuất 17/10)
+- A: w₀ lớn (đang chạy) + chạy lại GĐ2 ở f = 0,01%.
+- B: bộ phát hiện sớm tường (khoảng trống D): sinh dữ liệu có nhãn, so dò theo ngày (3σ, bài gốc) với theo giờ, đo thời gian báo trước `t_0` và báo động giả; nối với cảnh báo/trần động.
+- C: LP cũng nhận điểm (Binance Alpha Earn Hub) → `c_V` hiệu dụng giảm.
+- D: giá tham chiếu ngoài như một biện pháp (độ sâu tối thiểu làm tấn công thất bại).
+- E: kiểm chứng trên log BSC thật của 1–2 vụ.
 
 ### Mốc hạn
 - 01/11: GĐ1 trọn vẹn (**đã đạt sớm**).

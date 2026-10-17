@@ -2,18 +2,18 @@
 
 Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước khi sửa). Nhật ký: thêm dòng mới **lên đầu**.
 
-## Mục tiêu gần nhất
+## Mục tiêu gần nhất (cập nhật 17/10)
 
-- **18/10:** C chốt `INTERFACE.md` + viết `scenarios/fake_log.py`.
-- **25/10:** A có engine qua test cơ bản; B có metrics chạy trên log giả.
-- **01/11:** GĐ1 chạy trọn vẹn trên engine thật.
+- Các mốc cũ 18/10, 25/10, 01/11 đều đã đạt từ 14–15/10.
+- **Chờ Đức chạy:** `python -m scenarios.quet_gd3 --w0 1000 2000` và `python -m scenarios.quet_gd3 --w_A --w0 1000 2000` → viết đoạn "w₀ lớn" vào mục 8 bài báo.
+- **22/11:** báo cáo kết quả (bài báo `../02_Bao_cao_va_trinh_bay/bai_bao.tex`); **15/11:** báo cáo nền tảng CLMM (A).
 
 ---
 
 ## Chỉ huy (CH)
 - **Vai:** rà chéo kết quả/code của A, B, C; phát hiện lỗi, xung đột, số bất thường → tìm phương án → giao việc ở đây. **A/B/C đọc mục này đầu mỗi phiên**, trả lời trong mục của mình (ghi `Trả lời CH-n: …`).
-- **Đồng bộ (14/10):** từ giờ cả 4 phiên chạy trên cloud, **nhánh chung `main`**: `git pull --rebase origin main` đầu phiên, commit xong thì `git push origin HEAD:main` (xem `CLAUDE.md` mục Git). `.gitignore` chỉ còn cache Python — `ket_qua/rq1_tohop/`, `ket_qua/ban_nhap/` giờ được commit (nếu còn bản ở máy Đức thì đẩy lên). Tài liệu đồ án ở `tai_lieu_do_an/` (ghi chú: `tai_lieu_do_an/03_Ghi_chu_nghien_cuu/`).
-- **Việc giao đang mở:**
+- **Đồng bộ (17/10):** làm việc trên máy Đức, một phiên Chỉ huy (có thể gọi A/B/C làm subagent); luật đã gộp vào `../CLAUDE.md` mục "Simulator"; `tai_lieu_do_an/` đã xóa, tài liệu ở thư mục gốc đồ án. *Ghi chú cũ (14/10):* từ giờ cả 4 phiên chạy trên cloud, **nhánh chung `main`**: `git pull --rebase origin main` đầu phiên, commit xong thì `git push origin HEAD:main` (xem `CLAUDE.md` mục Git). `.gitignore` chỉ còn cache Python — `ket_qua/rq1_tohop/`, `ket_qua/ban_nhap/` giờ được commit (nếu còn bản ở máy Đức thì đẩy lên). Tài liệu đồ án ở `tai_lieu_do_an/` (ghi chú: `tai_lieu_do_an/03_Ghi_chu_nghien_cuu/`).
+- **Việc giao CH-1…CH-8:** đã xong hết (15/10), giữ dưới đây làm lịch sử.
   - **CH-1 → B:** `attacker_profit_paper` ≈ 9.600 cả khi không có nạn nhân (gồm tiền xả kho vào nền). Thêm chỉ số **lợi nhuận tăng thêm so với bán thẳng kho** (Theorem 6): chạy phản thực cùng seed không tường/không victim, hoặc tính `quote_swap` bán cùng lượng token0 vào bể trước tường. Ảnh hưởng trực tiếp RQ2.
   - **CH-2 → B:** `subsidy_cost` cộng `meta["subsidy_pending"]`; không thì `delay` trông rẻ giả tạo.
   - **CH-3 → B:** `ket_qua/gd2/tomtat.csv` đã lên git (commit `add gd2` của Đức) — B nhận làm chủ, dùng cho bản đồ nhiệt `(σ, Q)`.
@@ -120,6 +120,8 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 17/10/2026 | CH | Chốt: xóa `tai_lieu_do_an/` (118 MB, bản chép) và bộ GĐ2 v2 (`tomtat_v2`, `tomtat_farm_v2`, `bang_v2/`, `hinh_v2/`) + bỏ chế độ `--phien v2` trong `metrics.chay_gd2`, `plots.ve_gd2`; gộp `CLAUDE.md` vào `../CLAUDE.md` (mục "Simulator"); sửa đường dẫn trong README, `/vai`, SYNC, TONG_KET | toàn repo 284 qua |
+| 16/10/2026 | CH (phiên gốc đồ án) | `scenarios/quet_gd3.py`: thêm `--w0` (thay lưới w₀ + nới lưới độ rộng `luoi_w`, file `_w0lon`); không đổi INTERFACE, chế độ cũ giữ nguyên; chờ Đức chạy w₀ = 1000, 2000. Bài báo LaTeX ở `../02_Bao_cao_va_trinh_bay/bai_bao.tex` | tests/agents (gd3, quet) 7 qua; toàn repo 284 qua (trước khi sửa) |
 | 15/10/2026 | CH | Bản thảo: mục 2 (A), mục 4 (C), mục 5–10 (B), dàn ý slide; độ nhạy RQ1 (bỏ neo giá, phí 0,01%) + 3 vụ ngoài Giả định 2; giá ghim = điều kiện cần; `.gitignore` chặn log độ nhạy | toàn repo 284 qua |
 | 15/10/2026 | B | Chốt RQ3 trên `tomtat_wA.csv`: kẻ tấn công nới tường vô hiệu hóa range-aware; khớp giải tích 46/54 ô; mục 8 chốt | tests/metrics 104 qua |
 | 15/10/2026 | B | GĐ3: sửa đo khi không sập + victim dải rộng + tường rộng; bảng/hình RQ3, khớp giải tích 89/90 ô; bản nháp mục 8 | tests/metrics 103 qua |
