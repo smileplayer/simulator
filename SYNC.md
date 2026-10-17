@@ -5,7 +5,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 ## Mục tiêu gần nhất (cập nhật 17/10)
 
 - Các mốc cũ 18/10, 25/10, 01/11 đều đã đạt từ 14–15/10.
-- **Chờ Đức chạy:** `python -m scenarios.quet_gd3 --w0 1000 2000` và `python -m scenarios.quet_gd3 --w_A --w0 1000 2000` → viết đoạn "w₀ lớn" vào mục 8 bài báo.
+- ✓ Quét w₀ lớn đã chạy (17/10) và đã viết vào mục 8 bài báo.
 - **22/11:** báo cáo kết quả (bài báo `../02_Bao_cao_va_trinh_bay/bai_bao.tex`); **15/11:** báo cáo nền tảng CLMM (A).
 
 ---
@@ -120,6 +120,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 17/10/2026 | CH | Đọc kết quả w₀ lớn (`tomtat_w0lon.csv`, `tomtat_wA_w0lon.csv`): phần vốn trên đường sập chỉ giảm ở vụ sập nông; kẻ tấn công thường giữ tường một tick; kết luận RQ3 không đổi. Viết vào bài báo (mục RQ3), BAN_THAO mục 9.3, muc8, TONG_KET | — |
 | 17/10/2026 | CH | Chốt: xóa `tai_lieu_do_an/` (118 MB, bản chép) và bộ GĐ2 v2 (`tomtat_v2`, `tomtat_farm_v2`, `bang_v2/`, `hinh_v2/`) + bỏ chế độ `--phien v2` trong `metrics.chay_gd2`, `plots.ve_gd2`; gộp `CLAUDE.md` vào `../CLAUDE.md` (mục "Simulator"); sửa đường dẫn trong README, `/vai`, SYNC, TONG_KET | toàn repo 284 qua |
 | 16/10/2026 | CH (phiên gốc đồ án) | `scenarios/quet_gd3.py`: thêm `--w0` (thay lưới w₀ + nới lưới độ rộng `luoi_w`, file `_w0lon`); không đổi INTERFACE, chế độ cũ giữ nguyên; chờ Đức chạy w₀ = 1000, 2000. Bài báo LaTeX ở `../02_Bao_cao_va_trinh_bay/bai_bao.tex` | tests/agents (gd3, quet) 7 qua; toàn repo 284 qua (trước khi sửa) |
 | 15/10/2026 | CH | Bản thảo: mục 2 (A), mục 4 (C), mục 5–10 (B), dàn ý slide; độ nhạy RQ1 (bỏ neo giá, phí 0,01%) + 3 vụ ngoài Giả định 2; giá ghim = điều kiện cần; `.gitignore` chặn log độ nhạy | toàn repo 284 qua |

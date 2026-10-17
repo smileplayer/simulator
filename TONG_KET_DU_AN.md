@@ -223,19 +223,19 @@ Bảng: `ket_qua/gd3/bang/`, hình: `ket_qua/gd3/hinh/`, bản nháp: `ket_qua/b
 
   Khớp giải tích 46/54 ô (36/36 ở k ≥ 0,45). Victim thích nghi chỉ được bảo vệ không nhất quán theo k.
 - **Kết luận RQ3:** range-aware đổi được cách victim chọn độ rộng (α\* ≈ 1) nhưng (1) không giảm phần vốn bị cú sập quét qua (≈ 0,5), (2) tác dụng duy nhất là phạt tường một tick — kẻ tấn công vô hiệu hóa bằng cách nới tường, (3) ở vùng RQ1 còn hút victim vào nhiều hơn, (4) LP dải hẹp cố định mất 50–100% phí. ⇒ **φ dạng lũy thừa không phải biện pháp phòng thủ đáng tin cậy; cảnh báo rủi ro (GĐ2) tốt hơn hẳn.**
+- **w₀ lớn (17/10, `tomtat_w0lon.csv`, `tomtat_wA_w0lon.csv`):** phần vốn trên đường sập chỉ giảm (0,11–0,37) ở vụ sập nông 2–6%; sập sâu vẫn 0,5. Kẻ tấn công thường giữ tường một tick (37/72). α ≥ 1,5: lợi kẻ tấn công −6…−32% ở k = 0,45–0,64, nhưng k = 0,80/0,95 toàn tri vẫn bị hút 2,5–8,7×. Kết luận không đổi.
 - **Cái giá:** LP dải cố định 10 tick mất 51–100% phí khi w₀ ≥ 50; LP tự chọn w thu thêm 44–77%; khi giá bị ghim, độ sâu trên mỗi đơn vị vốn còn ≈ 1/w₀.
 - **Giới hạn mô hình:** luật chọn w bỏ qua biến động; victim toàn tri rút giữa hai bước xả (phần bị lấy bị chặn bởi lượng xả mỗi bước); trượt giá `lp*_truot` là của cả bể, đo trước tường.
 
 ### Ngay bây giờ (cập nhật 17/10)
-- ✓ RQ1, RQ2, RQ3 đều đã có số liệu cuối (15/10); `/chot` đã chạy (commit `6333edb`).
+- ✓ RQ1, RQ2, RQ3 đều đã có số liệu cuối (15/10).
 - ✓ Bài báo ghép đủ mục 1–10 ở `../02_Bao_cao_va_trinh_bay/bai_bao.tex` (LNCS), biên dịch được (16/10).
-- ✓ 16/10: thêm tùy chọn `--w0` cho `scenarios/quet_gd3.py` (thay lưới w₀, nới lưới độ rộng victim/LP; file ra hậu tố `_w0lon`). Chạy thử `--nhanh` được, 7 test liên quan qua. **Chưa commit.**
-1. **Đức chạy:** `python -m scenarios.quet_gd3 --w0 1000 2000` rồi `python -m scenarios.quet_gd3 --w_A --w0 1000 2000` (đặt `PYTHONIOENCODING=utf-8` trước) → viết đoạn "w₀ lớn" vào mục 8.
-2. Bản thảo: điền tác giả, chốt trích dẫn preprint, soát Hình 6.1; báo cáo nền tảng CLMM còn 6 hình "cần vẽ" (A, hạn 15/11).
-3. Slide 5–7 phút theo `ket_qua/ban_nhap/dan_y_slide.md`.
+- ✓ 16–17/10: tùy chọn `--w0` cho `scenarios/quet_gd3.py`; Đức chạy xong; quét w₀ ∈ {1.000; 2.000} (17/10, `ket_qua/gd3/tomtat_w0lon.csv`, `tomtat_wA_w0lon.csv`): nạn nhân chọn đúng w₀; phần vốn trên đường sập chỉ giảm (0,11–0,37) ở vụ sập nông 2–6% (~200–600 tick < w/2), sập sâu 9–50% vẫn 0,5; kẻ tấn công thường giữ tường một tick (37/72 cấu hình) vì nới hàng trăm tick làm tường loãng; α ≥ 1,5: lợi kẻ tấn công −6…−32% ở k = 0,45–0,64 và với nạn nhân thích nghi ở k ≥ 0,45, nhưng k = 0,80/0,95 toàn tri vẫn bị hút 2,5–8,7× (lợi kẻ tấn công tới +60%/+472%) → kết luận RQ3 không đổi. Đã viết vào bài báo (mục RQ3). Commit + push 17/10.
+1. Bản thảo: điền tác giả, chốt trích dẫn preprint, soát Hình 6.1; báo cáo nền tảng CLMM còn 6 hình "cần vẽ" (A, hạn 15/11).
+2. Slide 5–7 phút theo `ket_qua/ban_nhap/dan_y_slide.md`.
 
 ### Cải tiến tùy chọn (đề xuất 17/10)
-- A: w₀ lớn (đang chạy) + chạy lại GĐ2 ở f = 0,01%.
+- A: chạy lại GĐ2 ở f = 0,01% (phần w₀ lớn đã xong 17/10).
 - B: bộ phát hiện sớm tường (khoảng trống D): sinh dữ liệu có nhãn, so dò theo ngày (3σ, bài gốc) với theo giờ, đo thời gian báo trước `t_0` và báo động giả; nối với cảnh báo/trần động.
 - C: LP cũng nhận điểm (Binance Alpha Earn Hub) → `c_V` hiệu dụng giảm.
 - D: giá tham chiếu ngoài như một biện pháp (độ sâu tối thiểu làm tấn công thất bại).
