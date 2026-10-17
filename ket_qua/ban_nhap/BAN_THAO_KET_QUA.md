@@ -505,7 +505,7 @@ Bài gốc đề xuất bốn biện pháp nhưng chưa đánh giá (giới hạ
 4. **Ba vụ ngoài Giả định 2** (L27_02/04/06: `L_A = 2·10⁸`, `Q = 48.000`; 34–37% lệnh farmer rời tick tường). Giữ trong RQ1 và không đổi kết luận (Bảng 6.2); ở GĐ2 chúng là nguồn chính của ngoại lệ Q\* (7.2) và không đơn điệu (cơ chế 2, 7.3); ở GĐ3 không dùng ba vụ này.
 5. **Nạn nhân "toàn tri" là nạn nhân tin V = n·Q_eff**, nên bị lỗ cả khi trần không ràng buộc (vùng (i), 7.4). Nạn nhân thích nghi ước V từ phí cả bể. Không có nạn nhân học từ cú sập, và `c_V` là hằng; cảnh báo rủi ro được mô hình hóa đơn giản là nhân `c_V`, chưa mô hình phản ứng thật của LP với một cảnh báo.
 6. **Theorem 6 coi lợi bán thẳng không đổi theo Q;** trong mô hình có farmer, nó giảm khi hạ trần, làm "lợi tăng thêm" tăng nhẹ ở vài vụ Q nhỏ.
-7. **GĐ3:** luật chọn w bỏ qua biến động và tổn thất tạm thời (nạn nhân và LP chọn argmax φ·ℓ), nên mức trải rộng và cái giá với LP có thể bị ước cao; w₀ ≤ 200 tick ≪ độ sâu cú sập (cần w₀ ≳ 1.000 mới cắt được phần vốn trên đường sập, chưa quét); nạn nhân toàn tri chỉnh vị thế giữa hai bước xả nên phần bị lấy bị chặn bởi lượng xả mỗi bước; trượt giá LP là của cả bể, đo trước khi dựng tường; khối lượng farmer không đổi theo độ sâu vì trần ràng buộc.
+7. **GĐ3:** luật chọn w bỏ qua biến động và tổn thất tạm thời (nạn nhân và LP chọn argmax φ·ℓ), nên mức trải rộng và cái giá với LP có thể bị ước cao; w₀ ≤ 200 tick ≪ độ sâu cú sập; quét thêm w₀ ∈ {1.000; 2.000} (17/10) cho thấy phần vốn trên đường sập chỉ giảm ở vụ sập nông 2–6%, sập sâu vẫn ≈ 0,5; nạn nhân toàn tri chỉnh vị thế giữa hai bước xả nên phần bị lấy bị chặn bởi lượng xả mỗi bước; trượt giá LP là của cả bể, đo trước khi dựng tường; khối lượng farmer không đổi theo độ sâu vì trần ràng buộc.
 8. **Trợ cấp log** dùng cùng cửa sổ 24 bước như dạng tuyến tính, không dùng cửa sổ trượt 15 ngày của Binance Alpha.
 9. **Hiệu chỉnh RQ1** chọn `k ≥ 0,64` để khớp "tường ≥ 80%", làm nạn nhân nhỏ và lợi tăng thêm chỉ ≈ 2% lợi paper; vì vậy GĐ2 thêm vùng `k` nhỏ.
 
@@ -530,7 +530,7 @@ Chúng tôi dựng một simulator CLMM xuyên tick có đủ ba bên — farmer
 1. **Nạn nhân học và cảnh báo thật:** mô hình hóa cách LP phản ứng với một cảnh báo cụ thể (ngưỡng độ rộng, chỉ báo tập trung thanh khoản) thay vì nhân `c_V`, và cho nạn nhân cập nhật niềm tin sau mỗi vụ.
 2. **Kẻ tấn công tối ưu đầy đủ:** chọn nội sinh `L_A`, lịch dựng, thời điểm rút và kho; thêm nhiều kẻ tấn công cạnh tranh và kẻ tấn công bán qua nhiều bể.
 3. **Bậc phí và spacing thật** (0,01%/1 tick, 0,25%/50 tick) để có con số tuyệt đối dùng được cho thiết kế chương trình khuyến khích.
-4. **Range-aware với w₀ lớn (≳ 1.000 tick)** hoặc φ phụ thuộc thời gian giữ vị thế, cùng luật chọn w có tính biến động.
+4. **φ phụ thuộc thời gian giữ vị thế** (w₀ lớn tới 2.000 tick đã thử, không đổi kết luận), cùng luật chọn w có tính biến động.
 5. **Giá tham chiếu bên ngoài như một biện pháp:** mô phỏng có chủ đích một nguồn giá ngoài (sàn hay bể khác có độ sâu xác định, hoặc oracle) để đo độ sâu tham chiếu tối thiểu làm tấn công mất khả thi, cùng cái giá và phản ứng của kẻ tấn công (tường dày hơn).
 6. **Phát hiện sớm tường thanh khoản** (khoảng trống D của đồ án): dùng simulator sinh dữ liệu có nhãn cho bộ phát hiện theo luật, kết hợp với trần động.
 7. **Kiểm chứng bằng phản thực lịch sử** trên log BSC của 29 vụ, như bài gốc gợi ý.

@@ -111,7 +111,7 @@ Mức gốc pro-rata (trung vị): `dc_excess` = 9.318 / 737 / 1.175 / 1.949 / 3
 
 ## 8.5 Giới hạn
 
-- **Cú sập ≫ w:** w₀ ≤ 200 tick quá nhỏ so với cú sập 600–5.000 tick. Muốn cắt phần vốn trên đường sập cần w₀ ≳ 1.000 tick; chưa quét.
+- **Cú sập ≫ w:** w₀ ≤ 200 tick quá nhỏ so với cú sập 600–5.000 tick. Đã quét thêm w₀ ∈ {1.000; 2.000} (17/10): quét w₀ ∈ {1.000; 2.000} (17/10, `ket_qua/gd3/tomtat_w0lon.csv`, `tomtat_wA_w0lon.csv`): nạn nhân chọn đúng w₀; phần vốn trên đường sập chỉ giảm (0,11–0,37) ở vụ sập nông 2–6% (~200–600 tick < w/2), sập sâu 9–50% vẫn 0,5; kẻ tấn công thường giữ tường một tick (37/72 cấu hình) vì nới hàng trăm tick làm tường loãng; α ≥ 1,5: lợi kẻ tấn công −6…−32% ở k = 0,45–0,64 và với nạn nhân thích nghi ở k ≥ 0,45, nhưng k = 0,80/0,95 toàn tri vẫn bị hút 2,5–8,7× (lợi kẻ tấn công tới +60%/+472%) → kết luận RQ3 không đổi. Đoạn tương ứng trong `../../../02_Bao_cao_va_trinh_bay/bai_bao.tex`, mục RQ3.
 - **Luật chọn w bỏ qua biến động:** victim và LP chọn w* = argmax φ·ℓ, không tính rủi ro giá ra khỏi dải hay thời gian trong dải. LP thật sẽ chọn hẹp hơn khi biến động thấp, nên mức trải rộng (và cái giá với LP) có thể bị ước cao.
 - **Victim toàn tri rút giữa hai bước xả:** victim chỉnh L mỗi bước, nên có thể rút ngay sau bước xả đầu. Thiệt hại khi đó phụ thuộc lịch xả 2 bước, và có thể khác nếu kẻ tấn công xả trong một bước.
 - **Trượt giá LP (`lp*_truot`) là của cả bể, đo ở pha bình thường trước khi có tường.** Nó không đo thanh khoản lúc tấn công. Mức giảm 2–8% chỉ phản ánh LP lành mạnh trải rộng hơn trong bể nền.
