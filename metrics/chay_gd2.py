@@ -1,4 +1,4 @@
-"""Bảng GĐ2 (RQ2) bằng một lệnh: `python -m metrics.chay_gd2 [--phien v4|v3|v2] [--gd2 ket_qua/gd2] [--B 2000] [--nhanh]`.
+"""Bảng GĐ2 (RQ2) bằng một lệnh: `python -m metrics.chay_gd2 [--phien v4|v3] [--gd2 ket_qua/gd2] [--B 2000] [--nhanh]`.
 
 **v4 (mặc định; v3 cùng cấu trúc → `bang_v3/`)** đọc `tomtat_v4.csv` (16 bp × victim), `tomtat_knho_v4.csv` (vùng k nhỏ, farm 0,3),
 `tomtat_farm_v4.csv` (× farm_share), `tomtat_luoi_v4.csv` (lưới σ × Q) → `ket_qua/gd2/bang/`. v4 sửa phản thực
@@ -7,7 +7,7 @@ bán thẳng của v3 (farmer trong pha xả tối ưu lại trên bể phản t
 `q_sao_vu*.csv`, `q_sao_tomtat*.csv`, `don_dieu_gop*.csv` / `don_dieu_vu*.csv` (kiểm
 đơn điệu theo trần, Theorem 6), `ba_vung.csv`, `luoi_gia_dinh.csv` (kiểm Giả định 1–2: chạy lại 25 ô ×
 2 victim × 2 bp × 3 seed ≈ 10 s, lần sau đọc lại file; xóa file để chạy lại).
-**v2** (lần chạy trước): `tomtat_v2.csv`, `tomtat_farm_v2.csv` → `ket_qua/gd2/bang_v2/`.
+(Bộ v2 đã xóa ngày 17/10/2026; còn trong lịch sử git trước commit đó.)
 `--nhanh`: B = 200.
 """
 from __future__ import annotations
@@ -49,24 +49,6 @@ def _ghi(out: dict, ra: Path) -> list[Path]:
     return files
 
 
-def main_v2(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None) -> list[Path]:
-    """Bảng cho bộ `_v2` (lợi nhuận suy vai, loại cặp không sập) → `bang_v2/`."""
-    d = Path(gd2)
-    tt = them_cot(pd.read_csv(d / "tomtat_v2.csv"))
-    fm = them_cot(pd.read_csv(d / "tomtat_farm_v2.csv"))
-    out = {"danh_doi": bang_danh_doi(tt, ("victim_type",), B=B),
-           "danh_doi_theo_dang": bang_danh_doi(tt, ("subsidy_form", "victim_type"), B=B),
-           "danh_doi_farm": bang_danh_doi(fm, ("farm_share", "victim_type"), B=B)}
-    out["gon"] = bang_gon(out["danh_doi"])
-    out["gon_theo_dang"] = bang_gon(out["danh_doi_theo_dang"], ("subsidy_form", "victim_type"))
-    out["gon_farm"] = bang_gon(out["danh_doi_farm"], ("farm_share", "victim_type"))
-    out["ty_le_sap"] = ty_le_sap(tt, B=B)
-    out["ty_le_sap_farm"] = ty_le_sap(fm, ("farm_share", "victim_type"), B=B)
-    out["q_sao_vu"] = q_sao_vu(tt)
-    out["q_sao_tomtat"] = tom_tat_q_sao(out["q_sao_vu"])
-    return _ghi(out, Path(ra) if ra else d / "bang_v2")
-
-
 def main(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None, phien: str = "v4") -> list[Path]:
     """Bảng cho bộ `_v4` (mặc định, → `bang/`) hoặc `_v3` (→ `bang_v3/`; cùng cấu trúc). Trả danh sách file."""
     d = Path(gd2)
@@ -106,11 +88,11 @@ def main(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None, phien: 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--gd2", default="ket_qua/gd2")
-    ap.add_argument("--phien", default="v4", choices=["v4", "v3", "v2"])
+    ap.add_argument("--phien", default="v4", choices=["v4", "v3"])
     ap.add_argument("--B", type=int, default=2000)
     ap.add_argument("--nhanh", action="store_true")
     a = ap.parse_args()
     B = 200 if a.nhanh else a.B
-    files = main_v2(a.gd2, B) if a.phien == "v2" else main(a.gd2, B, phien=a.phien)
+    files = main(a.gd2, B, phien=a.phien)
     for f in files:
         print(f)

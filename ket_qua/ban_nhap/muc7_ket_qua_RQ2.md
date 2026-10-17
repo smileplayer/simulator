@@ -153,4 +153,4 @@ Giả định được kiểm bằng cách chạy lại pha Prep (`luoi_gia_dinh
 - **v3:** cùng thiết kế; phản thực đỡ giá cho cú bán thẳng.
   - v3 → v4, cùng xếp hạng biện pháp, Q* và phân vùng; chỉ % giảm lợi kẻ tấn công đổi vài điểm %: vùng k nhỏ hạ trần mạnh hơn (thích nghi cap10 −19 → −30%, toàn tri cap50 −17 → −25%), claw72 farm 0,6 yếu hơn (−52…−54 → −46…−50%).
   - Bảng/hình v3: `bang_v3/`, `hinh_v3/`.
-- **v2:** lợi nhuận suy vai, lưới cap 4 mức, chưa có warn và dyncap: `bang_v2/`, `hinh_v2/`.
+- **v2:** lợi nhuận suy vai, lưới cap 4 mức, chưa có warn và dyncap. File kết quả đã xóa ngày 17/10/2026 (còn trong lịch sử git).
