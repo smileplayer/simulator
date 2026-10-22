@@ -135,6 +135,8 @@ Tiêu chuẩn kiểm định cũng đổi (Đức chốt 14/10): kiểm theo **p
 
 ### RQ1 (300 log = 30 vụ × 10 seed, sau CH-8) — **Đạt 13/13**
 
+*Ghi chú 18/10 (bài báo):* 13/13 theo ước lượng điểm; 12/13 nếu đòi CI nằm trên 50% (giá sập VWAP 52%, CI 38–67 → "chưa phân định"). "Lift Attack > 5×" là tiêu chí tồn tại (bài gốc 4/29). Gắn nhãn: 9 tiêu chí nảy sinh, 4 áp đặt (chuẩn bị ≥ 1 ngày, thu hoạch < 24 giờ, tường cạn do lịch kịch bản; RV Prep < RV Attack do neo giá).
+
 | Tiêu chí | Mô phỏng | CI 95% | Bài gốc | Lần trước CH-8 |
 |---|---|---|---|---|
 | Sập ≥ 10% | 98% | 96–100 | 100% | 99% |
@@ -193,7 +195,8 @@ Bảng: `ket_qua/gd2/bang/`, hình: `ket_qua/gd2/hinh/`, bản nháp: `ket_qua/b
 **Kết luận RQ2:**
 1. Ngưỡng hạ trần Q\* của Theorem 6 khớp thực nghiệm khi victim định giá theo trần: **Q\*/Q = k** (28/30 vụ RQ1, 30/30 k nhỏ). Hạ dưới ngưỡng xóa hết lợi, đổi lấy mất 20–26% khối lượng.
 2. **Victim thích nghi (nhìn phí lịch sử) khó bảo vệ:** hạ trần/trần động chỉ cắt 31–65% (RQ1), 4–30% (victim lớn), mất tới nửa khối lượng; 21/30 vụ vẫn còn victim ở cap05. Lý do: victim ước khối lượng từ phí cả bể (gồm nền + arb).
-3. **Cảnh báo rủi ro có biên đánh đổi tốt nhất** (mất < 2,3% khối lượng). Thu hồi thưởng là bổ sung rẻ nhưng chỉ cắt lãi farm.
+3. **Cảnh báo rủi ro giữ khối lượng tốt nhất** (mất < 2,3% khối lượng) (sửa 20/10: chỉ đúng trên trục khối lượng; cảnh báo gần như không tiết kiệm trợ cấp, hạ trần tiết kiệm 44–94%; warn40 làm L_active Post giảm 49% với nạn nhân thích nghi, do cú sập sâu hơn (22/10: bỏ vị thế nạn nhân và kẻ tấn công cho cùng số ở mọi lượt có sập); thứ hạng tùy mục tiêu của nền tảng). Thu hồi thưởng là bổ sung rẻ nhưng chỉ cắt lãi farm.
+   - Bản v5 (22/10): nghi vấn W11 sai: L_khac_mean_post = L_mean_post ở cả 9.270 lượt có sập; warn40 giảm L Post vì cú sập sâu hơn (độ sập trung vị −18% → −40% với nạn nhân thích nghi). Nạn nhân lỗ ròng (tính cả phí) ở 57% lượt toàn tri, 66% thích nghi (trung vị −20 / −275 token1). Bậc phí 0,01%: % thay đổi lệch ≤ 7 điểm (lợi tăng thêm ≤ 1,2), thứ tự biện pháp giữ nguyên; tỷ số lợi tăng thêm / trợ cấp thành 2,7× / 14× (vì trợ cấp ∝ σ, giữ σ/f).
 4. **Không biện pháp nào chặn được cú sập giá.**
 5. Bản đồ ba vùng (toàn tri) khớp lý thuyết 25/25 ô; vùng 4 "ngoài giả định" ở σ = f và Q lớn so với L_A.
 
@@ -201,7 +204,7 @@ Bảng: `ket_qua/gd2/bang/`, hình: `ket_qua/gd2/hinh/`, bản nháp: `ket_qua/b
 
 ### GĐ3 (RQ3) — kết quả (15/10)
 Bảng: `ket_qua/gd3/bang/`, hình: `ket_qua/gd3/hinh/`, bản nháp: `ket_qua/ban_nhap/muc8_ket_qua_RQ3.md`.
-- **Victim chọn độ rộng** theo g(w) = φ(w)·ℓ(w): w* nhảy 1 → w₀; ngưỡng **α\* ≈ 1** (mô phỏng: α = 0,5 → w = 1, α ≥ 1 → w = w₀ ở mọi lượt) ⇒ φ phải ít nhất tuyến tính, siêu tuyến tính để chắc — **xác nhận giả thuyết của đồ án**.
+- **Victim chọn độ rộng** theo g(w) = φ(w)·ℓ(w): w* nhảy 1 → w₀; ngưỡng **α\* ≈ 1** (mô phỏng: α = 0,5 → w = 1, α ≥ 1 → w = w₀ ở mọi lượt) ⇒ φ phải tăng nhanh hơn tuyến tính (α > 1; α = 1 lợi chỉ 0,01–0,25%) — **xác nhận giả thuyết của đồ án**.
 - **Trải rộng không cắt được phần vốn trên đường sập** (0,50–0,55 ở mọi φ): sập sâu 600–5.000 tick ≫ w/2.
 - **Kênh tác động thật = lượng vốn victim** (tường 1 tick bị phạt nhường phí cho victim). Giải tích khớp mô phỏng 89/90 ô (sai số trung vị 0,15%). Tường 1 tick, α ≥ 1,5, toàn tri:
 
@@ -233,7 +236,7 @@ Bảng: `ket_qua/gd3/bang/`, hình: `ket_qua/gd3/hinh/`, bản nháp: `ket_qua/b
 - ✓ 16–17/10: tùy chọn `--w0` cho `scenarios/quet_gd3.py`; Đức chạy xong; quét w₀ ∈ {1.000; 2.000} (17/10, `ket_qua/gd3/tomtat_w0lon.csv`, `tomtat_wA_w0lon.csv`): nạn nhân chọn đúng w₀; phần vốn trên đường sập chỉ giảm (0,11–0,37) ở vụ sập nông 2–6% (~200–600 tick < w/2), sập sâu 9–50% vẫn 0,5; kẻ tấn công thường giữ tường một tick (37/72 cấu hình) vì nới hàng trăm tick làm tường loãng; α ≥ 1,5: lợi kẻ tấn công −6…−32% ở k = 0,45–0,64 và với nạn nhân thích nghi ở k ≥ 0,45, nhưng k = 0,80/0,95 toàn tri vẫn bị hút 2,5–8,7× (lợi kẻ tấn công tới +60%/+472%) → kết luận RQ3 không đổi. Đã viết vào bài báo (mục RQ3). Commit + push 17/10.
 - ✓ 17/10: sáu hình nền tảng CLMM (`python -m plots.ve_nen_tang` → `ket_qua/nen_tang/`), gắn vào `nen_tang_CLMM.md`; Hình 2.5 đưa vào bài báo. Bài báo lọc preprint (giữ 5 bài quan trọng).
 1. Bản thảo: điền tác giả, soát Hình 6.1. Đã dọn 17/10: xóa bộ GĐ2 v1, v3 và chế độ `--phien v3`.
-2. Slide 5–7 phút theo `ket_qua/ban_nhap/dan_y_slide.md`.
+2. Slide: kịch bản 10 phút ở `../02_Bao_cao_va_trinh_bay/Kich_ban_slide_10_phut.md` (17/10); dựng bằng `../ppt-master/` theo khung `../L01_Nhap_mon_Blockchain_Mat_ma.pdf`.
 
 ### Cải tiến tùy chọn (đề xuất 17/10)
 - A: chạy lại GĐ2 ở f = 0,01% (phần w₀ lớn đã xong 17/10).
