@@ -8,9 +8,9 @@ import math
 
 import pandas as pd
 
-from metrics.indicators import phase_stats, pool_liquidity, price_changes, subsidy_cost
+from metrics.indicators import liquidity_excluding, phase_stats, pool_liquidity, price_changes, subsidy_cost
 from metrics.phases import PHA, phases
-from metrics.pnl import attacker_profit, identify_roles, victim_loss
+from metrics.pnl import attacker_profit, identify_roles, victim_fees, victim_loss
 
 NAN = float("nan")
 
@@ -63,7 +63,10 @@ def summarize(df: pd.DataFrame, end: str = "t_b", alpha_cost: float | None = Non
              subsidy_clawed=sc["clawed"], subsidy_to_attacker=sc["to_attacker"])
     pl = pool_liquidity(df, ph)
     r.update({f"L_{k}": pl[k] for k in ("mean_before", "mean_post", "ratio_post_before", "drop_at_tb")})
-    for k in ("victim_loss_full", "victim_loss_nonalpha", "n_victims", "n_victims_loss",
+    lk = liquidity_excluding(df, ph)
+    r.update(L_khac_mean_before=lk["mean_before"], L_khac_mean_post=lk["mean_post"])
+    for k in ("victim_loss_full", "victim_loss_nonalpha", "n_victims", "n_victims_loss", "victim_E_full",
+              "victim_fees", "victim_net",
               "attacker_profit_paper", "attacker_net_cash1", "attacker_profit_full", "main_attacker",
               "attacker_ban_thang", "attacker_profit_excess", "attacker_x_dump", "attacker_farm_volume",
               "attacker_farm_cost", "attacker_farm_subsidy", "attacker_farm_pnl", "attacker_farm_pending"):
@@ -72,11 +75,15 @@ def summarize(df: pd.DataFrame, end: str = "t_b", alpha_cost: float | None = Non
         vl = victim_loss(df, ph, end=end)
         if len(vl):
             v = vl.drop(index="TOTAL")
+            phi = victim_fees(df, set(v.index), float(vl.loc["TOTAL", "p_alpha"]))
+            E = float(v["E_full"].sum())
             r.update(victim_loss_full=float(v["loss_full"].sum()),
                      victim_loss_nonalpha=float(v["loss_nonalpha"].sum()),
-                     n_victims=len(v), n_victims_loss=int((v["loss_full"] > 0).sum()))
+                     n_victims=len(v), n_victims_loss=int((v["loss_full"] > 0).sum()),
+                     victim_E_full=E, victim_fees=phi, victim_net=phi - E)
         else:
-            r.update(victim_loss_full=0.0, victim_loss_nonalpha=0.0, n_victims=0, n_victims_loss=0)
+            r.update(victim_loss_full=0.0, victim_loss_nonalpha=0.0, n_victims=0, n_victims_loss=0,
+                     victim_E_full=0.0, victim_fees=0.0, victim_net=0.0)
         r["main_attacker"] = identify_roles(df, ph, end)["main_attacker"]
         ap = attacker_profit(df, ph, end=end, alpha_cost=alpha_cost)
         if len(ap):

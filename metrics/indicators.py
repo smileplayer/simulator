@@ -69,6 +69,36 @@ def pool_liquidity(df: pd.DataFrame, ph: dict) -> dict:
     return out
 
 
+def liquidity_excluding(df: pd.DataFrame, ph: dict, bo_vai: tuple[str, ...] = ("attacker", "victim")) -> dict:
+    """Thanh khoản đang hoạt động không tính vị thế của các vai `bo_vai` (CH-9, 20/10): `mean_before`, `mean_post` (L).
+
+    Dựng lại từ dòng mint/burn: cuối mỗi bước t, cộng L ròng của mọi vị thế có `tick_lower ≤ tick(t) < tick_upper`
+    mà chủ không thuộc `bo_vai` (vai = tiền tố owner trước dấu `:`). `bo_vai = ()` → trùng `L_active` của engine.
+    Lý do: `L_active` Post gồm cả vị thế nạn nhân còn nằm trong dải, nên biện pháp đuổi nạn nhân bị đo thành "mất thanh khoản".
+    """
+    w = ph["windows"]
+    s = step_frame(df)
+    buoc = [t for k in ("Before", "Post") if w.get(k) is not None for t in range(w[k][0], w[k][1] + 1) if t in s.index]
+    out = dict(mean_before=float("nan"), mean_post=float("nan"))
+    if not buoc:
+        return out
+    lp = df[df["kind"].isin(["mint", "burn"])].sort_values(["t", "seq"])
+    vai = lp["owner"].astype(str).str.split(":").str[0]
+    lp = lp[~vai.isin(bo_vai)]
+    dL = np.where(lp["kind"] == "mint", 1.0, -1.0) * lp["liquidity"].astype(float)
+    lp = lp.assign(dL=dL)
+    L = {}
+    for t in sorted(set(buoc)):
+        a = lp[lp["t"] <= t]
+        tick = int(s.loc[t, "tick"])
+        g = a[(a["tick_lower"] <= tick) & (a["tick_upper"] > tick)]
+        L[t] = max(float(g["dL"].sum()), 0.0)
+    Ls = pd.Series(L)
+    out["mean_before"] = _trung_binh(Ls, w["Before"])
+    out["mean_post"] = _trung_binh(Ls, w["Post"])
+    return out
+
+
 def vwap(df: pd.DataFrame) -> pd.Series:
     """VWAP theo giờ (token1/token0): Σp_i·v_i / Σv_i, p_i = |amount1|/|amount0| của swap, v_i = |amount1|.
 

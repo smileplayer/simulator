@@ -1,5 +1,7 @@
 # Dàn ý slide — trình bày 5–7 phút (một người nói)
 
+> **Đã thay (17/10/2026)** bằng kịch bản 10 phút ở `../../../02_Bao_cao_va_trinh_bay/Kich_ban_slide_10_phut.md`. Giữ file này làm lịch sử.
+
 > Chỉ huy soạn 15/10/2026. Mỗi slide ~45–60 giây. Số liệu lấy từ `TONG_KET_DU_AN.md` và `ket_qua/*/bang/` — soát lại khi chốt bản thảo.
 > Tên đề tài: *Đánh giá phản thực các biện pháp phòng thủ trước tấn công thanh khoản do khuyến khích trong CLMM bằng mô phỏng đa tác nhân, và điều kiện để phân bổ phí theo độ rộng khoảng giá có hiệu lực.*
 
@@ -33,14 +35,14 @@
 - **Không biện pháp nào chặn được cú sập giá.**
 
 ## Slide 6 — RQ3: phân bổ phí theo độ rộng (60 s)
-- Điều kiện: φ phải **ít nhất tuyến tính** (α\* ≈ 1) thì victim mới trải rộng — xác nhận giả thuyết.
+- Điều kiện: φ phải tăng **nhanh hơn tuyến tính** (α > 1) thì victim mới trải rộng — xác nhận giả thuyết.
 - Nhưng: (1) cú sập sâu 600–5.000 tick ≫ dải → vẫn mất ~50% vốn; (2) **kẻ tấn công nới tường** né phạt → vùng victim lớn: vốn victim quay về 0,7–1,0×; vùng RQ1: victim bị hút vào **1,5–10×** (khớp giải tích 46/54 ô); (3) LP dải hẹp mất 50–100% phí.
 - Hình: `ket_qua/gd3/hinh/so_sanh_wA.png`.
 - → φ dạng lũy thừa **không phải** biện pháp phòng thủ đáng tin cậy.
 
 ## Slide 7 — Kết luận & khuyến nghị (45 s)
 1. Hạ trần hiệu quả **chỉ khi** LP định giá theo trần; chọn Q < k·Q.
-2. **Ưu tiên cảnh báo rủi ro** cho LP dải hẹp — rẻ nhất, mạnh nhất.
+2. **Ưu tiên cảnh báo rủi ro** cho LP dải hẹp — giữ khối lượng tốt nhất; hạ trần tiết kiệm trợ cấp (sửa 20/10).
 3. Range-aware cần xét kẻ tấn công thích nghi; dạng lũy thừa có thể phản tác dụng.
 4. Giới hạn: một bể, giá ngoài giả lập, luật chọn độ rộng bỏ qua biến động. Hướng mở: dữ liệu bể thật, φ phạt theo hành vi (thời gian giữ) thay vì độ rộng.
 

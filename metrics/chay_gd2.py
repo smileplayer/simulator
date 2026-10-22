@@ -54,6 +54,16 @@ def main(gd2: str = "ket_qua/gd2", B: int = 2000, ra: str | None = None, phien: 
     d = Path(gd2)
     ra = Path(ra) if ra else d / ("bang" if phien == "v4" else f"bang_{phien}")
     tt = them_cot(pd.read_csv(d / f"tomtat_{phien}.csv"))
+    if not (d / f"tomtat_knho_{phien}.csv").exists():      # v5 (20/10): chỉ chạy lại bộ chính → chỉ bảng của bộ chính
+        t0 = time.time()
+        out = {"danh_doi": bang_danh_doi(tt, ("victim_type",), B=B),
+               "danh_doi_theo_dang": bang_danh_doi(tt, ("subsidy_form", "victim_type"), B=B)}
+        out["gon"] = bang_gon(out["danh_doi"])
+        out["ty_le_sap"] = ty_le_sap(tt, B=B)
+        out["q_sao_vu"] = q_sao_vu(tt)
+        out["q_sao_tomtat"] = tom_tat_q_sao(out["q_sao_vu"])
+        print(f"bảng (chỉ bộ chính): {time.time() - t0:.0f} s")
+        return _ghi(out, ra)
     kn = them_cot(pd.read_csv(d / f"tomtat_knho_{phien}.csv"))
     fm = them_cot(pd.read_csv(d / f"tomtat_farm_{phien}.csv"))
     lu = them_cot(pd.read_csv(d / f"tomtat_luoi_{phien}.csv"))

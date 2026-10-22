@@ -18,7 +18,7 @@
 1. **Victim chọn độ rộng đúng như giải tích.**
    - α = 0,5: victim ở lại một tick.
    - α ≥ 1: victim nhảy thẳng tới w* = w₀ ở mọi lượt (`w_victim` = w₀).
-   - Ngưỡng α* ≈ 1 của C được xác nhận: φ phải ít nhất tuyến tính.
+   - Ngưỡng α* ≈ 1 của C được xác nhận: φ phải tăng nhanh hơn tuyến tính (α > 1; ở α = 1 lợi chỉ 0,01–0,25%).
 2. **Range-aware KHÔNG cắt được phần vốn victim nằm trên đường sập.** Phần vốn bị cú sập quét qua là 0,50–0,55 ở mọi w ≤ 200, giống pro-rata (0,50), vì cú sập sâu hàng trăm–nghìn tick ≫ w/2.
 3. **Kênh tác động thật là lượng vốn victim bỏ vào** (bảng `gon.csv`, hình `ban_do_vung.png`). Ở α ≥ 1,5:
 
@@ -107,7 +107,7 @@ Mức gốc pro-rata (trung vị): `dc_excess` = 9.318 / 737 / 1.175 / 1.949 / 3
   - Vùng tường chiếm ưu thế (k ≥ 0,64) thì vẫn bị hút victim vào đúng như giải tích (tới 10×), lợi kẻ tấn công tăng tới 7–8 lần.
 - **Victim thích nghi được bảo vệ phần nào ở k = 0,64 và 0,95** (lợi kẻ tấn công −5…−43%), nhưng không nhất quán theo k.
 - **Cái giá không nhỏ:** LP dải hẹp cố định mất 50–100% phí khi w₀ ≥ 50.
-- **Kết luận:** range-aware với φ dạng lũy thừa không phải biện pháp chống tấn công tường thanh khoản đáng tin cậy. Ở GĐ2, cảnh báo rủi ro (tăng c_V) có biên đánh đổi tốt hơn hẳn.
+- **Kết luận:** range-aware với φ dạng lũy thừa không phải biện pháp chống tấn công tường thanh khoản đáng tin cậy. Ở GĐ2, cảnh báo rủi ro (tăng c_V) giữ khối lượng tốt hơn hẳn, nhưng không tiết kiệm trợ cấp (sửa 20/10).
 
 ## 8.5 Giới hạn
 

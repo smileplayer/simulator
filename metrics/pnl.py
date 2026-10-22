@@ -96,6 +96,15 @@ def _luong_vi_the(L: float, lo: int, hi: int, z: float) -> tuple[float, float]:
     return L * (1 / zc - 1 / zb), L * (zc - za)
 
 
+def victim_fees(df: pd.DataFrame, victims: set[str], p_alpha: float) -> float:
+    """Phí LP nạn nhân thu trong cả kịch bản (token1; token0 quy theo `p_alpha`), từ mọi dòng `collect`.
+
+    Khác cột `fees` của `victim_loss` (chỉ đếm collect tới `t_end`): bộ chạy chỉ collect ở bước cuối, nên cột đó gần
+    như luôn 0. Dùng cho lợi nhuận ròng `victim_net` = phí − `E_full` (CH-9, 20/10)."""
+    c = df[(df["kind"] == "collect") & df["owner"].isin(victims)]
+    return float(c["fee1"].sum() + p_alpha * c["fee0"].sum())
+
+
 def victim_loss(df: pd.DataFrame, ph: dict, end: str = "t_b", victims: set[str] | None = None,
                 w_max: int = 1, khong_sap: str = "loi") -> pd.DataFrame:
     """Thiệt hại từng victim (token1) + dòng `TOTAL`. `victims` = None → suy như bài gốc.

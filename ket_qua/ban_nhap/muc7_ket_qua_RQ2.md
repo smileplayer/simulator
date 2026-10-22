@@ -18,7 +18,7 @@
 
 ## 7.1 Kết quả chính
 
-1. **Cảnh báo rủi ro (warn: c_V × 1,5/2/4) có biên đánh đổi tốt nhất.**
+1. **Cảnh báo rủi ro (warn: c_V × 1,5/2/4) giữ khối lượng tốt nhất.** (sửa 20/10: chỉ đúng trên trục khối lượng; cảnh báo gần như không tiết kiệm trợ cấp, hạ trần tiết kiệm 44–94%; warn40 làm L_active Post giảm 49% với nạn nhân thích nghi, do cú sập sâu hơn (22/10: bỏ vị thế nạn nhân và kẻ tấn công cho cùng số ở mọi lượt có sập); thứ hạng tùy mục tiêu của nền tảng)
    - Mất khối lượng chỉ 0,4–2,3%.
    - Vùng RQ1: cắt 94–100% lợi kẻ tấn công với victim toàn tri, 27/50/94% với victim thích nghi. Để đạt mức giảm tương đương, hạ trần phải mất 20–49% khối lượng.
    - Vùng k nhỏ: warn40 giảm thiệt hại victim 43–65%, nhưng lợi kẻ tấn công chỉ giảm 18–43%.
@@ -138,7 +138,7 @@ Giả định được kiểm bằng cách chạy lại pha Prep (`luoi_gia_dinh
 
 - **Q* của Theorem 6 chỉ đo được chính xác khi victim định giá theo trần.** Với victim toàn tri, Q*/Q = k (sai số < 0,01), và hạ trần đủ sâu xóa hết lợi tăng thêm với giá mất 20–26% khối lượng ở vùng RQ1.
 - **Khi victim ước khối lượng từ phí lịch sử, hạ trần kém hiệu quả.** Kể cả trần động, chỉ cắt 31–65% lợi ở vùng RQ1 và 4–30% ở vùng victim lớn, trong khi mất tới một nửa khối lượng.
-- **Cảnh báo rủi ro (tăng c_V) có biên đánh đổi tốt nhất** với cả hai loại victim. Thu hồi thưởng là bổ sung rẻ (mất < 4% khối lượng), nhưng chỉ nhắm vào lãi farm của kẻ tấn công.
+- **Cảnh báo rủi ro (tăng c_V) giữ khối lượng tốt nhất** với cả hai loại victim (sửa 20/10: chỉ đúng trên trục khối lượng; cảnh báo gần như không tiết kiệm trợ cấp, hạ trần tiết kiệm 44–94%; warn40 làm L_active Post giảm 49% với nạn nhân thích nghi, do cú sập sâu hơn (22/10: bỏ vị thế nạn nhân và kẻ tấn công cho cùng số ở mọi lượt có sập); thứ hạng tùy mục tiêu của nền tảng). Thu hồi thưởng là bổ sung rẻ (mất < 4% khối lượng), nhưng chỉ nhắm vào lãi farm của kẻ tấn công.
 - **Không biện pháp nào ngăn được giá sập.**
 - **Về tính đơn điệu:** gộp lại thì không có bước hạ trần nào làm lợi tăng có ý nghĩa. Các ngoại lệ theo vụ có hai nguồn: (1) phương án bán thẳng phụ thuộc Q, trong khi lý thuyết coi nó cố định; (2) vi phạm giả định một tick.
 
@@ -148,6 +148,15 @@ Giả định được kiểm bằng cách chạy lại pha Prep (`luoi_gia_dinh
 - **Thiệt hại victim chỉ so trên cặp cả hai cùng sập.** Biện pháp làm tăng tỷ lệ sập.
 - **Victim "toàn tri" là victim tin V = n·Q_eff**, nên bị lỗ khi trần không ràng buộc (vùng i).
 - **Kiểm giả định chỉ chạy 3 seed/ô.** Ngưỡng GĐ1 (0,8), GĐ2 (5%) và ngưỡng "tăng > 50 token1" là lựa chọn của B. Kiểm đơn điệu theo vụ gồm 240 phép so nên có thể có vài dương tính giả; các vụ nêu ở 7.3 tăng nhất quán qua nhiều bước liền nhau.
+
+### Bản v5 (22/10/2026): CH-9 và bậc phí 0,01% (cải tiến A)
+
+Đức chạy `python -m scenarios.quet_gd2 --phien v5` và `--phien v5 --bien_the f001` (mỗi bộ 9.600 lượt, vùng RQ1). Bảng: `ket_qua/gd2/bang_v5/`, `bang_f001_v5/`. Bộ v5 ở phí 0,25% khớp v4 ở mọi cột cũ.
+
+- **Thanh khoản Post (W11):** bỏ vị thế nạn nhân và kẻ tấn công (`L_khac_mean_post`) cho đúng bằng `L_mean_post` ở cả 9.270 lượt có sập. Nghi vấn "warn40 làm mất thanh khoản chỉ vì nạn nhân vào ít" sai. Mức giảm 49% (nạn nhân thích nghi) đến từ cú sập sâu hơn: trung vị độ sập −18% → −40%, giá rơi ra khỏi dải LP nền; LP nền trong mô hình không đặt lại vị thế.
+- **Lợi nhuận ròng nạn nhân** (`victim_net` = phí cả kịch bản − E_full), lượt không biện pháp có nạn nhân và có sập: lỗ ròng ở 57% lượt toàn tri, 66% lượt thích nghi; trung vị −20 và −275 token1 (phí 159 và 754 token1 không bù được thiệt hại 171 và 1.022). Theo k (toàn tri): −69 / −26 / 0 ở k = 0,64 / 0,80 / 0,95.
+- **Bậc phí 0,01% (giữ k và σ/f):** % thay đổi của lợi tăng thêm lệch ≤ 1,2 điểm so với 0,25%; khối lượng, trợ cấp, L Post lệch tới 4, 6, 7 điểm (lớn nhất: delay168 mất 14% khối lượng thay vì 18%; cap05 toàn tri L Post −16% thay vì −22%). Thứ tự biện pháp trên từng trục không đổi; tỷ lệ sập gần như không đổi; nạn nhân thích nghi vẫn còn ở 21/30 vụ dưới cap05.
+- **Tỷ số lợi tăng thêm / trợ cấp phụ thuộc bậc phí:** trợ cấp tỷ lệ với σ (giữ σ/f nên σ × 0,04) giảm từ ~4.700 xuống 171 token1, còn lợi tăng thêm gần như không đổi (365 và 2.230 token1) → tỷ số 2,7× (toàn tri) và 14× (thích nghi), so với 10% và 49% ở bậc 0,25%.
 
 ### Các lần chạy trước
 - **v3:** cùng thiết kế; phản thực đỡ giá cho cú bán thẳng.
