@@ -19,7 +19,8 @@ Ba chế độ (v3, 15/10 — thêm cột lợi nhuận theo **địa chỉ th�
 Chạy: `python -m scenarios.quet_gd2 [--seeds 10] [--out ...] [--nhanh] [--farm | --k_nho | --luoi]
 [--bien_the f001] [--phien v5] [--phat]` → `ket_qua/gd2/tomtat_[che_do_][bien_the_]<phien>.csv`;
 `--phat` (cải tiến G): 30 vụ RQ1 × `BIEN_PHAP_PHAT` × 2 victim × seed; `--F` (cải tiến F): 30 vụ × `M_LA` ×
-`BIEN_PHAP_F` × 2 victim × seed, khóa thêm `m_LA`.
+`BIEN_PHAP_F` × 2 victim × seed, khóa thêm `m_LA`;
+`--V` (W15): chỉ victim adaptive, 4 biện pháp × 5 cách ước V̂ (`BIEN_PHAP_V`).
 Chạy lại thì bỏ qua các lượt đã có trong file; không lưu log thô (quá lớn).
 """
 from __future__ import annotations
@@ -68,6 +69,14 @@ BIEN_PHAP_PHAT = {
     "phat168_lat10": {"name": "phat", "cua_so": 168, "_cfg": {"so_lat_rut": 10}},
     "khong_giu168": {"name": None, "_cfg": {"giu": 168}},
     "phat168_giu168": {"name": "phat", "cua_so": 168, "_cfg": {"giu": 168}},
+}
+# Độ nhạy cách ước V̂ của nạn nhân thích nghi (W15, 22/10): 5 biến thể × {khong, cap50, cap05, warn40}.
+# Khóa "_cfg" đặt victim_H / victim_uoc; mỗi biến thể có lượt "khong_<hậu tố>" riêng để ghép cặp.
+BIEN_THE_UOC = {"goc": {}, "H72": {"victim_H": 72}, "H168": {"victim_H": 168},
+                "chi_mua": {"victim_uoc": "chi_mua"}, "bo_arb": {"victim_uoc": "bo_arb"}}
+BIEN_PHAP_V = {
+    (f"{bp}" if bt == "goc" else f"{bp}_{bt}"): dict(BIEN_PHAP[bp] or {"name": None}, **({"_cfg": cfg} if cfg else {}))
+    for bt, cfg in BIEN_THE_UOC.items() for bp in ("khong", "cap50", "cap05", "warn40")
 }
 SIGMA_LUOI = [0.0025, 0.005, 0.01, 0.02, 0.04]
 Q_LUOI = [6000, 12000, 24000, 48000, 96000]
@@ -266,6 +275,9 @@ def dong_ket_qua(vu: dict, bp: str, victim: str, seed: int, farm_share: float | 
     doi = bp_cfg.pop("_cfg", {})
     cfg.update(defense=bp_cfg if bp_cfg.get("name") else None, victim_type=victim,
                attacker_farm_share=farm_share or 0.0)
+    for k in ("victim_H", "victim_uoc"):
+        if k in doi:
+            cfg[k] = doi[k]
     if "so_lat_rut" in doi:
         cfg["so_lat_rut"] = doi["so_lat_rut"]
     if "giu" in doi:                                 # né G bằng cách giữ tường lâu hơn cửa sổ
@@ -314,6 +326,9 @@ def danh_sach_viec(che_do: str, seeds: int, nhanh: bool = False) -> list[tuple]:
     if che_do == "F":
         return [(dict(vu, _m_LA=m), bp, vt, sd, None, BIEN_PHAP_F) for vu in ds for m in M_LA for bp in BIEN_PHAP_F
                 for vt in LOAI_VICTIM for sd in range(seeds)]
+    if che_do == "V":
+        return [(vu, bp, "adaptive", sd, None, BIEN_PHAP_V) for vu in ds for bp in BIEN_PHAP_V
+                for sd in range(seeds)]
     if che_do == "phat":
         return [(vu, bp, vt, sd, None, BIEN_PHAP_PHAT) for vu in ds for bp in BIEN_PHAP_PHAT
                 for vt in LOAI_VICTIM for sd in range(seeds)]
@@ -325,13 +340,13 @@ def danh_sach_viec(che_do: str, seeds: int, nhanh: bool = False) -> list[tuple]:
 
 
 def chay(seeds: int, out: Path, nhanh: bool = False, farm: bool = False, k_nho: bool = False,
-         luoi: bool = False, bien_the: str = "goc", phat: bool = False, F: bool = False) -> None:
+         luoi: bool = False, bien_the: str = "goc", phat: bool = False, F: bool = False, V: bool = False) -> None:
     """Chạy mọi lượt còn thiếu, ghi nối vào CSV (mỗi lượt một dòng, flush ngay); --nhanh: 2 vụ × 1 seed để đo giờ.
     `farm`: chế độ CH-6; `k_nho`: vùng victim lớn (khóa có `farm_share`)."""
     warnings.filterwarnings("ignore")
     che_do = ("farm" if farm else "k_nho" if k_nho else "luoi" if luoi else "phat" if phat else "F" if F
-              else "chinh")
-    khoa = KHOA if che_do in ("chinh", "luoi", "phat") else KHOA_F if che_do == "F" else KHOA_FARM
+              else "V" if V else "chinh")
+    khoa = KHOA if che_do in ("chinh", "luoi", "phat", "V") else KHOA_F if che_do == "F" else KHOA_FARM
     out.parent.mkdir(parents=True, exist_ok=True)
     da_co, cot = set(), None
     if out.exists() and out.stat().st_size > 0:
@@ -375,13 +390,14 @@ if __name__ == "__main__":
     nhom.add_argument("--k_nho", action="store_true", help="vùng victim lớn k ∈ {0,10; 0,25; 0,45}")
     nhom.add_argument("--luoi", action="store_true", help="lưới (σ, Q) 5 × 5 quanh co_so, bp khong + cap50")
     nhom.add_argument("--phat", action="store_true", help="cải tiến G: phạt rút sớm + hai cách né (BIEN_PHAP_PHAT)")
+    nhom.add_argument("--V", action="store_true", help="W15: độ nhạy cách ước V̂ của nạn nhân thích nghi")
     nhom.add_argument("--F", action="store_true", help="cải tiến F: L_A × M_LA, giữ c_V, BIEN_PHAP_F")
     ap.add_argument("--bien_the", default="goc", help="biến thể môi trường (scenarios.batch.BIEN_THE); f001 = phí 0,01%%")
     ap.add_argument("--phien", default="v4", help="hậu tố file; v5 (20/10) = thêm L_khac, phí và lợi ròng nạn nhân")
     a = ap.parse_args()
     che = ("farm_" if a.farm else "knho_" if a.k_nho else "luoi_" if a.luoi else "phat_" if a.phat
-           else "F_" if a.F else "")
+           else "F_" if a.F else "V_" if a.V else "")
     bt = "" if a.bien_the == "goc" else f"{a.bien_the}_"
     mac_dinh = f"ket_qua/gd2/tomtat_{che}{bt}{a.phien}.csv"
     out = a.out or (mac_dinh.replace(".csv", "_nhanh.csv") if a.nhanh else mac_dinh)
-    chay(a.seeds, Path(out), a.nhanh, a.farm, a.k_nho, a.luoi, a.bien_the, a.phat, a.F)
+    chay(a.seeds, Path(out), a.nhanh, a.farm, a.k_nho, a.luoi, a.bien_the, a.phat, a.F, a.V)

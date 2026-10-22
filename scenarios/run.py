@@ -172,7 +172,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
         chung = dict(c_V=c_V_hieu_luc(cfg["c_V"], defense), w=w_victim, t_vao=cfg["t_m"] + cfg["victim_delay"] * (k + 1),
                      c_von=c_von, vi_tri=vi_tri_v)
         if loai_victim == "adaptive":                     # chỉ thấy phí quá khứ của bể
-            return VictimThichNghi(f"victim:{k}", window=W, H=cfg.get("victim_H", 24), **chung)
+            return VictimThichNghi(f"victim:{k}", window=W, H=cfg.get("victim_H", 24),
+                                 cach_uoc=cfg.get("victim_uoc", "tat_ca"), **chung)
         return VictimToanTri(f"victim:{k}", V=V_ky_vong, **chung)
 
     victims = [tao_victim(k) for k in range(cfg["n_victims"])]

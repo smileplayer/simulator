@@ -117,12 +117,16 @@ class VictimThichNghi(VictimToanTri):
     như Lemma 4. Không phân biệt khối lượng được trợ cấp với khối lượng nền/arb, và phản ứng trễ H bước."""
 
     def __init__(self, owner: str, c_V: float, window: int = 24, H: int = 24, w: int = 1, t_vao: int = 0,
-                 nguong: float = 0.10, c_von: float | None = None, vi_tri: str = "tren"):
-        """`window`: số bước một cửa sổ (đơn vị của V và c_V); `H`: số bước lịch sử dùng để ước V;
+                 nguong: float = 0.10, c_von: float | None = None, vi_tri: str = "tren",
+                 cach_uoc: str = "tat_ca"):
+        """`cach_uoc`: "tat_ca" (cũ: phí mọi swap), "chi_mua" (chỉ swap mua token0: amount1 > 0, amount0 < 0),
+        "bo_arb" (bỏ swap của owner bắt đầu "arb"). `window`: số bước một cửa sổ (đơn vị của V và c_V); `H`: số bước lịch sử dùng để ước V;
         `nguong` mặc định 10% (V̂ nhiễu theo từng bước, ngưỡng 1% làm vị thế bị chỉnh liên tục)."""
         super().__init__(owner, V=float("nan"), c_V=c_V, w=w, t_vao=t_vao, nguong=nguong, c_von=c_von,
                          vi_tri=vi_tri)
-        self.window, self.H = window, H
+        if cach_uoc not in ("tat_ca", "chi_mua", "bo_arb"):
+            raise ValueError(f"cach_uoc không hợp lệ: {cach_uoc}")
+        self.window, self.H, self.cach_uoc = window, H, cach_uoc
         self._doc_den = 0                                # chỉ số dòng log đã đọc
         self._phi_buoc: deque[tuple[int, float]] = deque()   # (bước, phí token1 cả bể trong bước đó)
         self.V_uoc: float | None = None
@@ -134,6 +138,10 @@ class VictimThichNghi(VictimToanTri):
             r = rows[self._doc_den]
             self._doc_den += 1
             if r["kind"] != "swap":
+                continue
+            if self.cach_uoc == "chi_mua" and not (r["amount1"] > 0 and r["amount0"] < 0):
+                continue
+            if self.cach_uoc == "bo_arb" and str(r["owner"]).startswith("arb"):
                 continue
             phi = r["fee1"] + r["fee0"] * r["sqrt_price_after"] ** 2
             if self._phi_buoc and self._phi_buoc[-1][0] == r["t"]:
