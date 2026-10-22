@@ -24,6 +24,7 @@ from agents.farmer import Farmer, thuong_log, thuong_tuyen_tinh
 from agents.do_rong import LUOI_W, LPLanhManh, l_tren_von, tao_phi, w_sao_hinh_hoc
 from agents.victim import VictimThichNghi, VictimToanTri
 from defenses.thuong import LichTraThuong, Q_hieu_luc, ten_bien_phap
+from defenses.phat_rut_som import cua_so_phat
 from defenses.tran_dong import TranDong, c_V_hieu_luc
 from engine import MAX_TICK, MIN_TICK, EventLog, Pool, sqrt_price_at_tick, tick_at_sqrt_price
 
@@ -127,7 +128,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
 
     z0 = sqrt_price_at_tick(0) * 1.0001 ** 0.25          # giữa tick 0
     phi = tao_phi(cfg.get("phi"))                         # GĐ3: φ(w) chia phí theo độ rộng; None = pro-rata
-    pool = Pool(fee, z0, fee_weight=phi)
+    pool = Pool(fee, z0, fee_weight=phi, phat_rut_som=cua_so_phat(defense))   # G: phạt rút sớm (nếu có)
     tt = ThiTruongKichBan(z0 ** 2, cfg["vol_pre"], dong["gia"])
 
     pool.t = 0
@@ -192,7 +193,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
         L_A_eff = cfg["L_A"] * l_tren_von(w_A, z0, t0, vi_tri_A) / l_tren_von(1, z0, t0, vi_tri_A)
     att = Attacker("attacker:0", L_A=L_A_eff, t_m=cfg["t_m"], kho_token0=cfg["attacker_inventory"],
                    c_A=cfg["c_A"], w=w_A, vi_tri=vi_tri_A, dung_tuong=lich, t_0=cfg.get("t_0"),
-                   nguong_victim=cfg.get("withdraw_victim_ratio"), so_buoc_xa=cfg["dump_steps"])
+                   nguong_victim=cfg.get("withdraw_victim_ratio"), so_buoc_xa=cfg["dump_steps"],
+                   so_lat_rut=int(cfg.get("so_lat_rut", 1)))
     arb = Arbitrageur()
     if m_att > 0:
         thuong_att = lambda v: m_att * thuong(v / m_att)

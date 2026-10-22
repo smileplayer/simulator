@@ -18,14 +18,16 @@ class Attacker:
     def __init__(self, owner: str, L_A: float, t_m: int, kho_token0: float, c_A: float,
                  w: int = 1, dung_tuong: list[tuple[int, float]] | None = None,
                  t_0: int | None = None, nguong_victim: float | None = None, so_buoc_xa: int = 1,
-                 vi_tri: str = "tren"):
+                 vi_tri: str = "tren", so_lat_rut: int = 1):
         """`L_A`: tổng L của tường; `t_m`: bước dựng tường đầu tiên; `kho_token0`: lượng token0 sẵn để xả;
         `c_A`: giá vốn token0 (token1/token0); `w`: độ rộng tường (tick, làm tròn lên bội số tick_spacing);
         `dung_tuong`: [(bước, tỷ lệ của L_A)], mặc định dựng hết ở t_m;
         `t_0`: bước rút cố định; `nguong_victim`: rút khi L nạn nhân trong tick ≥ nguong_victim·L_A
         (phải cho ít nhất một trong hai); `so_buoc_xa`: chia kho xả đều qua bấy nhiêu bước;
         `vi_tri` (GĐ3): đặt dải w tick quanh tick chứa giá lúc dựng ("tren" | "giua" | "duoi", `khoang_quanh_gia`);
-        `tick_gia` = tick chứa giá lúc dựng = tick giá bị ghim (bộ chạy neo P_e giữa tick này)."""
+        `tick_gia` = tick chứa giá lúc dựng = tick giá bị ghim (bộ chạy neo P_e giữa tick này);
+        `so_lat_rut` (cách né cải tiến G, 22/10): rút mỗi vị thế tường thành bấy nhiêu lát bằng nhau trong cùng bước,
+        để phần phạt của lát trước được chia cả cho phần tường còn lại của chính mình."""
         if t_0 is None and nguong_victim is None:
             raise ValueError("cần t_0 hoặc nguong_victim")
         self.owner = owner
@@ -34,6 +36,9 @@ class Attacker:
         self.lich = dung_tuong if dung_tuong is not None else [(t_m, 1.0)]
         self.t_0, self.nguong_victim = t_0, nguong_victim
         self.so_buoc_xa = so_buoc_xa
+        if so_lat_rut < 1:
+            raise ValueError("so_lat_rut phải ≥ 1")
+        self.so_lat_rut = so_lat_rut
         self.tick_lower: int | None = None
         self.tick_upper: int | None = None
         self.tick_gia: int | None = None
@@ -73,7 +78,11 @@ class Attacker:
                     self.tuong.append(pid)
             if self.tuong and self._den_luc_rut(t, pool):
                 for pid in self.tuong:
+                    L = next(p.liquidity for p in pool.positions(self.owner) if p.id == pid)
+                    for _ in range(self.so_lat_rut - 1):
+                        pool.burn(pid, L / self.so_lat_rut)
                     pool.burn(pid)
+                for pid in self.tuong:
                     pool.collect(pid)
                 self.t_rut = t
         if self.dang_xa(t) and self.kho > 0:

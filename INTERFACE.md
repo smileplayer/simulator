@@ -113,7 +113,7 @@ Cấu hình kịch bản là `dict` (đọc từ JSON trong `scenarios/configs/`
 |---|---|---|
 | `t` | int | bước thời gian |
 | `seq` | int | thứ tự trong cùng bước (tăng dần) |
-| `kind` | str | `mint`, `burn`, `collect`, `swap`, `subsidy`, `step` |
+| `kind` | str | `mint`, `burn`, `collect`, `swap`, `subsidy`, `step`, `donate` (22/10, cải tiến G: phần phạt rút sớm chia cho thanh khoản đang hoạt động; `fee0`/`fee1` = lượng chia, `owner` = người bị phạt; `liquidity_active_after` = 0 nghĩa là không ai nhận, lượng đó mất) |
 | `owner` | str | như mục 1 |
 | `role` | str | phần trước `:` của `owner` |
 | `position_id` | int / NaN | với mint, burn, collect |

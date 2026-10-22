@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections import deque
 
-TEN_HOP_LE = {None, "cap", "delay", "warn", "dyncap"}   # warn, dyncap: xem defenses/tran_dong.py
+TEN_HOP_LE = {None, "cap", "delay", "warn", "dyncap", "phat"}   # warn, dyncap: defenses/tran_dong.py; phat: defenses/phat_rut_som.py
 
 
 def ten_bien_phap(defense: dict | None) -> str | None:
