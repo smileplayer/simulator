@@ -11,9 +11,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from plots.hinh import in_bai
 from plots.hinh_gd2 import ve_ba_vung, ve_danh_doi_farm, ve_pareto, ve_q_sao
-
-TD_FARM = "Trả trễ / thu hồi khi kẻ tấn công cũng farm (so với không biện pháp cùng phần farm)"
 
 
 def main(gd2: str = "ket_qua/gd2", phien: str = "v4") -> list[Path]:
@@ -23,18 +22,14 @@ def main(gd2: str = "ket_qua/gd2", phien: str = "v4") -> list[Path]:
     bang, ra = d / f"bang{hau}", d / f"hinh{hau}"
     ra.mkdir(parents=True, exist_ok=True)
     f = {k: ra / f"{k}.png" for k in ("pareto", "danh_doi_farm", "ba_vung", "q_sao", "q_sao_knho")}
-    ve_pareto({"vùng RQ1 (k ∈ {0,64; 0,80; 0,95}, nạn nhân nhỏ)": pd.read_csv(bang / "danh_doi.csv"),
-               "vùng k nhỏ (k ∈ {0,10; 0,25; 0,45}, nạn nhân lớn, kẻ tấn công farm 0,3)":
-                   pd.read_csv(bang / "danh_doi_knho.csv")},
-              f["pareto"], "Biên đánh đổi: biện pháp so với không biện pháp (30 vụ × 10 seed, CI 95% bootstrap cặp)")
+    with in_bai():                                              # hình bài báo: đúng khổ in LNCS
+        ve_pareto({"(a) RQ1 region": pd.read_csv(bang / "danh_doi.csv"),
+                   "(b) small-k region": pd.read_csv(bang / "danh_doi_knho.csv")}, f["pareto"])
     fm = pd.read_csv(bang / "danh_doi_farm.csv")
-    ve_danh_doi_farm(fm[fm["farm_share"] > 0], f["danh_doi_farm"], TD_FARM)
-    ve_ba_vung(pd.read_csv(bang / "ba_vung.csv"), f["ba_vung"],
-               "Ba vùng thiết kế trên lưới (σ, Q) quanh co_so (c_V cố định, 10 seed/ô)")
-    ve_q_sao(pd.read_csv(bang / "q_sao_vu.csv"), f["q_sao"],
-             "Ngưỡng trần làm nạn nhân rút r_V = Q*_V/Q — vùng RQ1 (lưới cap 9 mức)")
-    ve_q_sao(pd.read_csv(bang / "q_sao_vu_knho.csv"), f["q_sao_knho"],
-             "Ngưỡng trần làm nạn nhân rút r_V = Q*_V/Q — vùng k nhỏ (lưới cap 4 mức)")
+    ve_danh_doi_farm(fm[fm["farm_share"] > 0], f["danh_doi_farm"])
+    ve_ba_vung(pd.read_csv(bang / "ba_vung.csv"), f["ba_vung"])
+    ve_q_sao(pd.read_csv(bang / "q_sao_vu.csv"), f["q_sao"])
+    ve_q_sao(pd.read_csv(bang / "q_sao_vu_knho.csv"), f["q_sao_knho"])
     return list(f.values())
 
 

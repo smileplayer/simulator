@@ -126,6 +126,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 22/10/2026 | B | Vẽ lại mọi hình: tiếng Anh, bỏ tiêu đề/chú thích trong hình, mathtext, hết chồng chữ; 4 hình bài báo theo khổ in LNCS (`in_bai`). Bài báo rút còn 15 trang. Chốt lần 5 | toàn repo 306 qua |
 | 22/10/2026 | B | Kết quả W15 (`tomtat_V_v5.csv`, `bang_V/`) và W14 (Zenodo) đã viết vào bài báo (24 trang); chốt lần 4 | toàn repo 306 qua |
 | 22/10/2026 | CH (+B, C qua subagent) | W15: cách ước V̂ của nạn nhân thích nghi (`cach_uoc`, `victim_H`), quét `--V`, `metrics/chay_V.py`; chờ Đức chạy (CH-11). Chốt lần 3 | toàn repo 306 qua |
 | 22/10/2026 | CH | Chốt (Đức) lần 2: commit [A] engine phạt rút sớm + donate, [C] biện pháp G, hai cách né, quét --phat/--F, [B] chỉ số phạt, chon_LA, chay_GF, kết quả G/F + bản nháp, [CH] tổng kết; push main | toàn repo 302 qua |

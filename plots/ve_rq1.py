@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from plots.hinh import ve_bang4, ve_bang7, ve_hop_rv, ve_timeline
+from plots.hinh import in_bai, ve_bang4, ve_bang7, ve_hop_rv, ve_timeline
 from scenarios.run import nap_config, run_frame
 
 
@@ -23,7 +23,8 @@ def main(rq1: str, seed: int) -> list[Path]:
     b4 = pd.read_csv(d / "bang4_lift.csv", index_col=0)
     b7 = pd.read_csv(d / "bang7_drop.csv", index_col=0)
     files = [ra / "timeline_co_so.png", ra / "hop_rv.png", ra / "bang4_lift.png", ra / "bang7_drop.png"]
-    ve_timeline(run_frame(nap_config("co_so"), seed), files[0], f"Một vụ tấn công mô phỏng (kịch bản co_so, seed {seed})")
+    with in_bai():                                              # hình bài báo: đúng khổ in LNCS
+        ve_timeline(run_frame(nap_config("co_so"), seed), files[0])
     ve_hop_rv(tt, files[1])
     ve_bang4(b4, files[2])
     ve_bang7(b7, files[3])

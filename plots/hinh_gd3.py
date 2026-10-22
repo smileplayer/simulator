@@ -13,15 +13,26 @@ import numpy as np
 import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
 from matplotlib.lines import Line2D
-from matplotlib.ticker import FixedLocator, FuncFormatter
+from matplotlib.ticker import FixedLocator, FuncFormatter, LogFormatter
 
-from plots.hinh import CHU, CHU_PHU, DPI, LUOI, MAU, NEN, _hinh, _kieu, so_vn
+from plots import hinh as H
+from plots.hinh import CHU, CHU_PHU, DPI, LUOI, MAU, NEN, _hinh, _kieu, dpi, fs, lw, ms, so_vn
 
 # phân kỳ xanh (giảm vốn victim) ↔ đỏ (tăng), giữa xám trung tính
 PHAN_KY = LinearSegmentedColormap.from_list("xanh_do", ["#1c5cab", "#86b6ef", "#f0efec", "#ee9a99", "#b8302f"])
 MAU_W0 = {10: MAU[0], 50: MAU[1], 200: MAU[2]}
 DANG_VICTIM = {"omniscient": "o", "adaptive": "s"}
-TEN_VICTIM = {"omniscient": "nạn nhân toàn tri", "adaptive": "nạn nhân thích nghi"}
+TEN_VICTIM = {"omniscient": "omniscient victim", "adaptive": "adaptive victim"}
+
+
+class _NhanLog(LogFormatter):
+    """Nhãn trục log dạng số thường (0.4, 1.15, 0.01, 10) thay cho 4e-01; vẫn chọn tick nhãn như `LogFormatter`."""
+
+    def __init__(self):
+        super().__init__(labelOnlyBase=False, minor_thresholds=(2.5, 1.5))
+
+    def __call__(self, x, pos=None):
+        return f"{x:.3g}" if super().__call__(x, pos) else ""
 
 
 def ve_ban_do_vung(dc: pd.DataFrame, gon: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
@@ -43,23 +54,23 @@ def ve_ban_do_vung(dc: pd.DataFrame, gon: pd.DataFrame, path: str | Path, tieu_d
     sc = a1.scatter(x["u"], x["k"], c=np.log2(x["ty_le_mo_phong"]), cmap=PHAN_KY,
                     norm=TwoSlopeNorm(0, -3.5, 3.5), s=46, edgecolors=NEN, linewidths=1.2, zorder=3)
     z = dc[dc["ty_le_mo_phong"] <= 0]
-    a1.scatter(z["u"], z["k"], marker="x", color=CHU, s=30, zorder=3, label="nạn nhân rút hẳn (tỷ lệ 0)")
+    a1.scatter(z["u"], z["k"], marker="x", color=CHU, s=30, zorder=3, label="victim withdraws entirely (ratio 0)")
     a1.set_xscale("log")
     a1.set_xlim(us[0], us[-1])
     a1.set_ylim(0, 1)
-    a1.set_xlabel("u = [ℓ(1)/(φ(w*)ℓ(w*))]·[(L_Aφ(1) + B)/(L_A + B)]")
-    a1.set_ylabel("k = c_V·L_A/(f·V)")
-    a1.text(0.012, 0.9, "tăng vốn nạn nhân", color="#b8302f", fontsize=8)
-    a1.text(0.012, 0.08, "giảm vốn nạn nhân", color="#1c5cab", fontsize=8)
-    a1.legend(frameon=False, fontsize=7.5, labelcolor=CHU, loc="center left")
-    a1.set_title("Giải tích (nền) và mô phỏng (điểm), nạn nhân toàn tri", loc="left", fontsize=9, color=CHU)
+    a1.set_xlabel(r"$u = [\ell(1)/(\varphi(w^*)\ell(w^*))]\cdot[(L_A\varphi(1) + B)/(L_A + B)]$")
+    a1.set_ylabel("$k = c_V L_A/(fV)$")
+    a1.text(0.012, 0.9, "victim capital increases", color="#b8302f", fontsize=8)
+    a1.text(0.012, 0.08, "victim capital decreases", color="#1c5cab", fontsize=8)
+    a1.legend(frameon=True, facecolor=NEN, edgecolor="none", framealpha=0.9, fontsize=7.5, labelcolor=CHU, loc="center left", bbox_to_anchor=(0.0, 0.54))
+    a1.set_title("(a) Analytical (shading) vs simulation (dots)", loc="left", fontsize=9, color=CHU)
     cb = fig.colorbar(sc, ax=a1, shrink=0.85)
-    cb.set_label("log₂(C_RA/C_PR)", color=CHU_PHU, fontsize=8)
+    cb.set_label("$\\log_2(C_{RA}/C_{PR})$", color=CHU_PHU, fontsize=8)
     cb.ax.tick_params(labelsize=7, colors=CHU_PHU)
     cb.outline.set_visible(False)
 
-    g = gon.assign(hang=lambda d: [f"k = {so_vn(k)} {'TT' if v == 'omniscient' else 'TN'}" for k, v in
-                                    zip(d["k"], d["victim_type"])],
+    g = gon.assign(hang=lambda d: [f"k = {so_vn(k, 2)}, {'omniscient' if v == 'omniscient' else 'adaptive'}"
+                                    for k, v in zip(d["k"], d["victim_type"])],
                    cot=lambda d: [f"{so_vn(a)}/{int(w)}" for a, w in zip(d["alpha"], d["w0"])])
     thu_tu = list(dict.fromkeys(g.sort_values(["alpha", "w0"])["cot"]))
     hang = list(dict.fromkeys(g.sort_values(["k", "victim_type"], ascending=[True, True])["hang"]))
@@ -73,20 +84,19 @@ def ve_ban_do_vung(dc: pd.DataFrame, gon: pd.DataFrame, path: str | Path, tieu_d
                     color="white" if abs(L2[i, j]) > 2 else CHU)
     a2.set_xticks(range(len(thu_tu)), thu_tu, rotation=60, fontsize=7)
     a2.set_yticks(range(len(hang)), hang, fontsize=7)
-    a2.set_xlabel("mức φ: α / w₀ (tick)", color=CHU_PHU)
+    a2.set_xlabel("φ level: α / w₀ (ticks)", color=CHU_PHU)
     a2.tick_params(colors=CHU_PHU)
     for s in a2.spines.values():
         s.set_visible(False)
-    a2.set_title("Tỷ lệ vốn nạn nhân C_RA/C_PR (TT toàn tri, TN thích nghi)", loc="left", fontsize=9, color=CHU)
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    a2.set_title("(b) Victim capital ratio $C_{RA}/C_{PR}$", loc="left", fontsize=9, color=CHU)
+    fig.tight_layout()
     fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
 
 
 def ve_theo_alpha(gon: pd.DataFrame, path: str | Path, tieu_de: str = "",
                   cs=("dc_excess_pct", "lai_victim_hieu"),
-                  nhan=("lợi tăng thêm kẻ tấn công (% so với pro-rata)", "hiệu lãi/lỗ nạn nhân (token1)")) -> None:
+                  nhan=("attacker excess profit (% vs pro-rata)", "victim net gain vs pro-rata (token1)")) -> None:
     """(b) Hàng = vụ (theo k), cột = chỉ số; x = α (0 = pro-rata), đường = w₀, hình = loại victim. Đơn vị theo cột:
     % so với pro-rata (dc_excess) hoặc token1 (hiệu lãi victim, dương = victim đỡ lỗ)."""
     ks = sorted(gon["k"].unique())
@@ -101,23 +111,21 @@ def ve_theo_alpha(gon: pd.DataFrame, path: str | Path, tieu_de: str = "",
                     ax.plot([0, *h["alpha"]], [0, *h[c]], marker=dang, ms=4.5, color=m, linewidth=1.4,
                             linestyle="-" if vt == "omniscient" else (0, (3, 2)), mec=NEN, mew=0.8)
             ax.axhline(0, color=CHU_PHU, linewidth=0.8)
-            ax.set_title(f"k = {so_vn(k)} ({gon.loc[gon['k'] == k, 'scenario_id'].iloc[0]})", loc="left", fontsize=8,
-                         color=CHU)
+            ax.set_title(f"k = {so_vn(k, 2)}", loc="left", fontsize=8, color=CHU)
             if i == len(ks) - 1:
                 ax.set_xlabel("α (φ = min(1, (w/w₀)^α))")
-            if i == 0:
+            if i == len(ks) // 2:
                 ax.set_ylabel(n, fontsize=8)
             if c.endswith("pct"):
                 ax.set_yscale("symlog", linthresh=100, linscale=2)
-                ax.yaxis.set_major_locator(FixedLocator([-100, -50, 0, 50, 100, 300, 1000]))
+                ax.yaxis.set_major_locator(FixedLocator([-100, -50, 0, 50, 300]))
                 ax.yaxis.set_minor_locator(FixedLocator([]))
                 ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
     h = [Line2D([], [], color=m, linewidth=2, label=f"w₀ = {w0}") for w0, m in MAU_W0.items()]
     h += [Line2D([], [], color=CHU_PHU, marker=d, linestyle="-" if v == "omniscient" else (0, (3, 2)),
                  label=TEN_VICTIM[v]) for v, d in DANG_VICTIM.items()]
     fig.legend(handles=h, loc="lower center", ncol=len(h), frameon=False, fontsize=8, labelcolor=CHU)
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0.03, 1, 0.97))
+    fig.tight_layout(rect=(0, 0.03, 1, 1))
     fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
 
@@ -125,8 +133,8 @@ def ve_theo_alpha(gon: pd.DataFrame, path: str | Path, tieu_de: str = "",
 def ve_lp(gon: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
     """(c) Cái giá với LP lành mạnh (trung vị qua 6 vụ × 2 victim): % thay đổi phí/vốn của LP tự chọn w (trái),
     LP dải cố định 10 tick (giữa), và trượt giá lệnh mua 1.000 token1 (phải), theo α, đường = w₀."""
-    cs = [("lp0_phi_pct", "LP tự chọn w: % phí/vốn"), ("lp1_phi_pct", "LP cố định 10 tick: % phí/vốn"),
-          ("lp0_truot_pct", "% trượt giá lệnh 1.000 token1")]
+    cs = [("lp0_phi_pct", "(a) Self-chosen w: fees per capital (%)"), ("lp1_phi_pct", "(b) Fixed 10-tick range: fees per capital (%)"),
+          ("lp0_truot_pct", "(c) Slippage of a 1,000 token1 buy (%)")]
     fig, axs = _hinh(1, 3, (14, 4.2))
     tv = gon.groupby(["alpha", "w0"])[[c for c, _ in cs]].median().reset_index()
     for ax, (c, n) in zip(axs, cs):
@@ -136,12 +144,11 @@ def ve_lp(gon: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
             ax.plot([0, *h["alpha"]], [0, *h[c]], marker="o", ms=6, color=m, linewidth=2, mec=NEN, mew=1.5,
                     label=f"w₀ = {w0}")
         ax.axhline(0, color=CHU_PHU, linewidth=0.8)
-        ax.set_xlabel("α (không đơn vị)")
-        ax.set_ylabel("% so với pro-rata")
+        ax.set_xlabel("α (unitless)")
+        ax.set_ylabel("change vs pro-rata (%)")
         ax.set_title(n, loc="left", fontsize=9, color=CHU)
     axs[0].legend(frameon=False, fontsize=8, labelcolor=CHU)
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    fig.tight_layout()
     fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
 
@@ -154,8 +161,8 @@ def ve_theo_wA(tv: pd.DataFrame, gon_opt: pd.DataFrame, path: str | Path, tieu_d
     fig, axs = _hinh(2, len(vu), (4 * len(vu), 7), sharex=True, squeeze=False)
     for j, v in enumerate(vu):
         g = tv[tv["scenario_id"] == v]
-        for i, (c, n) in enumerate((("von_victim", "vốn nạn nhân (lần pro-rata)"),
-                                    ("dc_excess", "lợi tăng thêm (lần pro-rata)"))):
+        for i, (c, n) in enumerate((("von_victim", "victim capital (× pro-rata)"),
+                                    ("dc_excess", "excess profit (× pro-rata)"))):
             ax = axs[i, j]
             _kieu(ax)
             for vt in DANG_VICTIM:
@@ -179,20 +186,22 @@ def ve_theo_wA(tv: pd.DataFrame, gon_opt: pd.DataFrame, path: str | Path, tieu_d
             ax.axhline(1, color=CHU_PHU, linewidth=0.8)
             ax.set_xscale("log")
             ax.set_yscale("log")
+            for eje in (ax.xaxis, ax.yaxis):
+                eje.set_major_formatter(_NhanLog())
+                eje.set_minor_formatter(_NhanLog())
             if i == 0:
                 k = g["k"].iloc[0]
-                ax.set_title(f"{v} (k = {so_vn(k)})", loc="left", fontsize=9, color=CHU)
+                ax.set_title(f"k = {so_vn(k, 2)}", loc="left", fontsize=9, color=CHU)
             if j == 0:
                 ax.set_ylabel(n)
             if i == 1:
-                ax.set_xlabel("w_A / w₀ (không đơn vị)")
+                ax.set_xlabel("$w_A / w_0$ (unitless)")
     h = [Line2D([], [], color=m, linewidth=2, label=f"w₀ = {w0}") for w0, m in ((50, MAU[1]), (200, MAU[2]))]
     h += [Line2D([], [], color=CHU_PHU, marker=d, linestyle="-" if v == "omniscient" else (0, (3, 2)),
                  label=TEN_VICTIM[v]) for v, d in DANG_VICTIM.items()]
-    h.append(Line2D([], [], marker="*", ls="", color=CHU_PHU, ms=11, label="w_A tối ưu của kẻ tấn công"))
+    h.append(Line2D([], [], marker="*", ls="", color=CHU_PHU, ms=11, label="attacker's optimal $w_A$"))
     fig.legend(handles=h, loc="lower center", ncol=len(h), frameon=False, fontsize=8, labelcolor=CHU)
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0.05, 1, 0.95))
+    fig.tight_layout(rect=(0, 0.05, 1, 1))
     fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
 
@@ -200,40 +209,40 @@ def ve_theo_wA(tv: pd.DataFrame, gon_opt: pd.DataFrame, path: str | Path, tieu_d
 def ve_so_sanh_wA(ss: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
     """(e) Tường 1 tick (rỗng) vs tường tối ưu (đặc): tỷ lệ vốn victim (trái, log) và % đổi dc_excess (phải) theo k,
     mỗi điểm một (α, w₀) — trung vị qua các mức, thanh = min–max; nét = loại victim. Giải tích tường tối ưu: đường đen."""
-    fig, (a1, a2) = _hinh(1, 2, (12, 4.6))
-    for ax, (c1, c2, n) in zip((a1, a2), (("ty_le_von_1tick", "ty_le_von_toi_uu", "vốn nạn nhân C_RA/C_PR (lần)"),
+    fig, (a1, a2) = _hinh(1, 2, (4.8, 2.2) if H.IN else (12, 4.6))
+    for ax, (c1, c2, n) in zip((a1, a2), (("ty_le_von_1tick", "ty_le_von_toi_uu",
+                                           "$C_{RA}/C_{PR}$ (×)" if H.IN else "victim capital $C_{RA}/C_{PR}$ (×)"),
                                           ("dc_excess_pct_1tick", "dc_excess_pct_toi_uu",
-                                           "lợi tăng thêm kẻ tấn công (% so với pro-rata)"))):
+                                           "excess profit (%)" if H.IN else "attacker excess profit (% vs pro-rata)"))):
         _kieu(ax)
         for vt, lech in (("omniscient", -0.008), ("adaptive", 0.008)):
             g = ss[ss["victim_type"] == vt].groupby("k")
             for c, mau, rong in ((c1, MAU[0], True), (c2, MAU[1], False)):
                 tv, lo, hi = g[c].median(), g[c].min(), g[c].max()
                 x = np.array(tv.index) + lech + (0.004 if not rong else -0.004)
-                ax.errorbar(x, tv, yerr=[tv - lo, hi - tv], fmt="none", ecolor=mau, elinewidth=1, alpha=0.6)
-                ax.plot(x, tv, DANG_VICTIM[vt], ms=7, color=mau if not rong else NEN, mec=mau, mew=1.6,
+                ax.errorbar(x, tv, yerr=[tv - lo, hi - tv], fmt="none", ecolor=mau, elinewidth=0.6 if H.IN else 1, alpha=0.6)
+                ax.plot(x, tv, DANG_VICTIM[vt], ms=ms(7), color=mau if not rong else NEN, mec=mau, mew=lw(1.6),
                         linestyle="none")
         if c1.startswith("ty_le"):
             ks = np.linspace(0.25, 0.96, 100)
-            ax.plot(ks, 1 / (4 * ks * (1 / np.sqrt(ks) - 1)), color=CHU, linewidth=1.2, label="giải tích tường tối ưu")
-            ax.plot([0.08, 0.25], [1, 1], color=CHU, linewidth=1.2)
+            ax.plot(ks, 1 / (4 * ks * (1 / np.sqrt(ks) - 1)), color=CHU, linewidth=lw(1.2), label="analytical optimal wall")
+            ax.plot([0.08, 0.25], [1, 1], color=CHU, linewidth=lw(1.2))
             ax.set_yscale("log")
             ax.axhline(1, color=CHU_PHU, linewidth=0.8, linestyle=(0, (2, 2)))
-            ax.legend(frameon=False, fontsize=8, labelcolor=CHU, loc="upper left")
+            ax.legend(frameon=False, fontsize=fs(8), labelcolor=CHU, loc="upper left")
         else:
             ax.set_yscale("symlog", linthresh=100, linscale=2)
             ax.yaxis.set_major_locator(FixedLocator([-100, -50, 0, 50, 100, 300, 1000]))
             ax.yaxis.set_minor_locator(FixedLocator([]))
             ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
             ax.axhline(0, color=CHU_PHU, linewidth=0.8)
-        ax.set_xlabel("k = c_V·L_A/(f·V) (không đơn vị)")
+        ax.set_xlabel("$k = c_V L_A/(fV)$ (unitless)")
         ax.set_ylabel(n)
-        ax.set_title(n, loc="left", fontsize=9, color=CHU)
-    h = [Line2D([], [], marker="o", ls="", color=NEN, mec=MAU[0], mew=1.6, ms=7, label="tường 1 tick"),
-         Line2D([], [], marker="o", ls="", color=MAU[1], ms=7, label="tường tối ưu (w_A)")]
-    h += [Line2D([], [], marker=d, ls="", color=CHU_PHU, ms=7, label=TEN_VICTIM[v]) for v, d in DANG_VICTIM.items()]
-    fig.legend(handles=h, loc="lower center", ncol=len(h), frameon=False, fontsize=8, labelcolor=CHU)
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0.07, 1, 0.94))
-    fig.savefig(path, dpi=DPI, facecolor=NEN)
+    h = [Line2D([], [], marker="o", ls="", color=NEN, mec=MAU[0], mew=lw(1.6), ms=ms(7), label="1-tick wall"),
+         Line2D([], [], marker="o", ls="", color=MAU[1], ms=ms(7), label="optimal wall ($w_A$)")]
+    h += [Line2D([], [], marker=d, ls="", color=CHU_PHU, ms=ms(7), label=TEN_VICTIM[v]) for v, d in DANG_VICTIM.items()]
+    fig.legend(handles=h, loc="lower center", ncol=len(h), frameon=False, fontsize=fs(8), labelcolor=CHU,
+               columnspacing=1.0, handletextpad=0.2)
+    fig.tight_layout(rect=(0, 0.1 if H.IN else 0.07, 1, 1), pad=0.4 if H.IN else 1.08)
+    fig.savefig(path, dpi=dpi(), facecolor=NEN)
     plt.close(fig)

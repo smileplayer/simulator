@@ -13,14 +13,15 @@ import pandas as pd
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.lines import Line2D
 
-from plots.hinh import CHU, CHU_PHU, DPI, LUOI, MAU, NEN, _hinh, _kieu, so_vn
+from plots import hinh as H
+from plots.hinh import CHU, CHU_PHU, DPI, LUOI, MAU, NEN, _hinh, _kieu, dat_nhan, dpi, fs, lw, ms, so_vn
 
 # màu theo họ biện pháp (cố định thứ tự), hình dạng theo loại victim
 MAU_HO = {"cap": MAU[0], "delay": MAU[1], "claw": MAU[2], "warn": MAU[3], "dyncap": MAU[4]}
-TEN_HO = {"cap": "hạ trần Q", "delay": "trả trễ", "claw": "trả trễ + thu hồi", "warn": "cảnh báo (c_V×)",
-          "dyncap": "trần động"}
+TEN_HO = {"cap": "reward cap", "delay": "delayed payout", "claw": "delayed payout + clawback",
+          "warn": r"risk warning ($c_V\times h$)", "dyncap": "dynamic cap"}
 DANG_VICTIM = {"omniscient": "o", "adaptive": "s"}
-TEN_VICTIM = {"omniscient": "nạn nhân toàn tri", "adaptive": "nạn nhân thích nghi"}
+TEN_VICTIM = {"omniscient": "omniscient victim", "adaptive": "adaptive victim"}
 # thang tuần tự một sắc xanh (ramp 100 → 700 của bảng màu dataviz)
 XANH = LinearSegmentedColormap.from_list("xanh", ["#cde2fb", "#86b6ef", "#3987e5", "#1c5cab", "#0d366b"])
 
@@ -37,15 +38,17 @@ def _diem(dai: pd.DataFrame, chi_so: str) -> pd.DataFrame:
 
 
 def ve_danh_doi_ax(ax_list, dai: pd.DataFrame, chi_so_y=("victim_loss_full", "loi_tan_cong_treo"),
-                   nhan_y=("giảm thiệt hại nạn nhân (%)", "giảm lợi kẻ tấn công (%)")) -> None:
+                   nhan_y=("victim loss reduction (%)", "attacker profit reduction (%)")) -> list:
     """Vẽ lên các trục: x = % mất tổng khối lượng (`vol_tong`), y = % giảm của từng chỉ số trong `chi_so_y`;
-    mỗi điểm một (biện pháp, loại victim), thanh = CI 95% bootstrap cặp theo vụ. Nhãn chữ trực tiếp tên bp."""
+    mỗi điểm một (biện pháp, loại victim), thanh = CI 95% bootstrap cặp theo vụ. Trả danh sách `(ax, [(x, y, tên bp)])`
+    để gọi `dat_nhan` sau `tight_layout` (nhãn không chồng)."""
     x = _diem(dai, "vol_tong")
+    tat_ca: list = []
     for ax, cs, ny in zip(ax_list, chi_so_y, nhan_y):
         _kieu(ax)
         ax.xaxis.grid(True, color=LUOI, linewidth=0.6)
         y = _diem(dai, cs)
-        gan_goc = set()
+        nhan: list = []
         for (vt, bp), r in y.iterrows():
             if (vt, bp) not in x.index:
                 continue
@@ -55,34 +58,32 @@ def ve_danh_doi_ax(ax_list, dai: pd.DataFrame, chi_so_y=("victim_loss_full", "lo
                         yerr=[[r.giam - r.lo], [r.hi - r.giam]], fmt="none", ecolor=c, elinewidth=1, alpha=0.55,
                         zorder=2)
             ax.plot(xr.giam, r.giam, DANG_VICTIM[vt], ms=8, color=c, mec=NEN, mew=2, zorder=3)
-            if abs(xr.giam) < 5 and abs(r.giam) < 5:          # điểm sát gốc: gộp một nhãn, tránh chồng chữ
-                gan_goc.add(bp)
-            else:
-                ax.annotate(bp, (xr.giam, r.giam), xytext=(5, 4), textcoords="offset points", fontsize=7,
-                            color=CHU_PHU)
-        if gan_goc:
-            ax.annotate(", ".join(sorted(gan_goc)) + " (sát gốc)",
-                        (0, 0), xytext=(6, 12), textcoords="offset points", fontsize=7, color=CHU_PHU)
+            nhan.append((xr.giam, r.giam, bp))
         ax.axhline(0, color=CHU_PHU, linewidth=0.8)
-        ax.set_xlabel("mất tổng khối lượng (%)")
+        ax.set_xlabel("total volume lost (%)")
         ax.set_ylabel(ny)
+        tat_ca.append((ax, nhan))
+    return tat_ca
 
 
 def _chu_giai(fig, ho: list[str]) -> None:
     """Chú giải chung: màu = họ biện pháp, hình = loại victim."""
-    h = [Line2D([], [], marker="o", ls="", color=MAU_HO[k], ms=8, label=TEN_HO[k]) for k in ho]
-    h += [Line2D([], [], marker=DANG_VICTIM[v], ls="", color=CHU_PHU, ms=8, label=TEN_VICTIM[v]) for v in DANG_VICTIM]
-    fig.legend(handles=h, loc="lower center", ncol=len(h), frameon=False, fontsize=8, labelcolor=CHU)
+    h = [Line2D([], [], marker="o", ls="", color=MAU_HO[k], ms=ms(8), label=TEN_HO[k]) for k in ho]
+    h += [Line2D([], [], marker=DANG_VICTIM[v], ls="", color=CHU_PHU, ms=ms(8), label=TEN_VICTIM[v])
+          for v in DANG_VICTIM]
+    fig.legend(handles=h, loc="lower center", ncol=3 if H.IN else len(h), frameon=False, fontsize=fs(8),
+               labelcolor=CHU, columnspacing=1.0, handletextpad=0.2, labelspacing=0.3)
 
 
 def ve_danh_doi(dai: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
     """Hình đánh đổi một nhóm (bảng `danh_doi.csv`): hai ô — giảm thiệt hại victim, giảm lợi kẻ tấn công
     (excess + farm + treo) — theo % mất khối lượng. Đơn vị: % thay đổi so với `khong` (tỷ số trung bình cặp)."""
     fig, axs = _hinh(1, 2, (11, 4.8))
-    ve_danh_doi_ax(axs, dai)
+    tc = ve_danh_doi_ax(axs, dai)
     _chu_giai(fig, sorted({_ho(b) for b in dai["bp"]}, key=list(MAU_HO).index))
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0.07, 1, 0.95))
+    fig.tight_layout(rect=(0, 0.07, 1, 1))
+    for a, n in tc:
+        dat_nhan(fig, a, n)
     fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
 
@@ -93,18 +94,20 @@ def ve_danh_doi_farm(dai: pd.DataFrame, path: str | Path, tieu_de: str = "", cs_
     if cs_loi is None:
         cs_loi = "loi_tang_them_treo" if (dai["chi_so"] == "loi_tang_them_treo").any() else "loi_tan_cong_treo"
     shares = sorted(dai["farm_share"].unique())
+    tc: list = []
     fig, axs = _hinh(len(shares), 2, (11, 4.2 * len(shares)), sharex=True, sharey="col", squeeze=False)
     for i, s in enumerate(shares):
         g = dai[dai["farm_share"] == s]
         # thu hồi không đổi hành vi victim (cùng lượt, cùng thiệt hại với delay) → ô victim chỉ vẽ delay
-        ve_danh_doi_ax([axs[i, 0]], g[~g["bp"].str.startswith("claw")], ("victim_loss_full",),
-                       ("giảm thiệt hại nạn nhân (%)",))
-        ve_danh_doi_ax([axs[i, 1]], g, (cs_loi,), ("giảm lợi kẻ tấn công (%)",))
-        axs[i, 0].set_title(f"phần farm của kẻ tấn công = {so_vn(s)} (claw trùng delay ở ô này)", loc="left",
-                            fontsize=9, color=CHU)
+        tc += ve_danh_doi_ax([axs[i, 0]], g[~g["bp"].str.startswith("claw")], ("victim_loss_full",),
+                             ("victim loss reduction (%)",))
+        tc += ve_danh_doi_ax([axs[i, 1]], g, (cs_loi,), ("attacker excess profit reduction (%)",))
+        axs[i, 0].set_title(f"attacker farm share = {so_vn(s)}",
+                            loc="left", fontsize=9, color=CHU)
     _chu_giai(fig, sorted({_ho(b) for b in dai["bp"]}, key=list(MAU_HO).index))
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0.04, 1, 0.97))
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    for a, n in tc:
+        dat_nhan(fig, a, n)
     fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
 
@@ -120,7 +123,7 @@ def luoi_nhiet(tt: pd.DataFrame, cot: str, victim_type: str, bp: str = "khong") 
 
 
 def ve_nhiet(tt: pd.DataFrame, path: str | Path, cot=("attacker_profit_excess", "victim_loss_full"),
-             nhan=("lợi nhuận tăng thêm (excess, token1)", "thiệt hại nạn nhân (token1)"), tieu_de: str = "") -> None:
+             nhan=("attacker excess profit (token1)", "victim loss (token1)"), tieu_de: str = "") -> None:
     """Bản đồ nhiệt (σ, Q) khi không có biện pháp: hàng = loại victim, cột = chỉ số; ô = trung vị (3 vụ × ~10 seed),
     chữ trong ô = giá trị. Mỗi ô một thang riêng (chỉ số khác đơn vị/độ lớn)."""
     vts = ["omniscient", "adaptive"]
@@ -139,17 +142,16 @@ def ve_nhiet(tt: pd.DataFrame, path: str | Path, cot=("attacker_profit_excess", 
                             color="white" if v > 0.55 * vmax else CHU)
             ax.set_xticks(range(gt.shape[1]), [f"{q / 1000:g}k" for q in gt.columns])
             ax.set_yticks(range(gt.shape[0]), [so_vn(s) for s in gt.index])
-            ax.set_xlabel("trần Q (token1/farmer/ngày)", color=CHU_PHU)
-            ax.set_ylabel("tỷ lệ trợ cấp σ", color=CHU_PHU)
+            ax.set_xlabel("reward cap Q (token1/farmer/day)", color=CHU_PHU)
+            ax.set_ylabel("subsidy rate σ", color=CHU_PHU)
             ax.tick_params(colors=CHU_PHU, labelsize=8)
             for s in ax.spines.values():
                 s.set_visible(False)
-            ax.set_title(f"{n} — {TEN_VICTIM[vt]}", fontsize=9, color=CHU, loc="left")
+            ax.set_title(f"{n}, {TEN_VICTIM[vt]}", fontsize=9, color=CHU, loc="left")
             cb = fig.colorbar(im, ax=ax, shrink=0.85)
             cb.ax.tick_params(labelsize=7, colors=CHU_PHU)
             cb.outline.set_visible(False)
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.tight_layout()
     fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
 
@@ -172,7 +174,7 @@ def ve_q_sao(qv: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
             xs = np.array([Qs.index(q) for q in h["Q"]]) + (j - 1) * 0.18 + rng.uniform(-0.04, 0.04, len(h))
             yv = h["r_V"].to_numpy()
             cat = yv < Y_DUOI
-            ax.plot(xs[~cat], yv[~cat], "o", ms=8, color=MAU[j], mec=NEN, mew=2, label=f"k = {so_vn(k)}")
+            ax.plot(xs[~cat], yv[~cat], "o", ms=8, color=MAU[j], mec=NEN, mew=2, label=f"k = {so_vn(k, 2)}")
             if cat.any():                                     # điểm quá thấp: vẽ tam giác ở mép dưới
                 ax.plot(xs[cat], np.full(cat.sum(), Y_DUOI + 0.04), "v", ms=8, color=MAU[j], mec=NEN, mew=1.5)
             if vt == "omniscient":
@@ -182,29 +184,54 @@ def ve_q_sao(qv: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
             ax.axhline(r, color=LUOI, linewidth=1.0)
         ax.axhspan(Y_DUOI, muc[0], color="#f1f0ec", zorder=0)
         ax.set_ylim(Y_DUOI, 1.1)
-        ax.text(0.01, muc[0] - 0.03, f"vạch ngang = lưới cap ({len(muc)} mức); nền xám = dưới mức thấp nhất "
-                f"(ngoại suy); ▼ = r_V < {so_vn(Y_DUOI)}", fontsize=7, color=CHU_PHU, ha="left", va="top",
-                transform=ax.get_yaxis_transform())
         ax.set_xticks(range(len(Qs)), [f"{q / 1000:g}k" for q in Qs])
-        ax.set_xlabel("trần Q gốc (token1/farmer/ngày)")
-        ax.set_ylabel("ngưỡng vào nạn nhân r_V = Q*_V/Q (không đơn vị)")
+        ax.set_xlabel("original reward cap Q (token1/farmer/day)")
+        ax.set_ylabel(r"victim entry threshold $r_V = Q^*_V/Q$ (unitless)")
         ax.set_title(TEN_VICTIM[vt], loc="left", fontsize=9, color=CHU)
     h, n = axs[0].get_legend_handles_labels()
-    fig.legend(h, n, loc="lower center", ncol=len(h), frameon=False, fontsize=8, labelcolor=CHU)
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0.07, 1, 0.94))
+    fig.legend(h, n, loc="lower center", bbox_to_anchor=(0.5, 0.035), ncol=len(h), frameon=False, fontsize=8,
+               labelcolor=CHU)
+    fig.tight_layout(rect=(0, 0.05, 1, 1))
     fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
 
 
+Y_IN = [(-9, 112), (-12, 112), (-6, 90), (-10, 102)]       # giới hạn trục y từng ô ở kiểu in bài báo
+NHAN_IN = [
+    [("warn15/20/40", [(0.4, 97), (2.3, 94.1)], (12, 104)), ("warn20", [(1.2, 50.4)], (8, 53)),
+     ("warn15", [(0.6, 27.4)], (7, 22)), ("cap90", [(5, 38.4)], (11, 34)), ("cap90", [(5, 3.7)], (5, 14)),
+     ("delay24/72", [(1.05, -0.5), (2.85, -0.8)], (11, -5)), ("delay168", [(18.7, 19.2), (18.1, 4.2)], (30, 12)),
+     ("cap50", [(26.2, 31.3)], (34, 24)), ("cap50", [(25.8, 100)], (26, 90)), ("dyncap", [(36.5, 55.8)], (45, 47)),
+     ("dyncap", [(36.1, 100)], (36.5, 107)), ("cap05/10", [(47.7, 64)], (43, 73))],
+    [("warn15/20/40", [(0.4, 97), (2.3, 95.2)], (12, 104)), ("warn20", [(1.2, 54.1)], (8, 57)),
+     ("warn15", [(0.6, 34.2)], (7, 27)), ("cap90", [(5, 39.3)], (11, 35)), ("cap90", [(5, 3.5)], (5, 14)),
+     ("delay24/72", [(1.05, -1), (2.85, -2.8)], (11, -8)), ("delay168", [(18.7, 24.3), (18.1, 2.4)], (30, 12)),
+     ("cap50", [(26.2, 40)], (34, 34)), ("cap50", [(25.8, 100)], (26, 90)), ("dyncap", [(36.5, 59.8)], (45, 50)),
+     ("dyncap", [(36.1, 100)], (36.5, 107)), ("cap05/10", [(47.7, 68)], (43, 78))],
+    [("warn40", [(2, 43.4)], (9, 47)), ("warn20/40", [(1.3, 17.9), (0.8, 18.2)], (13.5, 22.5)),
+     ("claw72", [(3.3, 19.6), (3.3, 21.7)], (12, 30)), ("warn15", [(0.4, 9.4)], (11.5, 15)),
+     ("delay72", [(3.3, 4.9), (3.3, 5.8)], (12, 7.5)), ("warn15/20", [(0.4, 1.8), (0.6, 3.7)], (13.5, 0)), ("cap50", [(28.6, 24.7)], (34, 18)),
+     ("cap50", [(28.2, 3.6)], (33, -2)), ("dyncap", [(42.8, 62.2)], (36, 70)), ("dyncap", [(41.7, 18.9)], (47, 10)),
+     ("cap10", [(54.2, 80.7)], (49, 83)), ("cap10", [(53.7, 30.2)], (50, 37))],
+    [("warn40", [(2, 64.8)], (9, 70)), ("warn40", [(1.3, 42.8)], (9, 48)), ("warn20", [(0.8, 36.2)], (8, 36)),
+     ("warn15/20", [(0.4, 21.1), (0.6, 19.5), (0.4, 12.5)], (9, 19)),
+     ("claw72/delay72", [(3.3, -3.1), (3.3, -2.4)], (14, -7)), ("cap50", [(28.6, 32.4)], (22, 40)),
+     ("cap50", [(28.2, 12)], (34, 5)), ("dyncap", [(42.8, 66.3)], (36, 74)), ("dyncap", [(41.7, 20.3)], (47, 13)),
+     ("cap10", [(54.2, 93.6)], (49, 95)), ("cap10", [(53.7, 28.9)], (49, 36))],
+]
+
+
 def ve_pareto(bang: dict[str, pd.DataFrame], path: str | Path, tieu_de: str = "",
               cs=("loi_tang_them", "victim_loss_full"),
-              nhan=("giảm lợi tăng thêm của kẻ tấn công (%)", "giảm thiệt hại nạn nhân (%)")) -> None:
+              nhan=("attacker excess profit reduction (%)", "victim loss reduction (%)")) -> None:
     """Biên đánh đổi: mỗi hàng một vùng tham số (`bang` = {tên: bảng dài `bang_danh_doi`}), mỗi cột một chỉ số;
     x = % mất tổng khối lượng, y = % giảm (so với `khong`, CI 95%). Các mức hạ trần nối thành đường tham chiếu cho
     từng loại victim: biện pháp nằm trên đường cap = tốt hơn hạ trần ở cùng mức mất khối lượng."""
-    fig, axs = _hinh(len(bang), len(cs), (6 * len(cs), 4.6 * len(bang)), squeeze=False)
+    if H.IN:
+        nhan = ("excess profit reduction (%)", "victim loss reduction (%)")
+    fig, axs = _hinh(len(bang), len(cs), (4.8, 4.6) if H.IN else (6 * len(cs), 4.6 * len(bang)), squeeze=False)
     ho_co = set()
+    tc: list = []
     for i, (ten, dai) in enumerate(bang.items()):
         x = _diem(dai, "vol_tong")
         for j, (c, n) in enumerate(zip(cs, nhan)):
@@ -212,12 +239,14 @@ def ve_pareto(bang: dict[str, pd.DataFrame], path: str | Path, tieu_de: str = ""
             _kieu(ax)
             ax.xaxis.grid(True, color=LUOI, linewidth=0.6)
             y = _diem(dai, c)
+            nh: list = []
+            tc.append((ax, nh))
             for vt in DANG_VICTIM:
                 cap = [(x.loc[(vt, b)].giam, y.loc[(vt, b)].giam) for b in y.loc[vt].index
                        if b.startswith("cap") and (vt, b) in x.index] if vt in y.index.get_level_values(0) else []
                 if cap:
                     cap = sorted(cap + [(0.0, 0.0)])
-                    ax.plot(*zip(*cap), color=MAU_HO["cap"], linewidth=1.2,
+                    ax.plot(*zip(*cap), color=MAU_HO["cap"], linewidth=lw(1.2),
                             linestyle="-" if vt == "omniscient" else (0, (4, 2)), zorder=1)
             for (vt, bp), r in y.iterrows():
                 if (vt, bp) not in x.index:
@@ -227,29 +256,36 @@ def ve_pareto(bang: dict[str, pd.DataFrame], path: str | Path, tieu_de: str = ""
                 cmau = MAU_HO[h]
                 if h != "cap":
                     ax.errorbar(xr.giam, r.giam, xerr=[[xr.giam - xr.lo], [xr.hi - xr.giam]],
-                                yerr=[[r.giam - r.lo], [r.hi - r.giam]], fmt="none", ecolor=cmau, elinewidth=1,
-                                alpha=0.5, zorder=2)
-                    ax.annotate(bp, (xr.giam, r.giam), xytext=(5, 3), textcoords="offset points", fontsize=7,
-                                color=CHU_PHU)
+                                yerr=[[r.giam - r.lo], [r.hi - r.giam]], fmt="none", ecolor=cmau,
+                                elinewidth=0.6 if H.IN else 1, alpha=0.5, zorder=2)
+                    nh.append((xr.giam, r.giam, bp))
                 elif bp in ("cap90", "cap50", "cap10", "cap05"):
-                    ax.annotate(bp, (xr.giam, r.giam), xytext=(4, -9), textcoords="offset points", fontsize=6.5,
-                                color=CHU_PHU)
-                ax.plot(xr.giam, r.giam, DANG_VICTIM[vt], ms=7 if h == "cap" else 8, color=cmau, mec=NEN, mew=1.5,
-                        zorder=3)
-            ax.axhline(0, color=CHU_PHU, linewidth=0.8)
-            ax.set_xlabel("mất tổng khối lượng (%)")
+                    nh.append((xr.giam, r.giam, bp))
+                ax.plot(xr.giam, r.giam, DANG_VICTIM[vt], ms=ms(7 if h == "cap" else 8), color=cmau, mec=NEN,
+                        mew=0.7 if H.IN else 1.5, zorder=3)
+            ax.axhline(0, color=CHU_PHU, linewidth=lw(0.8))
+            ax.set_xlabel("total volume lost (%)")
             ax.set_ylabel(n)
-            ax.set_title(ten, loc="left", fontsize=9, color=CHU)
+            if j == 0:
+                ax.set_title(ten, loc="left", fontsize=8 if H.IN else 9, color=CHU)
     _chu_giai(fig, sorted(ho_co, key=list(MAU_HO).index))
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0.05, 1, 0.96))
-    fig.savefig(path, dpi=DPI, facecolor=NEN)
+    fig.tight_layout(rect=(0, 0.08 if H.IN else 0.05, 1, 1), pad=0.4 if H.IN else 1.08)
+    if H.IN:                                                    # kiểu in: mọi nhãn đặt tay (panel quá chật cho tự động)
+        for k, (a, n) in enumerate(tc):
+            a.set_ylim(*Y_IN[k])
+            H.nhan_tay(a, NHAN_IN[k], fontsize=fs(7))
+    else:
+        tay = {0: [("delay168", (19, 19), (27, 14))], 2: [("warn40", (0.8, 18), (2, 31)), ("claw72", (3.2, 21), (6, 22))],
+               3: [("dyncap", (43, 66), (36, 74))]}              # đặt tay các nhãn auto chưa đẹp (khoá = chỉ số ô)
+        for k, (a, n) in enumerate(tc):
+            dat_nhan(fig, a, n, thu_cong=tay.get(k))
+    fig.savefig(path, dpi=dpi(), facecolor=NEN)
     plt.close(fig)
 
 
 MAU_VUNG = {"i_khong_KL": "#e4e3df", "ii_an_toan": MAU[2], "iii_co_lai": MAU[1]}
-TEN_VUNG = {"i_khong_KL": "(i) không tạo khối lượng", "ii_an_toan": "(ii) có khối lượng, tấn công không lãi",
-            "iii_co_lai": "(iii) tấn công có lãi"}
+TEN_VUNG = {"i_khong_KL": "(i) no volume generated", "ii_an_toan": "(ii) volume, attack unprofitable",
+            "iii_co_lai": "(iii) attack profitable"}
 
 
 def ve_ba_vung(bv: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
@@ -278,29 +314,27 @@ def ve_ba_vung(bv: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
             q_nguong = k0["k"] * k0["Q"] / k0["r"]
             xq = np.interp(np.log(q_nguong), np.log(Qs), range(len(Qs)))
             ax.axvline(xq, color=CHU, linewidth=1.2, linestyle=(0, (4, 3)))
-            ax.text(xq + 0.05, len(sg) - 0.45, f"Lemma 4: Q_eff = {q_nguong * k0['r'] / 1000:g}k", fontsize=7,
-                    color=CHU, va="top")
+            ax.text(xq + 0.05, len(sg) - 0.5 + 0.04, rf"Lemma 4: $Q_{{\mathrm{{eff}}}}$ = {q_nguong * k0['r'] / 1000:g}k", fontsize=7,
+                    color=CHU, va="bottom")
             ax.axhline(0.5, color=CHU, linewidth=1.0, linestyle=(0, (1, 2)))
-            ax.text(len(Qs) - 0.45, 0.52, "σ₀ = f", fontsize=7, color=CHU, ha="right", va="bottom")
+            ax.text(-0.46, 0.52, "σ₀ = f", fontsize=7, color=CHU, ha="left", va="bottom",
+                    bbox=dict(facecolor=NEN, edgecolor="none", alpha=0.8, pad=0.8))
             ax.set_xlim(-0.5, len(Qs) - 0.5)
             ax.set_ylim(-0.5, len(sg) - 0.5)
             ax.set_xticks(range(len(Qs)), [f"{q / 1000:g}k" for q in Qs])
             ax.set_yticks(range(len(sg)), [so_vn(s) for s in sg])
-            ax.set_xlabel("trần Q gốc (token1/farmer/ngày)", color=CHU_PHU)
-            ax.set_ylabel("tỷ lệ trợ cấp σ", color=CHU_PHU)
+            ax.set_xlabel("original reward cap Q (token1/farmer/day)", color=CHU_PHU)
+            ax.set_ylabel("subsidy rate σ", color=CHU_PHU)
             ax.tick_params(colors=CHU_PHU, labelsize=8)
             for s in ax.spines.values():
                 s.set_visible(False)
-            ax.set_title(f"{TEN_VICTIM[vt]} — {'không biện pháp' if bp == 'khong' else 'hạ trần 50%'}",
-                         loc="left", fontsize=9, color=CHU)
+            ax.set_title(f"{TEN_VICTIM[vt]}, {'no defense' if bp == 'khong' else 'reward cap 50%'}",
+                         loc="left", fontsize=9, color=CHU, pad=14)
     h = [plt.Rectangle((0, 0), 1, 1, facecolor=MAU_VUNG[k], label=TEN_VUNG[k]) for k in MAU_VUNG]
     h.append(plt.Rectangle((0, 0), 1, 1, facecolor=NEN, edgecolor=CHU_PHU, hatch="///",
-                           label="ngoài giả định (GĐ1/GĐ2)"))
-    fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.5, 0.03), ncol=2, frameon=False, fontsize=8,
+                           label="outside theorem assumptions"))
+    fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=2, frameon=False, fontsize=8,
                labelcolor=CHU)
-    fig.text(0.5, 0.008, "số trong ô = trung vị lợi tăng thêm của kẻ tấn công (token1); ≠ khác vùng lý thuyết; "
-             "! vùng (i) nhưng vẫn có lãi", ha="center", fontsize=7.5, color=CHU_PHU)
-    fig.suptitle(tieu_de, color=CHU, fontsize=11)
-    fig.tight_layout(rect=(0, 0.11, 1, 0.95))
+    fig.tight_layout(rect=(0, 0.08, 1, 1))
     fig.savefig(path, dpi=DPI, facecolor=NEN)
     plt.close(fig)
