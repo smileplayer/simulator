@@ -105,6 +105,22 @@ def victim_fees(df: pd.DataFrame, victims: set[str], p_alpha: float) -> float:
     return float(c["fee1"].sum() + p_alpha * c["fee0"].sum())
 
 
+def phat_rut_som(df: pd.DataFrame) -> dict:
+    """Phần phạt rút sớm (cải tiến G, token1; token0 quy theo giá bể cuối bước) từ dòng `donate`.
+
+    `phat_tong` = tổng đã trích; `phat_attacker` = phần trích từ vị thế `attacker:*`; `phat_mat` = phần không ai
+    nhận (`liquidity_active_after` = 0 lúc donate). Không có dòng `donate` → mọi số bằng 0."""
+    d = df[df["kind"] == "donate"] if "kind" in df else df.iloc[0:0]
+    if not len(d):
+        return dict(phat_tong=0.0, phat_attacker=0.0, phat_mat=0.0)
+    P = df[df["kind"] == "step"].groupby("t")["sqrt_price_after"].last() ** 2
+    gia = d["t"].map(P).fillna(d["sqrt_price_after"] ** 2)
+    v = d["fee1"] + d["fee0"] * gia
+    att = d["owner"].astype(str).str.startswith("attacker:")
+    mat = d["liquidity_active_after"] <= 0
+    return dict(phat_tong=float(v.sum()), phat_attacker=float(v[att].sum()), phat_mat=float(v[mat].sum()))
+
+
 def victim_loss(df: pd.DataFrame, ph: dict, end: str = "t_b", victims: set[str] | None = None,
                 w_max: int = 1, khong_sap: str = "loi") -> pd.DataFrame:
     """Thiệt hại từng victim (token1) + dòng `TOTAL`. `victims` = None → suy như bài gốc.

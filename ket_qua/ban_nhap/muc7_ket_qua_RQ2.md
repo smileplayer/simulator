@@ -158,6 +158,10 @@ Giả định được kiểm bằng cách chạy lại pha Prep (`luoi_gia_dinh
 - **Bậc phí 0,01% (giữ k và σ/f):** % thay đổi của lợi tăng thêm lệch ≤ 1,2 điểm so với 0,25%; khối lượng, trợ cấp, L Post lệch tới 4, 6, 7 điểm (lớn nhất: delay168 mất 14% khối lượng thay vì 18%; cap05 toàn tri L Post −16% thay vì −22%). Thứ tự biện pháp trên từng trục không đổi; tỷ lệ sập gần như không đổi; nạn nhân thích nghi vẫn còn ở 21/30 vụ dưới cap05.
 - **Tỷ số lợi tăng thêm / trợ cấp phụ thuộc bậc phí:** trợ cấp tỷ lệ với σ (giữ σ/f nên σ × 0,04) giảm từ ~4.700 xuống 171 token1, còn lợi tăng thêm gần như không đổi (365 và 2.230 token1) → tỷ số 2,7× (toàn tri) và 14× (thích nghi), so với 10% và 49% ở bậc 0,25%.
 
+### Cải tiến F và G (22/10/2026)
+
+Bộ quét: `quet_gd2 --F --phien v5` (21.000 lượt) và `--phat --phien v5` (3.600 lượt); bảng `ket_qua/gd2/bang_GF/` (`python -m metrics.chay_GF`). G (phạt rút sớm, D = 168): không đổi lợi tăng thêm, khối lượng, trợ cấp, độ sập; trích của tường trung vị 810 / 589 token1 (toàn tri / thích nghi, 3–4% lãi tổng); lợi ròng nạn nhân +471 / +309 (toàn tri −20 → +341, thích nghi −275 → 0); D = 336: trích 1.827 / 1.283. Né: rút 10 lát → phần nạn nhân nhận thêm còn 132 / 222; giữ tường đủ 168 giờ → không bị phạt, lãi tổng còn +6–10% (không tính chi phí vốn), nền tảng trả thêm 46% trợ cấp. F (cận trên, chọn m theo trung vị lợi tăng thêm): không biện pháp, tường mỏng hơn đưa lợi toàn tri 361 → 898; dưới biện pháp kẻ tấn công chủ yếu chọn m = 0,25–0,5; toàn tri: warn15 −94 → −41%, cap50 −100 → −50%, warn40 −100 → −91%, cap05 vẫn −100%; thích nghi: warn40 −94 → −72%, cap05 −65 → −51%; thứ tự gần như giữ (warn40, cap05 đầu; trả trễ cuối); warn40 giờ mất 7–11% khối lượng. Chọn theo lãi tổng: m = 4 ở 5–13/30 vụ (không tính chi phí vốn) → không dùng.
+
 ### Các lần chạy trước
 - **v3:** cùng thiết kế; phản thực đỡ giá cho cú bán thẳng.
   - v3 → v4, cùng xếp hạng biện pháp, Q* và phân vùng; chỉ % giảm lợi kẻ tấn công đổi vài điểm %: vùng k nhỏ hạ trần mạnh hơn (thích nghi cap10 −19 → −30%, toàn tri cap50 −17 → −25%), claw72 farm 0,6 yếu hơn (−52…−54 → −46…−50%).

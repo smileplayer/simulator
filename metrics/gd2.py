@@ -419,3 +419,17 @@ def kiem_don_dieu(df: pd.DataFrame, cot: str = "loi_tang_them", B: int = B_MAC_D
                             tv_d=float(np.median(d)), tv_lo=np.quantile(tv, .025), tv_hi=np.quantile(tv, .975),
                             so_vu_tang_y_nghia=sum(r["tang_co_y_nghia"] for r in dong_vu), so_vu=len(dong_vu)))
     return pd.DataFrame(gop), pd.DataFrame(vu)
+
+
+def chon_LA(df: pd.DataFrame, muc_tieu: str = "loi_tang_them") -> pd.DataFrame:
+    """Cải tiến F (22/10): giữ, với mỗi (vụ, bp, victim_type), mức `m_LA` có trung vị `muc_tieu` qua các seed lớn nhất.
+
+    Kẻ tấn công biết phân phối kết quả của vụ nhưng không biết seed (cận trên của kẻ tấn công thích nghi). Trả các dòng
+    của mức được chọn (mọi seed), thêm cột `m_LA_chon`; ghép cặp bằng `ghep_cap` như thường (khóa không có `m_LA`)."""
+    d = them_cot(df) if muc_tieu not in df else df.copy()
+    tv = d.groupby(["scenario_id", "bp", "victim_type", "m_LA"])[muc_tieu].median().reset_index()
+    tot = tv.loc[tv.groupby(["scenario_id", "bp", "victim_type"])[muc_tieu].idxmax(),
+                 ["scenario_id", "bp", "victim_type", "m_LA"]]
+    out = d.merge(tot, on=["scenario_id", "bp", "victim_type", "m_LA"])
+    out["m_LA_chon"] = out["m_LA"]
+    return out
