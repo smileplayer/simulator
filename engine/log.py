@@ -12,7 +12,7 @@ COLUMNS = [
     "amount0", "amount1", "fee0", "fee1", "sqrt_price_after", "tick_after",
     "liquidity_active_after", "external_price",
 ]
-KINDS = {"mint", "burn", "collect", "swap", "subsidy", "step"}
+KINDS = {"mint", "burn", "collect", "swap", "subsidy", "step", "donate"}   # donate: cải tiến G (22/10)
 
 
 class EventLog:

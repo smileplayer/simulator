@@ -60,6 +60,9 @@ class _PositionState:
     fee_growth_inside1_last: float = 0.0
     owed0: float = 0.0
     owed1: float = 0.0
+    t_mint: int = 0                      # bước mint (cải tiến G: tính thời gian giữ)
+    mien0: float = 0.0                   # phần owed đã xét phạt rút sớm
+    mien1: float = 0.0
 
 
 def _mat_so(L: float, scale: float) -> bool:
@@ -71,7 +74,9 @@ class Pool:
     """Bể một cặp token0/token1 với thanh khoản tập trung, swap cross-tick."""
 
     def __init__(self, fee: float, sqrt_price: float, tick_spacing: int = 1,
-                 fee_weight: Callable[[int], float] | None = None):
+                 fee_weight: Callable[[int], float] | None = None, phat_rut_som: int | None = None):
+        """`phat_rut_som` (cải tiến G, số bước; None = tắt): rút vị thế khi mới giữ `giu` < cửa sổ bước thì
+        mất phần (1 − giu/cửa sổ) phí đang treo, phần đó `donate` cho thanh khoản đang hoạt động sau khi rút."""
         if not 0 <= fee < 1:
             raise ValueError("fee phải trong [0, 1)")
         if tick_spacing < 1:
@@ -82,6 +87,9 @@ class Pool:
         self.tick = tick_at_sqrt_price(self.sqrt_price)
         self.liquidity = 0.0                     # L_active
         self.fee_weight = fee_weight             # φ(w), w tính bằng số tick; None = pro-rata
+        if phat_rut_som is not None and phat_rut_som < 1:
+            raise ValueError("phat_rut_som phải ≥ 1 bước")
+        self.phat_rut_som = phat_rut_som
         self.liquidity_weighted = 0.0            # Σ L·φ(w) của vị thế đang hoạt động
         self.fee_growth_global0 = 0.0            # token0 trên mỗi đơn vị L·φ(w)
         self.fee_growth_global1 = 0.0
@@ -180,7 +188,7 @@ class Pool:
         self._next_id += 1
         pos = Position(pid, owner, tick_lower, tick_upper, float(liquidity))
         in0, in1 = self._fee_growth_inside(tick_lower, tick_upper)
-        self._positions[pid] = _PositionState(pos, weight, in0, in1)
+        self._positions[pid] = _PositionState(pos, weight, in0, in1, t_mint=self.t)
         if self._in_range(pos):
             self.liquidity += liquidity
             self.liquidity_weighted += Lw
@@ -199,6 +207,16 @@ class Pool:
             raise ValueError(f"rút {L} vượt thanh khoản vị thế {p.liquidity}")
         L = min(L, p.liquidity)
         self._accrue(st)
+        phat0 = phat1 = 0.0
+        if self.phat_rut_som and L > 0:                  # cải tiến G: phạt phí khi rút sớm (OZ LiquidityPenaltyHook)
+            giu = self.t - st.t_mint
+            if giu < self.phat_rut_som:
+                ty_le = (self.phat_rut_som - giu) / self.phat_rut_som
+                phat0 = max(st.owed0 - st.mien0, 0.0) * ty_le
+                phat1 = max(st.owed1 - st.mien1, 0.0) * ty_le
+                st.owed0 -= phat0
+                st.owed1 -= phat1
+            st.mien0, st.mien1 = st.owed0, st.owed1      # phí đã xét phạt: không phạt lần nữa ở lần rút sau
         a0, a1 = amounts_for_liquidity(self.sqrt_price, sqrt_price_at_tick(p.tick_lower),
                                        sqrt_price_at_tick(p.tick_upper), L)
         if L > 0:
@@ -213,7 +231,21 @@ class Pool:
             self._update_tick(p.tick_upper, -L, -Lw, upper=True)
         self._log("burn", p.owner, position_id=p.id, tick_lower=p.tick_lower,
                   tick_upper=p.tick_upper, liquidity=L, amount0=-a0, amount1=-a1)
+        if phat0 > 0 or phat1 > 0:
+            self.donate(p.owner, phat0, phat1)
         return a0, a1
+
+    def donate(self, owner: str, amount0: float, amount1: float) -> bool:
+        """Chia (token0, token1) cho thanh khoản đang hoạt động theo L·φ(w), như `donate` của v4.
+
+        Trả False khi không có thanh khoản hoạt động: lượng đó mất (dòng log có `liquidity_active_after` = 0; hook OZ
+        revert trong trường hợp này). Ghi dòng `donate` với `fee0`, `fee1` = lượng chia, owner = người bị phạt."""
+        co = self.liquidity_weighted > 0
+        if co:
+            self.fee_growth_global0 += amount0 / self.liquidity_weighted
+            self.fee_growth_global1 += amount1 / self.liquidity_weighted
+        self._log("donate", owner, fee0=amount0, fee1=amount1)
+        return co
 
     def collect(self, position_id: int) -> tuple[float, float]:
         """Thu toàn bộ phí đã tích lũy của vị thế, trả (fee0, fee1) và đặt lại về 0."""
@@ -221,6 +253,7 @@ class Pool:
         self._accrue(st)
         f0, f1 = st.owed0, st.owed1
         st.owed0 = st.owed1 = 0.0
+        st.mien0 = st.mien1 = 0.0
         self._log("collect", st.pos.owner, position_id=position_id, fee0=f0, fee1=f1)
         return f0, f1
 
