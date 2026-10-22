@@ -16,7 +16,8 @@ Ba chế độ (v3, 15/10 — thêm cột lợi nhuận theo **địa chỉ th�
 - `--luoi`: lưới σ ∈ {0,0025 … 0,04} × Q ∈ {6k … 96k} quanh co_so (giữ c_V của co_so), bp {khong, cap50}
   → `ket_qua/gd2/tomtat_luoi_v4.csv`.
 
-Chạy: `python -m scenarios.quet_gd2 [--seeds 10] [--out ...] [--nhanh] [--farm | --k_nho | --luoi]`.
+Chạy: `python -m scenarios.quet_gd2 [--seeds 10] [--out ...] [--nhanh] [--farm | --k_nho | --luoi]
+[--bien_the f001] [--phien v5]` → `ket_qua/gd2/tomtat_[che_do_][bien_the_]<phien>.csv`.
 Chạy lại thì bỏ qua các lượt đã có trong file; không lưu log thô (quá lớn).
 """
 from __future__ import annotations
@@ -28,7 +29,7 @@ import time
 import warnings
 from pathlib import Path
 
-from scenarios.batch import FILE_TO_HOP, MUC, cau_hinh, to_hop_rq1
+from scenarios.batch import FILE_TO_HOP, MUC, cau_hinh, cau_hinh_bien_the, to_hop_rq1
 from scenarios.hieu_chinh import LV_chia_LA, do_sap
 from scenarios.run import run_frame
 
@@ -227,16 +228,17 @@ def loi_nhuan_dia_chi(df, owner: str = "attacker:0") -> dict:
 
 
 def dong_ket_qua(vu: dict, bp: str, victim: str, seed: int, farm_share: float | None = None,
-                 bang: dict | None = None) -> dict:
+                 bang: dict | None = None, bien_the: str = "goc") -> dict:
     """Chạy một lượt, trả dict phẳng: khóa + tham số vụ + summarize của B + lợi nhuận theo địa chỉ + vài chỉ số của C.
 
     `bang`: bảng biện pháp (mặc định BIEN_PHAP, hoặc BIEN_PHAP_FARM khi có `farm_share`).
+    `bien_the`: biến thể môi trường của `scenarios.batch.BIEN_THE` ("f001" = phí 0,01%, giữ k và σ/f; cải tiến A, 20/10).
     `farm_share` khác None → thêm cột farm của kẻ tấn công (token1): `vol_farm_att` (khối lượng mua),
     `farm_share_thuc` (phần thực trong khối lượng farmer), `sub_att` (thưởng đã nhận), `chi_phi_farm_att`
     (= `dc_farm_cost`, `metrics.pnl.farm_pnl`: P_e bước t, bước có cú xả lấy P_e(t−1)), `sub_att_treo` (thưởng của kẻ tấn công chưa
     tới hạn khi hết kịch bản, theo giá cuối), `subsidy_clawed`."""
     from metrics.report import summarize
-    cfg = cau_hinh(vu)
+    cfg = cau_hinh(vu) if bien_the == "goc" else cau_hinh_bien_the(vu, bien_the)
     if bang is None:
         bang = BIEN_PHAP if farm_share is None else BIEN_PHAP_FARM
     cfg.update(defense=bang[bp], victim_type=victim, attacker_farm_share=farm_share or 0.0)
@@ -244,7 +246,7 @@ def dong_ket_qua(vu: dict, bp: str, victim: str, seed: int, farm_share: float | 
     m = df.attrs["meta"]
     sw = df[df.kind == "swap"]
     r = {"scenario_id": vu["id"], **({} if farm_share is None else {"farm_share": farm_share}),
-         "bp": bp, "victim_type": victim, "seed": seed,
+         "bp": bp, "victim_type": victim, "seed": seed, "bien_the": bien_the, "fee": cfg["fee"],
          **{k: m[k] for k in ("L_A", "k", "c_V", "sigma", "Q", "Q_eff", "bg_band", "attacker_inventory",
                               "subsidy_form")},
          "LV_chia_LA": LV_chia_LA(df), "do_sap": do_sap(df), "subsidy_pending": m["subsidy_pending"],
@@ -283,7 +285,7 @@ def danh_sach_viec(che_do: str, seeds: int, nhanh: bool = False) -> list[tuple]:
 
 
 def chay(seeds: int, out: Path, nhanh: bool = False, farm: bool = False, k_nho: bool = False,
-         luoi: bool = False) -> None:
+         luoi: bool = False, bien_the: str = "goc") -> None:
     """Chạy mọi lượt còn thiếu, ghi nối vào CSV (mỗi lượt một dòng, flush ngay); --nhanh: 2 vụ × 1 seed để đo giờ.
     `farm`: chế độ CH-6; `k_nho`: vùng victim lớn (khóa có `farm_share`)."""
     warnings.filterwarnings("ignore")
@@ -306,7 +308,7 @@ def chay(seeds: int, out: Path, nhanh: bool = False, farm: bool = False, k_nho: 
     with out.open("a", encoding="utf-8", newline="") as f:
         w = None
         for i, (vu, bp, vt, sd, fs, bang) in enumerate(viec):
-            r = dong_ket_qua(vu, bp, vt, sd, fs, bang)
+            r = dong_ket_qua(vu, bp, vt, sd, fs, bang, bien_the)
             if w is None:
                 cot = cot or list(r)
                 w = csv.DictWriter(f, fieldnames=cot, extrasaction="ignore")
@@ -329,8 +331,11 @@ if __name__ == "__main__":
     nhom.add_argument("--farm", action="store_true", help="CH-6: kẻ tấn công cũng là farmer")
     nhom.add_argument("--k_nho", action="store_true", help="vùng victim lớn k ∈ {0,10; 0,25; 0,45}")
     nhom.add_argument("--luoi", action="store_true", help="lưới (σ, Q) 5 × 5 quanh co_so, bp khong + cap50")
+    ap.add_argument("--bien_the", default="goc", help="biến thể môi trường (scenarios.batch.BIEN_THE); f001 = phí 0,01%%")
+    ap.add_argument("--phien", default="v4", help="hậu tố file; v5 (20/10) = thêm L_khac, phí và lợi ròng nạn nhân")
     a = ap.parse_args()
-    mac_dinh = ("ket_qua/gd2/tomtat_farm_v4.csv" if a.farm else "ket_qua/gd2/tomtat_knho_v4.csv" if a.k_nho
-                else "ket_qua/gd2/tomtat_luoi_v4.csv" if a.luoi else "ket_qua/gd2/tomtat_v4.csv")
+    che = "farm_" if a.farm else "knho_" if a.k_nho else "luoi_" if a.luoi else ""
+    bt = "" if a.bien_the == "goc" else f"{a.bien_the}_"
+    mac_dinh = f"ket_qua/gd2/tomtat_{che}{bt}{a.phien}.csv"
     out = a.out or (mac_dinh.replace(".csv", "_nhanh.csv") if a.nhanh else mac_dinh)
-    chay(a.seeds, Path(out), a.nhanh, a.farm, a.k_nho, a.luoi)
+    chay(a.seeds, Path(out), a.nhanh, a.farm, a.k_nho, a.luoi, a.bien_the)
