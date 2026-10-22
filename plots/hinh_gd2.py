@@ -294,7 +294,12 @@ def ve_ba_vung(bv: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
     buộc hoặc GĐ2 giá rời tick); dấu ≠ = khác vùng lý thuyết; dấu ! = vùng (i) mà kẻ tấn công vẫn có lãi;
     vạch đứt = ranh giới Lemma 4 Q_eff = c_V·L_A/(f·n)."""
     vts, bps = ["omniscient", "adaptive"], [b for b in ("khong", "cap50") if b in set(bv["bp"])]
-    fig, axs = _hinh(len(vts), len(bps), (5.6 * len(bps), 4.2 * len(vts)), squeeze=False)
+    IN = H.IN
+    fig, axs = _hinh(len(vts), len(bps), (4.8, 4.4) if IN else (5.6 * len(bps), 4.2 * len(vts)), squeeze=False)
+
+    def _so(v: float) -> str:                                   # kiểu in: ≥ 1000 viết "5.8k" cho vừa ô
+        return f"{v / 1000:.1f}k" if IN and abs(v) >= 1000 else so_vn(v, 0)
+
     for i, vt in enumerate(vts):
         for j, bp in enumerate(bps):
             ax = axs[i, j]
@@ -305,36 +310,38 @@ def ve_ba_vung(bv: pd.DataFrame, path: str | Path, tieu_de: str = "") -> None:
                 ngoai = bool(r.get("ngoai_gia_dinh", False))
                 ax.add_patch(plt.Rectangle((b - 0.5, a - 0.5), 1, 1, facecolor=MAU_VUNG[r["vung"]], edgecolor=NEN,
                                            linewidth=2, hatch="///" if ngoai else None))
-                chu = (so_vn(r["loi"], 0) + ("" if r["khop_ly_thuyet"] else " ≠")
+                chu = (_so(r["loi"]) + ("" if r["khop_ly_thuyet"] else " ≠")
                        + (" !" if r["vung"] == "i_khong_KL" and r["loi"] > 0 else ""))
-                ax.text(b, a, chu, ha="center", va="center", fontsize=8,
-                        color=CHU, bbox=dict(facecolor=NEN, edgecolor="none", alpha=0.75, pad=1.2))
+                ax.text(b, a, chu, ha="center", va="center", fontsize=6 if IN else 8,
+                        color=CHU, bbox=dict(facecolor=NEN, edgecolor="none", alpha=0.75, pad=0.6 if IN else 1.2))
             # ranh giới Lemma 4: k_eff = k/r = 1 ⇔ Q = Q_ref·0,75/r, nội suy trên trục log Q
             k0 = g.iloc[0]
             q_nguong = k0["k"] * k0["Q"] / k0["r"]
             xq = np.interp(np.log(q_nguong), np.log(Qs), range(len(Qs)))
             ax.axvline(xq, color=CHU, linewidth=1.2, linestyle=(0, (4, 3)))
-            ax.text(xq + 0.05, len(sg) - 0.5 + 0.04, rf"Lemma 4: $Q_{{\mathrm{{eff}}}}$ = {q_nguong * k0['r'] / 1000:g}k", fontsize=7,
-                    color=CHU, va="bottom")
+            ax.text(xq if IN else xq + 0.05, len(sg) - 0.5 + 0.04, rf"Lemma 4: $Q_{{\mathrm{{eff}}}}$ = {q_nguong * k0['r'] / 1000:g}k", fontsize=5.5 if IN else 7,
+                    color=CHU, va="bottom", ha="center" if IN else "left")
             ax.axhline(0.5, color=CHU, linewidth=1.0, linestyle=(0, (1, 2)))
-            ax.text(-0.46, 0.52, "σ₀ = f", fontsize=7, color=CHU, ha="left", va="bottom",
+            ax.text(-0.46, 0.52, r"$\sigma_0$ = f", fontsize=5.5 if IN else 7, color=CHU, ha="left", va="bottom",
                     bbox=dict(facecolor=NEN, edgecolor="none", alpha=0.8, pad=0.8))
             ax.set_xlim(-0.5, len(Qs) - 0.5)
             ax.set_ylim(-0.5, len(sg) - 0.5)
             ax.set_xticks(range(len(Qs)), [f"{q / 1000:g}k" for q in Qs])
             ax.set_yticks(range(len(sg)), [so_vn(s) for s in sg])
-            ax.set_xlabel("original reward cap Q (token1/farmer/day)", color=CHU_PHU)
-            ax.set_ylabel("subsidy rate σ", color=CHU_PHU)
-            ax.tick_params(colors=CHU_PHU, labelsize=8)
+            ax.set_xlabel("original reward cap Q (token1/farmer/day)" if not IN else (
+                "reward cap Q" if i == len(vts) - 1 else ""), color=CHU_PHU, fontsize=8 if IN else None)
+            ax.set_ylabel(r"subsidy rate $\sigma$" if (IN and j == 0) or not IN else "", color=CHU_PHU,
+                          fontsize=8 if IN else None)
+            ax.tick_params(colors=CHU_PHU, labelsize=7 if IN else 8)
             for s in ax.spines.values():
                 s.set_visible(False)
             ax.set_title(f"{TEN_VICTIM[vt]}, {'no defense' if bp == 'khong' else 'reward cap 50%'}",
-                         loc="left", fontsize=9, color=CHU, pad=14)
+                         loc="left", fontsize=7.5 if IN else 9, color=CHU, pad=10 if IN else 14)
     h = [plt.Rectangle((0, 0), 1, 1, facecolor=MAU_VUNG[k], label=TEN_VUNG[k]) for k in MAU_VUNG]
     h.append(plt.Rectangle((0, 0), 1, 1, facecolor=NEN, edgecolor=CHU_PHU, hatch="///",
                            label="outside theorem assumptions"))
-    fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=2, frameon=False, fontsize=8,
+    fig.legend(handles=h, loc="lower center", bbox_to_anchor=(0.5, 0.0), ncol=2, frameon=False, fontsize=6.5 if IN else 8,
                labelcolor=CHU)
-    fig.tight_layout(rect=(0, 0.08, 1, 1))
-    fig.savefig(path, dpi=DPI, facecolor=NEN)
+    fig.tight_layout(rect=(0, 0.09 if IN else 0.08, 1, 1), pad=0.4 if IN else 1.08)
+    fig.savefig(path, dpi=H.dpi(), facecolor=NEN)
     plt.close(fig)

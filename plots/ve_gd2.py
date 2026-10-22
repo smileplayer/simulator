@@ -27,7 +27,8 @@ def main(gd2: str = "ket_qua/gd2", phien: str = "v4") -> list[Path]:
                    "(b) small-k region": pd.read_csv(bang / "danh_doi_knho.csv")}, f["pareto"])
     fm = pd.read_csv(bang / "danh_doi_farm.csv")
     ve_danh_doi_farm(fm[fm["farm_share"] > 0], f["danh_doi_farm"])
-    ve_ba_vung(pd.read_csv(bang / "ba_vung.csv"), f["ba_vung"])
+    with in_bai():
+        ve_ba_vung(pd.read_csv(bang / "ba_vung.csv"), f["ba_vung"])
     ve_q_sao(pd.read_csv(bang / "q_sao_vu.csv"), f["q_sao"])
     ve_q_sao(pd.read_csv(bang / "q_sao_vu_knho.csv"), f["q_sao_knho"])
     return list(f.values())
