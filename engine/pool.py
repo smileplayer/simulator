@@ -247,13 +247,39 @@ class Pool:
         self._log("donate", owner, fee0=amount0, fee1=amount1)
         return co
 
+    def _giu_phi(self, st: _PositionState) -> bool:
+        """True khi phí chưa xét phạt của vị thế bị giữ lại: bật phạt, vị thế còn L, giữ chưa đủ cửa sổ."""
+        return (self.phat_rut_som is not None and st.pos.liquidity > 0
+                and self.t - st.t_mint < self.phat_rut_som)
+
+    def fee_balances(self) -> list[dict]:
+        """Phí còn treo (token0, token1) của các vị thế còn phí chưa thu, không đổi trạng thái, không ghi log.
+
+        `locked` = phần đang bị giữ (chưa xét phạt, chỉ nhận được khi giữ đủ cửa sổ hoặc qua burn)."""
+        rows = []
+        for pid, st in self._positions.items():
+            owed = self.fees_owed(pid)
+            if owed[0] <= 0 and owed[1] <= 0:
+                continue
+            nhan = (min(owed[0], st.mien0), min(owed[1], st.mien1)) if self._giu_phi(st) else owed
+            rows.append(dict(position_id=pid, owner=st.pos.owner, owed0=owed[0], owed1=owed[1],
+                             locked0=owed[0] - nhan[0], locked1=owed[1] - nhan[1]))
+        return rows
+
     def collect(self, position_id: int) -> tuple[float, float]:
-        """Thu toàn bộ phí đã tích lũy của vị thế, trả (fee0, fee1) và đặt lại về 0."""
+        """Thu phí được phép nhận, trả (fee0, fee1). Cải tiến G: vị thế còn L mà giữ chưa đủ cửa sổ chỉ thu được
+        phần đã xét phạt ở lần burn trước; phần còn lại bị giữ tới khi đủ tuổi hoặc burn (chặn né phạt bằng
+        collect trước burn)."""
         st = self._state(position_id)
         self._accrue(st)
-        f0, f1 = st.owed0, st.owed1
-        st.owed0 = st.owed1 = 0.0
-        st.mien0 = st.mien1 = 0.0
+        if self._giu_phi(st):
+            f0, f1 = min(st.owed0, st.mien0), min(st.owed1, st.mien1)
+        else:
+            f0, f1 = st.owed0, st.owed1
+        st.owed0 -= f0
+        st.owed1 -= f1
+        st.mien0 = max(0.0, st.mien0 - f0)
+        st.mien1 = max(0.0, st.mien1 - f1)
         self._log("collect", st.pos.owner, position_id=position_id, fee0=f0, fee1=f1)
         return f0, f1
 
