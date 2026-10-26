@@ -97,12 +97,26 @@ def _luong_vi_the(L: float, lo: int, hi: int, z: float) -> tuple[float, float]:
 
 
 def victim_fees(df: pd.DataFrame, victims: set[str], p_alpha: float) -> float:
-    """Phí LP nạn nhân thu trong cả kịch bản (token1; token0 quy theo `p_alpha`), từ mọi dòng `collect`.
+    """Phí LP nạn nhân đã thu bằng tiền trong cả kịch bản (token1; token0 quy theo `p_alpha`), từ mọi dòng `collect`.
 
     Khác cột `fees` của `victim_loss` (chỉ đếm collect tới `t_end`): bộ chạy chỉ collect ở bước cuối, nên cột đó gần
-    như luôn 0. Dùng cho lợi nhuận ròng `victim_net` = phí − `E_full` (CH-9, 20/10)."""
+    như luôn 0. Khi bật phạt rút sớm, phí bị giữ không hiện ở đây — xem `victim_fee_balances` (26/10)."""
     c = df[(df["kind"] == "collect") & df["owner"].isin(victims)]
     return float(c["fee1"].sum() + p_alpha * c["fee0"].sum())
+
+
+def victim_fee_balances(df: pd.DataFrame, victims: set[str], p_alpha: float) -> dict:
+    """Phí nạn nhân (token1, token0 quy theo `p_alpha`): `cash` đã thu, `outstanding` còn treo cuối kịch bản (ảnh chụp
+    `meta["fee_balances"]`), `locked` phần treo đang bị giữ, `accrued` = cash + outstanding (quyền nhận phí).
+
+    Log cũ không có ảnh chụp → outstanding = locked = 0, accrued = cash (đúng khi tắt phạt: bộ chạy đã collect hết)."""
+    cash = victim_fees(df, victims, p_alpha)
+    balances = (df.attrs.get("meta", {}) or {}).get("fee_balances", [])
+    selected = [b for b in balances if b["owner"] in victims]
+    outstanding = sum(b["owed1"] + p_alpha * b["owed0"] for b in selected)
+    locked = sum(b["locked1"] + p_alpha * b["locked0"] for b in selected)
+    return dict(cash=cash, outstanding=outstanding, locked=locked,
+                accrued=cash+outstanding)
 
 
 def phat_rut_som(df: pd.DataFrame) -> dict:

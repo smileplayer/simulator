@@ -24,6 +24,9 @@ CHI_SO_G = [
     ("victim_net", True, "trung_vi"), ("victim_fees", True, "trung_vi"), ("vol_tong", False, "trung_vi"),
     ("subsidy_total", False, "trung_vi"), ("breached", False, "trung_binh"), ("phat_attacker", False, "trung_vi"),
     ("phat_tong", False, "trung_vi"),
+    # 26/10 (phí bị giữ khi collect sớm): victim_net/victim_fees = quyền nhận phí; tách tiền đã thu và phần bị giữ
+    ("victim_net_cash", True, "trung_vi"), ("victim_fees_cash", True, "trung_vi"),
+    ("victim_fees_outstanding", True, "trung_vi"), ("victim_fees_locked", True, "trung_vi"),
 ]
 CAP_G = [("phat168", "khong"), ("phat336", "khong"), ("phat168_lat10", "khong"),
          ("phat168_giu168", "khong_giu168"), ("khong_giu168", "khong")]

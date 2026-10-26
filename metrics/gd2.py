@@ -49,7 +49,7 @@ CHI_SO_V3 = [c for c in CHI_SO if c[0] not in ("attacker_profit_excess", "attack
     ("dc_lai_tong", "loi_ich", False, "trung_vi", "lãi tổng theo địa chỉ, gồm bán kho theo c_A (token1)"),
     # v5 (CH-9, 20/10): thanh khoản của LP khác và lợi nhuận ròng của nạn nhân; bản v4 không có cột → tự bỏ qua
     ("L_khac_mean_post", "chi_phi", True, "trung_vi", "L Post không tính vị thế nạn nhân và kẻ tấn công (L)"),
-    ("victim_fees", "loi_ich", True, "trung_vi", "phí nạn nhân thu cả kịch bản (token1)"),
+    ("victim_fees", "loi_ich", True, "trung_vi", "quyền nhận phí của nạn nhân cả kịch bản: đã thu + còn treo (token1)"),
     ("victim_net", "loi_ich", True, "trung_vi", "lợi nhuận ròng nạn nhân = phí − E_full (token1)"),
 ]
 MUC_CAP = {"khong": 1.0, "cap90": 0.9, "cap75": 0.75, "cap60": 0.6, "cap50": 0.5, "cap25": 0.25, "cap15": 0.15,
