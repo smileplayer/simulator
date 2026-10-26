@@ -52,7 +52,11 @@ class Pool:
     def burn(self, position_id: int, liquidity: float | None = None) -> tuple[float, float]:
         """Rút thanh khoản (None = rút hết). Trả (amount0, amount1) nhận về, CHƯA gồm phí."""
     def collect(self, position_id: int) -> tuple[float, float]:
-        """Thu phí đã tích lũy của vị thế, trả (fee0, fee1), đặt lại về 0."""
+        """Thu phí đã tích lũy của vị thế, trả (fee0, fee1), đặt lại về 0.
+        ĐỔI 26/10 (cải tiến G): khi bật `phat_rut_som`, vị thế còn L mà giữ chưa đủ cửa sổ chỉ thu được phần phí đã
+        xét phạt ở lần burn trước; phần còn lại bị giữ tới khi đủ tuổi hoặc burn. Tắt phạt thì như cũ."""
+    def fee_balances(self) -> list[dict]:
+        """(26/10) Phí còn treo của các vị thế còn phí chưa thu: position_id, owner, owed0/1, locked0/1 (phần bị giữ)."""
     def swap(self, owner: str, zero_for_one: bool, amount_in: float | None = None,
              sqrt_price_limit: float | None = None) -> SwapResult:
         """Swap cross-tick. Cho amount_in, hoặc sqrt_price_limit (đi tới giá giới hạn), hoặc cả hai
@@ -120,7 +124,7 @@ Cấu hình kịch bản là `dict` (đọc từ JSON trong `scenarios/configs/`
 | `tick_lower`, `tick_upper` | int / NaN | với mint, burn |
 | `liquidity` | float / NaN | `L` của mint/burn |
 | `amount0`, `amount1` | float | dấu theo mục 1 (dương = vào bể): mint dương, burn âm, swap token vào dương / token ra âm (lượng vào **đã gồm phí**). Với `collect`: `0`. Với `subsidy`: `amount0 = 0`, `amount1` = tiền trợ cấp trả cho farmer (ghi **dương**, không đi qua bể). Với `step`: `0` |
-| `fee0`, `fee1` | float | **luôn ≥ 0**: phí của swap (theo token vào, chiều kia = 0), hoặc phí LP rút ra ở `collect`. Dòng khác: `0` |
+| `fee0`, `fee1` | float | **luôn ≥ 0**: phí của swap (theo token vào, chiều kia = 0), hoặc phí LP rút ra ở `collect` (bật phạt rút sớm: chỉ phần không bị giữ, có thể `0`; phần còn treo cuối kịch bản ở `meta["fee_balances"]`, 26/10). Dòng khác: `0` |
 | `sqrt_price_after`, `tick_after` | float, int | trạng thái bể sau sự kiện |
 | `liquidity_active_after` | float | `L_active` sau sự kiện |
 | `external_price` | float / NaN | chỉ ở dòng `step` |

@@ -1,7 +1,7 @@
 """Cải tiến G (22/10) ở cấp kịch bản: phạt rút sớm, hai cách né của kẻ tấn công."""
 import pytest
 
-from metrics.pnl import phat_rut_som, victim_fees
+from metrics.pnl import phat_rut_som, victim_fee_balances
 from scenarios.quet_gd2 import BIEN_PHAP_PHAT, dong_ket_qua
 from scenarios.run import nap_config, run_frame
 
@@ -13,7 +13,7 @@ def _chay(defense=None, **doi):
 
 
 def _phi_nan_nhan(df):
-    return victim_fees(df, {o for o in df.owner.unique() if str(o).startswith("victim:")}, 1.0)
+    return victim_fee_balances(df, {o for o in df.owner.unique() if str(o).startswith("victim:")}, 1.0)["accrued"]
 
 
 @pytest.fixture(scope="module")

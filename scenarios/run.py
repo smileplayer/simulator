@@ -298,7 +298,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
                          dyncap_t_bao_dau=None if tran_dong is None else tran_dong.t_bao_dau,
                          dyncap_so_buoc=0 if tran_dong is None else tran_dong.so_buoc_bat,
                          pe_farmer=np.array(pe_farmer), Q_buoc=np.array(Q_buoc),
-                         w_victim_chon=w_victim, lp_lanh_manh_kq=[a.tom_tat(W) for a in lp_lm])   # mảng: pandas chép attrs nhanh
+                         w_victim_chon=w_victim, lp_lanh_manh_kq=[a.tom_tat(W) for a in lp_lm],   # mảng: pandas chép attrs nhanh
+                         fee_balances=pool.fee_balances())   # phí còn treo cuối kịch bản (chỉ khác rỗng khi bật phạt rút sớm)
     return pool.log
 
 
