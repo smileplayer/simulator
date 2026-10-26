@@ -126,6 +126,7 @@ Mỗi phiên **chỉ sửa mục của vai mình** (đọc lại file trước k
 
 | Thời gian | Vai | Việc | Test |
 |---|---|---|---|
+| 26/10/2026 | CH (A, B, C) | **ĐỔI INTERFACE:** `Pool.collect` giữ phí chưa xét phạt khi vị thế còn L và giữ chưa đủ cửa sổ G (vá lỗ hổng collect trước burn né được phạt, Hoàng báo, bản vá `complete_bundle/` đã chỉnh); thêm `Pool.fee_balances`, `meta["fee_balances"]`, `victim_fee_balances`; `victim_net`/`victim_fees` = quyền nhận phí (đã thu + còn treo, nghĩa như cũ), thêm `victim_net_cash`, `victim_fees_cash`, `victim_fees_outstanding`, `victim_fees_locked`. 24 lượt G khớp `main` mọi cột cũ, tốc độ như cũ. Nhánh `va-phat-giu-phi`, chưa commit. Bài báo, kịch bản, bản nháp mục 7, giáo trình đã thêm cách né thứ ba (đối chiếu OZ v1.3.0: v4 coi thu phí là rút, hook phạt lúc thu) | toàn repo 316 qua |
 | 23/10/2026 | B | Hình ba vùng vẽ lại theo khổ in (`in_bai`), đưa lại vào bài báo (18 trang). Chốt lần 6 | toàn repo 306 qua |
 | 22/10/2026 | B | Vẽ lại mọi hình: tiếng Anh, bỏ tiêu đề/chú thích trong hình, mathtext, hết chồng chữ; 4 hình bài báo theo khổ in LNCS (`in_bai`). Bài báo rút còn 15 trang. Chốt lần 5 | toàn repo 306 qua |
 | 22/10/2026 | B | Kết quả W15 (`tomtat_V_v5.csv`, `bang_V/`) và W14 (Zenodo) đã viết vào bài báo (24 trang); chốt lần 4 | toàn repo 306 qua |
