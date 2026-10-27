@@ -19,6 +19,6 @@ plots/       B — biểu đồ
 ket_qua/     B — CSV, PNG sinh ra
 ```
 
-Chạy test: `python -m pytest -q` (284 test, ~2–3 phút).
+Chạy test: `python -m pytest -q` (320 test, khoảng 1–2 phút). Đã kiểm trên pandas 2.2.3 và 3.0.6 (27/10).
 
 Sinh lại số liệu và hình: `python -m metrics.chay_rq1`, `metrics.chay_gd2`, `metrics.chay_gd3`; `python -m plots.ve_rq1`, `ve_gd2`, `ve_gd3`. Quét: `python -m scenarios.batch --seeds 10` (RQ1), `scenarios.quet_gd2` (GĐ2), `scenarios.quet_gd3 [--w_A] [--w0 …]` (GĐ3). Trên PowerShell đặt `$env:PYTHONIOENCODING="utf-8"` trước để in được tiếng Việt.
