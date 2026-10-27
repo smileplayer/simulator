@@ -31,6 +31,51 @@ from engine import MAX_TICK, MIN_TICK, EventLog, Pool, sqrt_price_at_tick, tick_
 THU_MUC_CONFIG = Path(__file__).parent / "configs"
 
 
+class MangMeta:
+    """Mảng số chỉ đọc để trong `df.attrs["meta"]` (theo bước): so sánh `==` ra một bool, `deepcopy` trả chính nó.
+
+    pandas chép sâu và so sánh attrs sau nhiều phép tính; `np.ndarray` làm phép so sánh lỗi (pandas 2.x),
+    còn `list` làm mỗi lần chép tốn gấp nhiều lần. Đọc như mảng: `m[t]`, `len(m)`, `np.asarray(m)`, `m.tolist()`."""
+    __slots__ = ("_a",)
+
+    def __init__(self, x):
+        a = np.array(x, dtype=float)
+        a.flags.writeable = False
+        self._a = a
+
+    def __getitem__(self, i):
+        return self._a[i]
+
+    def __len__(self) -> int:
+        return len(self._a)
+
+    def __iter__(self):
+        return iter(self._a)
+
+    def __array__(self, dtype=None, copy=None):
+        return self._a if dtype is None else self._a.astype(dtype)
+
+    def __eq__(self, khac) -> bool:
+        return isinstance(khac, MangMeta) and np.array_equal(self._a, khac._a, equal_nan=True)
+
+    __hash__ = None
+
+    def __deepcopy__(self, memo) -> "MangMeta":
+        return self
+
+    def __getstate__(self):
+        return self._a
+
+    def __setstate__(self, a) -> None:
+        self._a = a
+
+    def tolist(self) -> list[float]:
+        return self._a.tolist()
+
+    def __repr__(self) -> str:
+        return f"MangMeta({self._a!r})"
+
+
 class ThiTruongKichBan:
     """Giá ngoài P_e(t) (token1/token0): bước ngẫu nhiên log-chuẩn với độ biến động đổi được theo pha.
 
@@ -297,8 +342,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
                          wall_tick=att.tick_gia, wall_range=(att.tick_lower, att.tick_upper), L_A_eff=L_A_eff, attacker_inventory_left=att.kho, P0=z0 ** 2,
                          dyncap_t_bao_dau=None if tran_dong is None else tran_dong.t_bao_dau,
                          dyncap_so_buoc=0 if tran_dong is None else tran_dong.so_buoc_bat,
-                         pe_farmer=np.array(pe_farmer), Q_buoc=np.array(Q_buoc),
-                         w_victim_chon=w_victim, lp_lanh_manh_kq=[a.tom_tat(W) for a in lp_lm],   # mảng: pandas chép attrs nhanh
+                         pe_farmer=MangMeta(pe_farmer), Q_buoc=MangMeta(Q_buoc),
+                         w_victim_chon=w_victim, lp_lanh_manh_kq=[a.tom_tat(W) for a in lp_lm],   # MangMeta: so sánh được, chép nhanh
                          fee_balances=pool.fee_balances())   # phí còn treo cuối kịch bản (chỉ khác rỗng khi bật phạt rút sớm)
     return pool.log
 
