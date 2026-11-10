@@ -1,0 +1,17 @@
+scenario_id,k,victim_type,bp,chi_so,loai,thong_ke,chi_khi_sap,n_vu,n_cap,n_loai_khong_sap,n_loai_nan,tk_goc,tk_bp,hieu,pct,hieu_lo,hieu_hi,pct_lo,pct_hi,mo_ta,lam
+L27_10,0.64,adaptive,lam0.5,von_victim,victim,trung_vi,False,1,1,0,0,18428.120837205577,18428.120837205577,0.0,0.0,0.0,0.0,0.0,0.0,"vốn victim nạp (token1, theo giá trước khi rút tường)",0.5
+L27_10,0.64,adaptive,lam0.5,phan_duong_sap,victim,trung_vi,False,1,1,0,0,0.5000000000016313,0.5000000000016313,0.0,0.0,0.0,0.0,0.0,0.0,phần vốn victim bị cú sập quét qua (0–1),0.5
+L27_10,0.64,adaptive,lam0.5,vl_loss_full,victim,trung_vi,True,1,1,0,0,3909.2329779914335,3909.2329779914335,0.0,0.0,0.0,0.0,0.0,0.0,"thiệt hại victim so với ôm (token1, chỉ lượt sập)",0.5
+L27_10,0.64,adaptive,lam0.5,dc_excess,tan_cong,trung_vi,False,1,1,0,0,6353.669578943231,6353.669578943231,0.0,0.0,0.0,0.0,0.0,0.0,lợi nhuận tăng thêm của kẻ tấn công (token1),0.5
+L27_10,0.64,adaptive,lam1,von_victim,victim,trung_vi,False,1,1,0,0,18428.120837205577,18428.120837205577,0.0,0.0,0.0,0.0,0.0,0.0,"vốn victim nạp (token1, theo giá trước khi rút tường)",1.0
+L27_10,0.64,adaptive,lam1,phan_duong_sap,victim,trung_vi,False,1,1,0,0,0.5000000000016313,0.5000000000016313,0.0,0.0,0.0,0.0,0.0,0.0,phần vốn victim bị cú sập quét qua (0–1),1.0
+L27_10,0.64,adaptive,lam1,vl_loss_full,victim,trung_vi,True,1,1,0,0,3909.2329779914335,3909.2329779914335,0.0,0.0,0.0,0.0,0.0,0.0,"thiệt hại victim so với ôm (token1, chỉ lượt sập)",1.0
+L27_10,0.64,adaptive,lam1,dc_excess,tan_cong,trung_vi,False,1,1,0,0,6353.669578943231,6353.669578943231,0.0,0.0,0.0,0.0,0.0,0.0,lợi nhuận tăng thêm của kẻ tấn công (token1),1.0
+L27_10,0.64,omniscient,lam0.5,von_victim,victim,trung_vi,False,1,1,0,0,4903.8178005504615,4903.8178005504615,0.0,0.0,0.0,0.0,0.0,0.0,"vốn victim nạp (token1, theo giá trước khi rút tường)",0.5
+L27_10,0.64,omniscient,lam0.5,phan_duong_sap,victim,trung_vi,False,1,1,0,0,0.5000000000016311,0.5000000000016311,0.0,0.0,0.0,0.0,0.0,0.0,phần vốn victim bị cú sập quét qua (0–1),0.5
+L27_10,0.64,omniscient,lam0.5,vl_loss_full,victim,trung_vi,True,1,1,0,0,547.4288122391681,547.4288122391681,0.0,0.0,0.0,0.0,0.0,0.0,"thiệt hại victim so với ôm (token1, chỉ lượt sập)",0.5
+L27_10,0.64,omniscient,lam0.5,dc_excess,tan_cong,trung_vi,False,1,1,0,0,1893.8737071830728,1893.8737071830728,0.0,0.0,0.0,0.0,0.0,0.0,lợi nhuận tăng thêm của kẻ tấn công (token1),0.5
+L27_10,0.64,omniscient,lam1,von_victim,victim,trung_vi,False,1,1,0,0,4903.8178005504615,4903.8178005504615,0.0,0.0,0.0,0.0,0.0,0.0,"vốn victim nạp (token1, theo giá trước khi rút tường)",1.0
+L27_10,0.64,omniscient,lam1,phan_duong_sap,victim,trung_vi,False,1,1,0,0,0.5000000000016311,0.5000000000016311,0.0,0.0,0.0,0.0,0.0,0.0,phần vốn victim bị cú sập quét qua (0–1),1.0
+L27_10,0.64,omniscient,lam1,vl_loss_full,victim,trung_vi,True,1,1,0,0,547.4288122391681,547.4288122391681,0.0,0.0,0.0,0.0,0.0,0.0,"thiệt hại victim so với ôm (token1, chỉ lượt sập)",1.0
+L27_10,0.64,omniscient,lam1,dc_excess,tan_cong,trung_vi,False,1,1,0,0,1893.8737071830728,1893.8737071830728,0.0,0.0,0.0,0.0,0.0,0.0,lợi nhuận tăng thêm của kẻ tấn công (token1),1.0

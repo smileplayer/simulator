@@ -193,3 +193,47 @@ def so_sanh_wA(gon1: pd.DataFrame, gon_opt: pd.DataFrame) -> pd.DataFrame:
     m = gon1[k + c].merge(gon_opt[k + c + ["w_A_toi_uu", "ty_le_von_giai_tich_wA"]], on=k, suffixes=("_1tick", "_toi_uu"))
     m["sai_so_tuong_doi_wA"] = (m["ty_le_von_toi_uu"] - m["ty_le_von_giai_tich_wA"]) / m["ty_le_von_giai_tich_wA"]
     return m
+
+
+# Kiểm độ bền RQ3 (30/10): victim tính rủi ro theo khoảng, `ket_qua/gd3/tomtat_ruiro.csv` (scenarios.quet_gd3 --rui_ro)
+CHI_SO_RR = [r for r in CHI_SO_GD3 if r[0] in ("von_victim", "phan_duong_sap", "vl_loss_full", "dc_excess")]
+NGUONG_RR, TOI_THIEU_RR = -25.0, 4                  # ngưỡng ghi trước khi chạy (kế hoạch 30/10): giảm ≥ 25% ở ≥ 4/6 vụ
+
+
+def bang_ruiro(df: pd.DataFrame, B: int = 2000) -> dict[str, pd.DataFrame]:
+    """Bốn bảng ghép cặp (% thay đổi trung bình cặp, CI bootstrap theo vụ): `phi`/`phi_gop` = mức φ so với pro-rata
+    cùng λ (theo vụ / gộp); `lam`/`lam_gop` = λ so với λ = 0 ở pro-rata (α = 0)."""
+    if not (df["lam"] == 0).any():
+        raise ValueError("thiếu lượt λ = 0 để ghép cặp")
+    d = chuan_bi(df)
+    ma = d.drop_duplicates("bp").set_index("bp")[["alpha", "w0"]]
+    out = {}
+    for ten, nhom in (("phi", ("lam", "scenario_id", "k", "victim_type")), ("phi_gop", ("lam", "victim_type"))):
+        out[ten] = bang_danh_doi(d, nhom, chi_so=CHI_SO_RR, B=B).join(ma, on="bp")
+    d0 = d[d["alpha"] == 0].copy()
+    d0["bp"] = [f"lam{l:g}" for l in d0["lam"]]
+    for ten, nhom in (("lam", ("scenario_id", "k", "victim_type")), ("lam_gop", ("victim_type",))):
+        t = bang_danh_doi(d0, nhom, chi_so=CHI_SO_RR, B=B, bp_goc="lam0")
+        t["lam"] = [float(b[3:]) for b in t["bp"]]
+        out[ten] = t
+    return out
+
+
+def ket_luan_ruiro(bang: dict[str, pd.DataFrame], nguong: float = NGUONG_RR, toi_thieu: int = TOI_THIEU_RR) -> dict:
+    """Đếm số vụ đạt ngưỡng. R2 = có (λ > 0, φ với α ≥ 1,5, victim) mà mức cắt `dc_excess` của φ sâu thêm ≥ |`nguong`| điểm %
+    so với cùng φ ở λ = 0 (chênh lệch kép: chỉ tính phần do λ) ở ≥ `toi_thieu` vụ; R1 = không có; R3 = có (λ > 0, victim)
+    làm `phan_duong_sap` hoặc `von_victim` giảm ≥ |`nguong`|% so với λ = 0 ở pro-rata ở ≥ `toi_thieu` vụ.
+    `chi_tiet_lam0` = số vụ φ riêng (λ = 0) đã cắt ≥ |`nguong`|%, để đối chiếu."""
+    phi = bang["phi"]
+    p = phi[(phi.chi_so == "dc_excess") & (phi.alpha >= 1.5)]
+    goc = p[p.lam == 0].set_index(["bp", "victim_type", "scenario_id"])["pct"]
+    dem0 = {f"{bp}|{vt}": int((g <= nguong).sum()) for (bp, vt), g in goc.groupby(level=[0, 1])}
+    p = p[p.lam > 0].join(goc.rename("pct_lam0"), on=["bp", "victim_type", "scenario_id"])
+    p = p.assign(them=p.pct - p.pct_lam0)
+    dem2 = {f"{l:g}|{bp}|{vt}": int((g.them <= nguong).sum()) for (l, bp, vt), g in p.groupby(["lam", "bp", "victim_type"])}
+    lam = bang["lam"]
+    q = lam[lam.chi_so.isin(["phan_duong_sap", "von_victim"]) & (lam.lam > 0)]
+    dem3 = {f"{l:g}|{c}|{vt}": int((g.pct <= nguong).sum()) for (l, c, vt), g in q.groupby(["lam", "chi_so", "victim_type"])}
+    r2 = any(v >= toi_thieu for v in dem2.values())
+    return dict(R1=not r2, R2=r2, R3=any(v >= toi_thieu for v in dem3.values()), nguong=nguong, toi_thieu=toi_thieu,
+                chi_tiet_R2=dem2, chi_tiet_R3=dem3, chi_tiet_lam0=dem0)

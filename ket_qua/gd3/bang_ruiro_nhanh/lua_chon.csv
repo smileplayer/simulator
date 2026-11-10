@@ -1,0 +1,13 @@
+lam,alpha,w0,victim_type,n,ty_le_w_lon,w_trung_vi,vi_tri
+0.0,0.0,0,adaptive,1,0.0,1.0,giua
+0.0,0.0,0,omniscient,1,0.0,1.0,giua
+0.0,2.0,50,adaptive,1,0.0,50.0,giua
+0.0,2.0,50,omniscient,1,0.0,50.0,giua
+0.5,0.0,0,adaptive,1,0.0,1.0,giua
+0.5,0.0,0,omniscient,1,0.0,1.0,giua
+0.5,2.0,50,adaptive,1,0.0,50.0,giua
+0.5,2.0,50,omniscient,1,0.0,50.0,giua
+1.0,0.0,0,adaptive,1,0.0,1.0,giua
+1.0,0.0,0,omniscient,1,0.0,1.0,giua
+1.0,2.0,50,adaptive,1,0.0,50.0,giua
+1.0,2.0,50,omniscient,1,0.0,50.0,giua

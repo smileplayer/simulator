@@ -189,7 +189,7 @@ engine/
 ├── pool.py        Pool: mint / burn / collect / swap / quote_swap / position_amounts / fees_owed
 │                  trạng thái theo tick: liquidity_net, liquidity_gross, weighted_net, feeGrowthOutside
 │                  _sorted_ticks (danh sách tăng dần + bisect) thay cho tick bitmap
-└── log.py         EventLog: mỗi mint/burn/collect/swap một dòng đúng INTERFACE mục 4
+└── log.py         EventLog: mỗi mint/burn/collect/swap/donate một dòng đúng INTERFACE mục 4
 ```
 
 - Vị thế tổng quát `Position(id, owner, tick_lower, tick_upper, liquidity)`, độ rộng bất kỳ, `tick_spacing ≥ 1` (quyết định chốt 1, 2: cross-tick từ GĐ1, không hardcode một tick).
@@ -207,8 +207,9 @@ engine/
 | Loại swap | exact input và exact output | chỉ exact input (+ giá giới hạn) | đủ cho mọi tác nhân |
 | Lược bỏ | phí giao thức, oracle/observations, flash, NFT position manager, `maxLiquidityPerTick`, gas | — | không dùng trong mô hình bài gốc |
 | Mở rộng | — | `fee_weight = φ(w)`, `quote_swap`, `EventLog` | phục vụ GĐ3, farmer, metrics |
+| Phạt rút sớm (22–26/10) | hook v4 ngoài lõi (OpenZeppelin `LiquidityPenaltyHook`) | `Pool(phat_rut_som=số bước)`: `burn` trừ phần (1 − thời gian giữ/cửa sổ) phí đang treo rồi `donate` cho thanh khoản đang hoạt động; `collect` giữ phần phí chưa xét phạt tới khi vị thế đủ tuổi hoặc bị rút | chỉ bật ở biện pháp phạt rút sớm của RQ2; tắt thì engine như cũ |
 
-**Kiểm định.** `tests/engine/` có 84 test (chạy 1,8 s), toàn repo 262 test qua (15/10):
+**Kiểm định.** `tests/engine/` có 97 test (chạy 2,1 s), toàn repo 343 test qua (10/11):
 - *Công thức tay:* swap trong một khoảng khớp nghiệm đóng `1/z' = 1/z + Δx(1−f)/L` sai < 1e-9 (hai chiều); 1.500 vị thế một tick xếp liền (L hằng số) khớp công thức đóng của một khoảng khi xuyên cả dải; ví dụ 1.000 USDT một tick ≈ 2·10⁷; ba trạng thái thành phần vị thế.
 - *Hành vi cạnh:* khoảng trống không thanh khoản (giá nhảy qua miễn phí), hết thanh khoản thì dừng, chạm biên trên rồi đổi chiều, tường ngay dưới giá kích hoạt khi bán, `tick_spacing = 10`.
 - *Phí:* hai LP cùng tick chia theo `L`; vị thế chỉ nhận phí của đoạn giá trong dải; với `φ`: tỷ lệ từng đoạn đúng `L_i·φ_i/Σ L_j·φ_j`, `φ ≡ c` trùng pro-rata, so với **bộ tính tay độc lập** chia phí trực tiếp từng đoạn (w = 1/5/50/200 chồng lấn, 4 dạng φ, mint/burn giữa chừng).
