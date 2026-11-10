@@ -21,7 +21,9 @@ from agents.arb import Arbitrageur
 from agents.base import tick_chua_gia
 from agents.attacker import Attacker
 from agents.farmer import Farmer, thuong_log, thuong_tuyen_tinh
-from agents.do_rong import LUOI_W, LPLanhManh, l_tren_von, tao_phi, w_sao_hinh_hoc
+from agents.do_rong import (
+    DO_SAP_PRIOR, LUOI_W, VI_TRI, LPLanhManh, chon_khoang_rui_ro, l_tren_von, tao_phi, w_sao_hinh_hoc,
+)
 from agents.victim import VictimThichNghi, VictimToanTri
 from defenses.thuong import LichTraThuong, Q_hieu_luc, ten_bien_phap
 from defenses.phat_rut_som import cua_so_phat
@@ -210,6 +212,20 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     if w_victim == "tu_chon":                             # GĐ3: w* = argmax φ(w)·ℓ(w) (biết φ — luật công khai)
         w_victim = w_sao_hinh_hoc(phi, z0, luoi_w, tick=tick_at_sqrt_price(z0), vi_tri=vi_tri_v)
     c_von = cfg.get("c_V_von")                            # GĐ3: chi phí theo vốn (token1/token1 vốn/cửa sổ)
+    # GĐ3: tường w_A tick; `tuong_von_co_dinh` → giữ VỐN của tường một tick gốc: L_A(w_A) = L_A·ℓ(w_A)/ℓ(1)
+    w_A = int(cfg.get("w_attacker", 1))
+    vi_tri_A = cfg.get("vi_tri_tuong", "tren")
+    L_A_eff = cfg["L_A"]
+    if cfg.get("tuong_von_co_dinh") and w_A != 1:
+        t0 = tick_at_sqrt_price(z0)
+        L_A_eff = cfg["L_A"] * l_tren_von(w_A, z0, t0, vi_tri_A) / l_tren_von(1, z0, t0, vi_tri_A)
+    rui_ro = cfg.get("victim_rui_ro")                     # kiểm độ bền RQ3: victim chọn (w, vị trí, vốn) theo rủi ro
+    if rui_ro is not None and cfg.get("w_victim") == "tu_chon" and c_von is not None:
+        lam = float(rui_ro["lam"])                        # λ = 0 → chỉ vị trí cũ, trùng victim cũ
+        chon = chon_khoang_rui_ro(cfg["fee"], V_ky_vong, L_A_eff * (1.0 if phi is None else phi(w_A)), c_von, lam,
+                                  phi, z0, tick_at_sqrt_price(z0), luoi_w, (vi_tri_v,) if lam == 0 else tuple(rui_ro.get("vi_tri", VI_TRI)),
+                                  tuple(rui_ro.get("prior", DO_SAP_PRIOR)))
+        w_victim, vi_tri_v, c_von = chon["w"], chon["vi_tri"], chon["c_eff"]
     if c_von is not None:
         c_von = c_V_hieu_luc(c_von, defense)
 
@@ -230,13 +246,6 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
         lp_lm.append(LPLanhManh(f"lp:{k}", d.get("von", 1000.0), int(w_lp), d.get("t_vao", 0),
                                 d.get("t_ra", cfg["t_m"] - 1), d.get("vi_tri", "giua"), d.get("lenh_mau", 1000.0)))
     lich = [(int(t), float(r)) for t, r in cfg.get("wall_schedule", [[cfg["t_m"], 1.0]])]
-    # GĐ3: tường w_A tick; `tuong_von_co_dinh` → giữ VỐN của tường một tick gốc: L_A(w_A) = L_A·ℓ(w_A)/ℓ(1)
-    w_A = int(cfg.get("w_attacker", 1))
-    vi_tri_A = cfg.get("vi_tri_tuong", "tren")
-    L_A_eff = cfg["L_A"]
-    if cfg.get("tuong_von_co_dinh") and w_A != 1:
-        t0 = tick_at_sqrt_price(z0)
-        L_A_eff = cfg["L_A"] * l_tren_von(w_A, z0, t0, vi_tri_A) / l_tren_von(1, z0, t0, vi_tri_A)
     att = Attacker("attacker:0", L_A=L_A_eff, t_m=cfg["t_m"], kho_token0=cfg["attacker_inventory"],
                    c_A=cfg["c_A"], w=w_A, vi_tri=vi_tri_A, dung_tuong=lich, t_0=cfg.get("t_0"),
                    nguong_victim=cfg.get("withdraw_victim_ratio"), so_buoc_xa=cfg["dump_steps"],
@@ -343,7 +352,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
                          dyncap_t_bao_dau=None if tran_dong is None else tran_dong.t_bao_dau,
                          dyncap_so_buoc=0 if tran_dong is None else tran_dong.so_buoc_bat,
                          pe_farmer=MangMeta(pe_farmer), Q_buoc=MangMeta(Q_buoc),
-                         w_victim_chon=w_victim, lp_lanh_manh_kq=[a.tom_tat(W) for a in lp_lm],   # MangMeta: so sánh được, chép nhanh
+                         w_victim_chon=w_victim, victim_vi_tri_chon=vi_tri_v, victim_c_eff=c_von, lp_lanh_manh_kq=[a.tom_tat(W) for a in lp_lm],   # MangMeta: so sánh được, chép nhanh
                          fee_balances=pool.fee_balances())   # phí còn treo cuối kịch bản (chỉ khác rỗng khi bật phạt rút sớm)
     return pool.log
 

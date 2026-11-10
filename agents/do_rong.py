@@ -100,6 +100,57 @@ def chon_w(f: float, V: float, W: float, c: float, phi: Callable[[int], float] |
     return dict(w=tot[0], g=tot[1], C=tot[2], Pi=tot[3], bang=bang)
 
 
+DO_SAP_PRIOR = (0.1, 0.2, 0.5)          # prior công khai về độ sập (bài gốc: các vụ sập ≥ 10%), trọng số đều
+VI_TRI = ("tren", "giua", "duoi")
+
+
+def mat_khi_sap(w: int, z: float, tick: int, vi_tri: str, delta: float) -> float:
+    """Phần vốn (token1 trên mỗi token1) của dải w tick mất khi giá giảm δ, định giá ở giá sau sập, cắt về [0, 1]."""
+    lo, hi = khoang_tick(tick, w, vi_tri)
+    za, zb = sqrt_price_at_tick(lo), sqrt_price_at_tick(hi)
+    a0, a1 = amounts_for_liquidity(z, za, zb, 1.0)
+    z1 = z * math.sqrt(1.0 - delta)
+    b0, b1 = amounts_for_liquidity(z1, za, zb, 1.0)
+    return min(1.0, max(0.0, 1.0 - (b0 * z1 * z1 + b1) / (a0 * z * z + a1)))
+
+
+def h_rui_ro(w: int, z: float, tick: int, vi_tri: str, prior=DO_SAP_PRIOR) -> float:
+    """Thiệt hại sập kỳ vọng trên mỗi token1 vốn: trung bình đều của `mat_khi_sap` trên prior độ sập."""
+    if not prior:
+        raise ValueError("prior độ sập rỗng")
+    return sum(mat_khi_sap(w, z, tick, vi_tri, d) for d in prior) / len(prior)
+
+
+def c_hieu_dung(c: float, lam: float, w: int, z: float, tick: int, vi_tri: str, prior=DO_SAP_PRIOR) -> float:
+    """c_eff = c·[(1 − λ) + λ·h(w, d)/h(1, "tren")] (token1 trên mỗi token1 vốn mỗi cửa sổ); λ = phần rủi ro sập trong c
+    ở vị thế một tick, nên c_eff(1, "tren") = c và λ = 0 trả đúng c."""
+    if not 0.0 <= lam <= 1.0:
+        raise ValueError(f"λ phải trong [0, 1], nhận {lam}")
+    h1 = h_rui_ro(1, z, tick, "tren", prior)
+    if lam == 0.0 or h1 <= 0.0:
+        return c
+    return c * ((1.0 - lam) + lam * h_rui_ro(w, z, tick, vi_tri, prior) / h1)
+
+
+def chon_khoang_rui_ro(f: float, V: float, W: float, c: float, lam: float, phi: Callable[[int], float] | None,
+                       z: float, tick: int, luoi=LUOI_W, vi_tri=VI_TRI, prior=DO_SAP_PRIOR) -> dict:
+    """Victim tính rủi ro theo khoảng: duyệt lưới (w, vị trí), chi phí c_eff(w, d), chọn Π*(w, d) lớn nhất (hòa → g lớn,
+    w nhỏ, vị trí đứng trước trong `vi_tri`). Trả {w, vi_tri, c_eff, g, Pi, bang: [(w, vi_tri, g, c_eff, Π)]}."""
+    if not 0.0 <= lam <= 1.0:
+        raise ValueError(f"λ phải trong [0, 1], nhận {lam}")
+    if not prior:
+        raise ValueError("prior độ sập rỗng")
+    bang = []
+    for w in luoi:
+        for d in vi_tri:
+            g = g_w(w, phi, z, tick, d)
+            ce = c_hieu_dung(c, lam, w, z, tick, d, prior)
+            bang.append((w, d, g, ce, Pi_V(C_V_sao(f, V, W, g, ce), f, V, W, g, ce)))
+    thu_tu = {d: i for i, d in enumerate(vi_tri)}
+    tot = max(bang, key=lambda r: (r[4], r[2], -r[0], -thu_tu[r[1]]))
+    return dict(w=tot[0], vi_tri=tot[1], g=tot[2], c_eff=tot[3], Pi=tot[4], bang=bang)
+
+
 def w_sao_hinh_hoc(phi: Callable[[int], float] | None, z: float, luoi=LUOI_W, tick: int | None = None,
                    vi_tri: str = "giua", tol: float = 1e-12) -> int:
     """w* = argmax g(w) trên lưới (đúng khi victim vào: Π* tăng theo g). Hòa trong `tol` tương đối → w nhỏ."""

@@ -46,6 +46,11 @@ KHOA = ["scenario_id", "alpha", "w0", "victim_type", "seed"]
 ALPHA_WA = [1.5, 2.0, 3.0]
 LUOI_PHI_WA = [(0.0, 0)] + [(a, w0) for a in ALPHA_WA for w0 in W0]
 KHOA_WA = ["scenario_id", "alpha", "w0", "w_A", "victim_type", "seed"]
+# chế độ --rui_ro (kiểm độ bền RQ3, 30/10): victim chọn (w, vị trí, vốn) theo thiệt hại sập kỳ vọng, 3 mức λ
+LUOI_PHI_RR = [(0.0, 0)] + [(a, w0) for a in ALPHA_WA for w0 in (10, 50, 200)]
+LAM_RR = (0.0, 0.5, 1.0)
+LUOI_W_RR = (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000)
+KHOA_RR = ["scenario_id", "alpha", "w0", "lam", "victim_type", "seed"]
 LUOI_W_GD3 = None      # None → lưới mặc định agents.do_rong.LUOI_W; --w0 nới lưới để victim/LP chọn được w₀ lớn
 
 
@@ -73,7 +78,7 @@ def to_hop_gd3() -> list[dict]:
     return [rq1[i] for i in VU_CHON] + [kn["KN_" + i] for i in VU_CHON]
 
 
-def cau_hinh_gd3(vu: dict, alpha: float, w0: int, victim: str, w_A: int = 1) -> dict:
+def cau_hinh_gd3(vu: dict, alpha: float, w0: int, victim: str, w_A: int = 1, lam: float | None = None) -> dict:
     """Config một lượt GĐ3: vụ + φ + victim tự chọn độ rộng, căn giữa, chi phí theo vốn + 2 LP lành mạnh.
     `w_A` > 1: tường w_A tick đi lên từ tick giá ghim ("tren": cả dải nằm trên đường mua của farmer), vốn cố định."""
     cfg = cau_hinh(vu)
@@ -83,6 +88,8 @@ def cau_hinh_gd3(vu: dict, alpha: float, w0: int, victim: str, w_A: int = 1) -> 
                w_attacker=w_A, vi_tri_tuong="tren", tuong_von_co_dinh=True)
     if LUOI_W_GD3 is not None:
         cfg["luoi_w"] = LUOI_W_GD3
+    if lam is not None:                              # --rui_ro: victim tính rủi ro theo khoảng, lưới w tới 2.000 tick
+        cfg.update(victim_rui_ro={"lam": lam, "vi_tri": ["giua"]}, luoi_w=LUOI_W_RR)   # vị trí cố định: mọi vị trí trong dải mất ≈ δ, tự chọn vị trí sát lằn ranh (ruling 30/10)
     return cfg
 
 
@@ -140,14 +147,18 @@ def chi_so_victim(df) -> dict:
     return r
 
 
-def dong_ket_qua(vu: dict, alpha: float, w0: int, victim: str, seed: int, w_A: int | None = None) -> dict:
+def dong_ket_qua(vu: dict, alpha: float, w0: int, victim: str, seed: int, w_A: int | None = None,
+                 lam: float | None = None) -> dict:
     """Chạy một lượt GĐ3, trả dict phẳng: khóa + tham số + chỉ số victim, kẻ tấn công, LP lành mạnh, khối lượng.
-    `w_A` khác None (chế độ --w_A): thêm cột `w_A`, `L_A_eff` (L mỗi tick của tường)."""
-    cfg = cau_hinh_gd3(vu, alpha, w0, victim, w_A or 1)
+    `w_A` khác None (chế độ --w_A): thêm cột `w_A`, `L_A_eff` (L mỗi tick của tường). `lam` khác None (--rui_ro):
+    thêm cột `lam`, `vi_tri_victim`, `c_eff` (token1 trên mỗi token1 vốn mỗi cửa sổ)."""
+    cfg = cau_hinh_gd3(vu, alpha, w0, victim, w_A or 1, lam)
     df = run_frame(cfg, seed)
     m = df.attrs["meta"]
     sw = df[df.kind == "swap"]
     r = {"scenario_id": vu["id"], "alpha": alpha, "w0": w0, **({} if w_A is None else {"w_A": w_A}),
+         **({} if lam is None else {"lam": lam, "vi_tri_victim": m["victim_vi_tri_chon"],
+                                     "c_eff": m["victim_c_eff"]}),
          "victim_type": victim, "seed": seed, "L_A_eff": m["L_A_eff"],
          **{k: m[k] for k in ("L_A", "k", "c_V", "c_V_von", "sigma", "Q", "bg_band", "attacker_inventory")},
          "w_victim": m["w_victim_chon"], "LV_chia_LA": LV_chia_LA(df), "t_rut": m["t_rut"],
@@ -160,9 +171,16 @@ def dong_ket_qua(vu: dict, alpha: float, w0: int, victim: str, seed: int, w_A: i
     return r
 
 
-def danh_sach_viec(seeds: int, nhanh: bool = False, w_A: bool = False) -> list[tuple]:
-    """Mọi lượt (vu, alpha, w0, victim, seed, w_A). --nhanh: 2 vụ (L27_10, KN_L27_10) × φ {0; (2, 50)} × 2 victim
-    × 1 seed. `w_A`: lưới LUOI_PHI_WA × muc_w_A(w₀); mặc định w_A = None (tường một tick, như bản đầu)."""
+def danh_sach_viec(seeds: int, nhanh: bool = False, w_A: bool = False, rui_ro: bool = False) -> list[tuple]:
+    """Mọi lượt (vu, alpha, w0, victim, seed, w_A[, lam]). --nhanh: 2 vụ (L27_10, KN_L27_10) × φ {0; (2, 50)} × 2 victim
+    × 1 seed. `w_A`: lưới LUOI_PHI_WA × muc_w_A(w₀); mặc định w_A = None (tường một tick, như bản đầu).
+    `rui_ro`: 6 vụ × LUOI_PHI_RR × LAM_RR × 2 victim × seeds; --nhanh còn 1 vụ × φ {0; (2, 50)} × LAM_RR × 2 victim."""
+    if rui_ro:
+        ds, phi = to_hop_gd3(), LUOI_PHI_RR
+        if nhanh:
+            ds, phi, seeds = ds[:1], [(0.0, 0), (2.0, 50)], 1
+        return [(vu, a, w0, vt, sd, None, lam) for vu in ds for a, w0 in phi for lam in LAM_RR for vt in LOAI_VICTIM
+                for sd in range(seeds)]
     ds, phi = to_hop_gd3(), (LUOI_PHI_WA if w_A else LUOI_PHI)
     if nhanh:
         ds, phi, seeds = [ds[0], ds[3]], [(0.0, 0), (2.0, W0[len(W0) // 2])], 1
@@ -172,7 +190,7 @@ def danh_sach_viec(seeds: int, nhanh: bool = False, w_A: bool = False) -> list[t
     return [(vu, a, w0, vt, sd, None) for vu in ds for a, w0 in phi for vt in LOAI_VICTIM for sd in range(seeds)]
 
 
-def chay(seeds: int, out: Path, nhanh: bool = False, w_A: bool = False) -> None:
+def chay(seeds: int, out: Path, nhanh: bool = False, w_A: bool = False, rui_ro: bool = False) -> None:
     """Chạy mọi lượt còn thiếu, ghi nối vào CSV (mỗi lượt một dòng, flush ngay)."""
     warnings.filterwarnings("ignore")
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -181,11 +199,12 @@ def chay(seeds: int, out: Path, nhanh: bool = False, w_A: bool = False) -> None:
         with out.open(encoding="utf-8", newline="") as f:
             rd = csv.DictReader(f)
             cot = rd.fieldnames
-            da_co = {tuple(row[k] for k in (KHOA_WA if w_A else KHOA)) for row in rd}
+            da_co = {tuple(row[k] for k in (KHOA_RR if rui_ro else KHOA_WA if w_A else KHOA)) for row in rd}
 
-    def ma(vu, a, w0, vt, sd, wa):
-        return (vu["id"], str(a), str(w0), *([] if wa is None else [str(wa)]), vt, str(sd))
-    viec = [v for v in danh_sach_viec(seeds, nhanh, w_A) if ma(*v) not in da_co]
+    def ma(vu, a, w0, vt, sd, wa, lam=None):
+        return (vu["id"], str(a), str(w0), *([] if wa is None else [str(wa)]), *([] if lam is None else [str(lam)]),
+                vt, str(sd))
+    viec = [v for v in danh_sach_viec(seeds, nhanh, w_A, rui_ro) if ma(*v) not in da_co]
     print(f"[gd3] {len(da_co)} lượt đã có, còn {len(viec)} lượt → {out}")
     t0 = time.time()
     with out.open("a", encoding="utf-8", newline="") as f:
@@ -211,12 +230,14 @@ if __name__ == "__main__":
     ap.add_argument("--out", default=None)
     ap.add_argument("--nhanh", action="store_true")
     ap.add_argument("--w_A", action="store_true", help="kẻ tấn công nới tường w_A ∈ {1, w₀/4, w₀/2, w₀}, vốn cố định")
+    ap.add_argument("--rui_ro", action="store_true", help="victim tính rủi ro theo khoảng, λ ∈ {0; 0,5; 1}")
     ap.add_argument("--w0", type=int, nargs="+", default=None,
                     help="thay lưới w₀ (vd --w0 1000 2000), nới lưới độ rộng; file ra thêm hậu tố _w0lon")
     a = ap.parse_args()
-    goc = "ket_qua/gd3/tomtat_wA.csv" if a.w_A else "ket_qua/gd3/tomtat.csv"
+    goc = ("ket_qua/gd3/tomtat_ruiro.csv" if a.rui_ro else "ket_qua/gd3/tomtat_wA.csv" if a.w_A
+           else "ket_qua/gd3/tomtat.csv")
     if a.w0:
         dat_w0(a.w0)
         goc = goc.replace(".csv", "_w0lon.csv")
     out = a.out or (goc.replace(".csv", "_nhanh.csv") if a.nhanh else goc)
-    chay(a.seeds, Path(out), a.nhanh, a.w_A)
+    chay(a.seeds, Path(out), a.nhanh, a.w_A, a.rui_ro)
