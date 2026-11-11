@@ -261,7 +261,7 @@ def ban_thang(df: pd.DataFrame, ph: dict, x_ban: float, bo_owner: set[str] | fro
     lo, hi = ph["wall_tick_lower"], ph["wall_tick_upper"]
     mb = ev[ev["kind"].isin(["mint", "burn"])].copy()
     mb["dL"] = np.where(mb["kind"] == "mint", 1.0, -1.0) * mb["liquidity"].astype(float)
-    pool = Pool(float(fee), z)
+    pool = Pool(float(fee), z, tick_spacing=int((df.attrs.get("meta") or {}).get("tick_spacing", 1) or 1))
     for pid, g in mb.groupby("position_id"):
         L = float(g["dL"].sum())
         a, b, u = int(g["tick_lower"].iloc[0]), int(g["tick_upper"].iloc[0]), str(g["owner"].iloc[0])
@@ -282,8 +282,12 @@ def ban_thang(df: pd.DataFrame, ph: dict, x_ban: float, bo_owner: set[str] | fro
 
 
 def attacker_profit(df: pd.DataFrame, ph: dict, end: str = "t_b", attackers: set[str] | None = None,
-                    alpha_cost: float | None = None, victims: set[str] | None = None) -> pd.DataFrame:
+                    alpha_cost: float | None = None, victims: set[str] | None = None,
+                    w_max: int | None = None) -> pd.DataFrame:
     """Lợi nhuận kẻ tấn công (token1), đo từ dòng tiền, **độc lập** với thiệt hại nạn nhân. Một dòng/attacker + `TOTAL`.
+    `w_max` (tick): độ rộng tối đa của vị thế được coi là victim khi tự nhận vai; None → `meta["w_victim_chon"]`
+    nếu có (GĐ3, victim dải rộng), không thì 1. Lưu ý: `paper`, `x_dump` chỉ tính tới `t_end` (mặc định t_b); lát xả
+    sau t_b không được tính, số chính của RQ2/RQ3 dùng `scenarios.quet_gd2.loi_nhuan_dia_chi` (đủ mọi lát xả).
 
     Phần tấn công (bỏ lệnh farm = lệnh mua token0 và dòng `subsidy`, xem `farm_pnl`):
     `paper` = Σ token1 nhận từ swap chiều sập trong `[t_0, t_end]` (đúng §5 bài gốc); `x_dump` = token0 đã bán;
@@ -297,7 +301,10 @@ def attacker_profit(df: pd.DataFrame, ph: dict, end: str = "t_b", attackers: set
     """
     te = _t_end(ph, end)
     if attackers is None or victims is None:
-        vai = identify_roles(df, ph, end)
+        if w_max is None:
+            wv = (df.attrs.get("meta") or {}).get("w_victim_chon")
+            w_max = int(wv) if isinstance(wv, (int, float)) and wv == wv and wv >= 1 else 1
+        vai = identify_roles(df, ph, end, w_max=w_max)
         attackers = vai["attackers"] if attackers is None else attackers
         victims = vai["victims"] if victims is None else victims
     meta = df.attrs.get("meta", {})
