@@ -11,3 +11,8 @@ ket_qua/that/**/su_kien.csv
 ket_qua/that/**/swap.csv
 ket_qua/that_quet/**/hep.csv
 ket_qua/that_quet/*_nhanh/
+# Log thô của bộ kiểm RQ1 ngoài mẫu (~70 MB) — tái tạo trong 30 giây: python -m scenarios.batch --kiem --seeds 10
+ket_qua/rq1_kiem/
+# Bản tính lại RQ1 từ log cũ thiếu meta (lệch, không dùng); số đúng lấy từ ket_qua/gd2/tomtat_v4.csv
+ket_qua/rq1/loi_du.csv
+ket_qua/rq1/loi_du_theo_luot.csv
