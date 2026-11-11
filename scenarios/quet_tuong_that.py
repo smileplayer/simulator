@@ -7,6 +7,9 @@ Bước 2 (phân tích): ghép mỗi Mint với Burn đầu tiên cùng bể, c�
 Ứng viên đứng đầu được tra thêm người gửi giao dịch (mint qua NonfungiblePositionManager có `owner` là hợp đồng đó, nên
 phải đếm theo người gửi) và `tickSpacing()` của bể (khoảng đúng một nấc thì `mot_nac` = True).
 
+Thứ tự kiểm (11/11): ứng viên được xếp tầng theo độ rộng tính bằng nấc tickSpacing (một nấc, ≤ 3 nấc, rộng hơn) và
+kiểm lần lượt, không loại ứng viên nào; `ung_vien.csv` được ghi lại sau mỗi tầng. Giá sau khi rút được lấy mẫu ở ba
+cửa sổ một giờ (giờ 12, 18, 23–24) thay cho tải đủ; kết quả từng ứng viên nhớ trong `sap_dem.csv` nên chạy lại là tiếp tục.
 Bộ lọc giá sập (11/11): với mỗi ứng viên, tải swap của bể trong `--gio_sau` giờ sau khi tường rút và chỉ giữ ứng
 viên mà giá rời khoảng tường ≥ 10% (mốc t_b của bài gốc; bể neo giá như USDC/USDT bị loại ở đây) → `ung_vien_tho.csv`
 có cột `sap`; ứng viên qua lọc được đo thêm `ty_ghim` (phần swap nằm trong khoảng tường lúc tường còn), tra người gửi
@@ -118,14 +121,14 @@ def tai(chuoi: str, tu: int, den: int, ra: Path, rpc: RPC, rong_max: int = 200, 
 LN_TICK = np.log(1.0001)
 
 
-def do_lech(ticks: np.ndarray, tl: int, tu: int) -> tuple[float, float]:
+def do_lech(ticks: np.ndarray, tl: int, tu: int, nua_sau: bool = True) -> tuple[float, float]:
     """Độ lệch giá còn ở lại so với khoảng tường [tl, tu): (giảm, tăng), dạng tỷ lệ (0,1 = 10%).
 
     `ticks` theo thứ tự thời gian; mức dùng là trung vị tick của nửa sau dãy, nên một cú swap lẻ vọt giá rồi bị
     arbitrage kéo về không tính là sập. Giảm đo từ biên dưới `tl`, tăng từ biên trên `tu`; trong khoảng tường thì bằng 0."""
     if len(ticks) == 0:
         return np.nan, np.nan
-    muc = float(np.median(np.asarray(ticks)[len(ticks) // 2:]))
+    muc = float(np.median(np.asarray(ticks)[len(ticks) // 2 if nua_sau else 0:]))   # nua_sau=False: dãy đã là mẫu nửa sau
     xuong = max(0.0, tl - muc)
     len_ = max(0.0, muc - tu)
     return float(1 - np.exp(-xuong * LN_TICK)), float(np.exp(len_ * LN_TICK) - 1)
@@ -136,24 +139,69 @@ def _tick_swap(rpc: RPC, pool: str, tu: int, den: int, buoc: int) -> np.ndarray:
     return np.array([r["tick"] for _, rows in tai_doan(rpc, pool, tp, tu, den, buoc) for r in rows], dtype=float)
 
 
-def kiem_sap(uv: pd.DataFrame, rpc: RPC, giay_block: float, gio_sau: float = 24.0) -> pd.DataFrame:
-    """Tải swap của bể trong `gio_sau` giờ sau khi tường rút; thêm cột so_swap_sau, giam_sau, tang_sau, sap
-    (sap = giá rời khoảng tường ≥ 10% theo một chiều, như mốc t_b của bài gốc). Một lần gọi cho mỗi (pool, block_burn)."""
+KHOA_SAP = ["pool", "block_burn", "tick_lower", "tick_upper"]
+
+
+def xep_tang(uv: pd.DataFrame, rpc: RPC, ra: Path | None = None) -> pd.DataFrame:
+    """Thêm cột tick_spacing (một lần gọi mỗi bể, nhớ vào `ra/tick_spacing.json`) và tang: 1 = rộng đúng một nấc,
+    2 = rộng ≤ 3 nấc, 3 = còn lại; xếp theo tang rồi số mint khác giảm dần. Không loại ứng viên nào."""
+    f = ra / "tick_spacing.json" if ra else None
+    ts = json.loads(f.read_text()) if f and f.exists() else {}
+    for pool in uv["pool"].unique():
+        if pool not in ts:
+            try:
+                ts[pool] = int(rpc.goi("eth_call", [{"to": pool, "data": _SEL_TICK_SPACING}, "latest"]), 16)
+            except (RuntimeError, ValueError):
+                ts[pool] = -1
+    if f:
+        f.write_text(json.dumps(ts))
+    uv = uv.copy()
+    uv["tick_spacing"] = uv["pool"].map(ts)
+    nac = np.where(uv["tick_spacing"] > 0, uv["rong"] / uv["tick_spacing"].clip(lower=1), np.inf)
+    uv["tang"] = np.where(nac <= 1, 1, np.where(nac <= 3, 2, 3))
+    return uv.sort_values(["tang", "n_khac"], ascending=[True, False], ignore_index=True)
+
+
+def kiem_sap(uv: pd.DataFrame, rpc: RPC, giay_block: float, gio_sau: float = 24.0, dem: Path | None = None,
+             phut_mau: float = 60.0) -> pd.DataFrame:
+    """Lấy mẫu giá sau khi tường rút: swap trong ba cửa sổ `phut_mau` phút ở 1/2, 3/4 và cuối của `gio_sau` giờ
+    (3 lần gọi thay cho tải đủ); thêm cột so_swap_sau, giam_sau, tang_sau, sap (sap = trung vị tick mẫu rời khoảng
+    tường ≥ 10% theo một chiều, như mốc t_b của bài gốc). Không có swap nào trong ba cửa sổ và ứng viên thuộc tầng
+    1–2 thì tải đủ nửa sau. Kết quả từng ứng viên ghi nối vào file `dem` (CSV), chạy lại thì đọc lại, không gọi lại."""
     n = int(gio_sau * 3600 / giay_block)
+    w = max(3, int(phut_mau * 60 / giay_block))
     kq = {}
-    for i, (pool, bb, tl, tu) in enumerate(uv[["pool", "block_burn", "tick_lower", "tick_upper"]].itertuples(index=False)):
-        if (pool, bb, tl, tu) in kq:
+    if dem is not None and dem.exists():
+        for r in pd.read_csv(dem, dtype={"pool": str}).itertuples(index=False):
+            kq[(r.pool, int(r.block_burn), int(r.tick_lower), int(r.tick_upper))] = (int(r.so_swap_sau), r.giam_sau, r.tang_sau)
+    tang = uv["tang"] if "tang" in uv else pd.Series(1, index=uv.index)
+    khoa = [(p, int(b), int(tl), int(tu)) for p, b, tl, tu in uv[KHOA_SAP].itertuples(index=False, name=None)]
+    can = len({k for k in khoa if k not in kq})
+    xong, t0 = 0, time.time()
+    for k, tg in zip(khoa, tang):
+        if k in kq:
             continue
+        pool, bb, tl, tu = k
         try:
-            t = _tick_swap(rpc, pool, int(bb), int(bb) + n, n + 1)
+            t = np.concatenate([_tick_swap(rpc, pool, bb + a, bb + a + w - 1, w) for a in (n // 2, 3 * n // 4, n - w)])
+            if len(t) == 0 and tg <= 2:
+                t = _tick_swap(rpc, pool, bb + n // 2, bb + n, n)
+            v = (len(t),) + do_lech(t, tl, tu, nua_sau=False)
         except RuntimeError as loi:
             print(f"  bỏ {pool} @ {bb}: {str(loi)[:80]}")
-            t = np.array([])
-        kq[(pool, bb, tl, tu)] = (len(t),) + do_lech(t, int(tl), int(tu))
-        if (i + 1) % 50 == 0:
-            print(f"  kiểm giá sập: {i + 1}/{len(uv)}")
-    v = [kq[k] for k in uv[["pool", "block_burn", "tick_lower", "tick_upper"]].itertuples(index=False, name=None)]
+            v = (0, np.nan, np.nan)
+        kq[k] = v
+        if dem is not None:
+            moi = not dem.exists()
+            with dem.open("a", encoding="utf-8") as fh:
+                fh.write((",".join(KHOA_SAP + ["so_swap_sau", "giam_sau", "tang_sau"]) + "\n" if moi else "") +
+                         ",".join(map(str, k + v)) + "\n")
+        xong += 1
+        if xong % 25 == 0 or xong == can:
+            tb = (time.time() - t0) / xong
+            print(f"  kiểm giá sập: {xong}/{can}, {tb:.1f} s/ứng viên, còn ~{tb * (can - xong) / 60:.0f} phút", flush=True)
     uv = uv.copy()
+    v = [kq[k] for k in khoa]
     uv["so_swap_sau"], uv["giam_sau"], uv["tang_sau"] = zip(*v) if v else ([], [], [])
     uv["sap"] = (uv["giam_sau"] >= 0.10) | (uv["tang_sau"] >= 0.10)
     return uv
@@ -218,6 +266,7 @@ if __name__ == "__main__":
     ap.add_argument("--nghi", type=float, default=0.2)
     ap.add_argument("--top", type=int, default=100, help="số ứng viên được tra người gửi và tickSpacing")
     ap.add_argument("--gio_sau", type=float, default=24.0, help="cửa sổ sau khi tường rút để tìm giá sập (giờ)")
+    ap.add_argument("--tang_max", type=int, default=3, choices=[1, 2, 3], help="kiểm tới tầng nào: 1 = chỉ tường một nấc, 2 = ≤ 3 nấc, 3 = tất cả")
     ap.add_argument("--khong_loc_sap", action="store_true", help="giữ cả ứng viên không có giá sập")
     ap.add_argument("--chi_phan_tich", action="store_true", help="bỏ bước tải, chỉ phân tích hep.csv đã có")
     ap.add_argument("--nhanh", action="store_true", help="chỉ 1 ngày, thư mục _nhanh, để đo thời gian")
@@ -243,18 +292,23 @@ if __name__ == "__main__":
     uv = tim_tuong(df, moc, a.gio_min, a.gio_max)
     print(f"{len(df)} sự kiện hẹp, {df['pool'].nunique()} bể; {len(uv)} ứng viên thô")
     gb = CHUOI[a.chuoi]["giay_block"]
-    if len(uv):
-        uv = kiem_sap(uv, rpc, gb, a.gio_sau)
-        uv.drop(columns=["tx_khac"]).to_csv(ra / "ung_vien_tho.csv", index=False, encoding="utf-8-sig")
-        print(f"{int(uv['sap'].sum())}/{len(uv)} ứng viên có giá rời khoảng tường ≥ 10% trong {a.gio_sau:g} giờ sau khi rút")
-        if not a.khong_loc_sap:
-            uv = uv[uv["sap"]].reset_index(drop=True)
-    if len(uv):
-        uv = kiem_ghim(uv.head(a.top), rpc, gb)
-        uv = bo_sung(uv, rpc, a.top)
-        uv.drop(columns=["tx_khac"]).to_csv(ra / "ung_vien.csv", index=False, encoding="utf-8-sig")
-        cot = ["pool", "rong", "mot_nac", "gio_song", "n_nguoi_khac", "ty_ghim", "giam_sau", "tang_sau"]
-        print(uv[cot].head(15).round(3).to_string(index=False))
-        print(f"→ {ra / 'ung_vien.csv'}")
-    else:
-        print("Không còn ứng viên nào sau bộ lọc.")
+    if not len(uv):
+        raise SystemExit("Không có ứng viên thô nào.")
+    uv = xep_tang(uv, rpc, ra)
+    print("ứng viên theo tầng (1 = một nấc, 2 = ≤ 3 nấc, 3 = rộng hơn):", uv["tang"].value_counts().sort_index().to_dict())
+    cot = ["pool", "rong", "tang", "gio_song", "n_nguoi_khac", "ty_ghim", "giam_sau", "tang_sau"]
+    for tg in range(1, a.tang_max + 1):                         # tầng một nấc trước: có kết quả sớm; tầng sau chạy tiếp
+        if not (uv["tang"] == tg).any():
+            continue
+        print(f"— tầng {tg}: {(uv['tang'] == tg).sum()} ứng viên", flush=True)
+        phan = kiem_sap(uv[uv["tang"] <= tg], rpc, gb, a.gio_sau, dem=ra / "sap_dem.csv")
+        phan.drop(columns=["tx_khac"]).to_csv(ra / "ung_vien_tho.csv", index=False, encoding="utf-8-sig")
+        print(f"{int(phan['sap'].sum())}/{len(phan)} ứng viên (tầng ≤ {tg}) có giá rời khoảng tường ≥ 10% sau {a.gio_sau:g} giờ")
+        qua = phan if a.khong_loc_sap else phan[phan["sap"]].reset_index(drop=True)
+        if len(qua):
+            qua = bo_sung(kiem_ghim(qua.head(a.top), rpc, gb), rpc, a.top)
+            qua.drop(columns=["tx_khac"]).to_csv(ra / "ung_vien.csv", index=False, encoding="utf-8-sig")
+            print(qua[cot].head(15).round(3).to_string(index=False))
+            print(f"→ {ra / 'ung_vien.csv'} (tới tầng {tg})", flush=True)
+        else:
+            print("Chưa có ứng viên nào qua bộ lọc.", flush=True)

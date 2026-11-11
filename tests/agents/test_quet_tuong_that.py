@@ -54,16 +54,42 @@ def test_do_lech_giam_tang_va_trong_khoang():
     assert all(np.isnan(do_lech(np.array([]), 10, 11)))
 
 
-def test_kiem_sap_loc_be_neo_gia(monkeypatch):
-    """Bể A sập 50% sau khi tường rút, bể B (neo giá) đứng yên: chỉ A có sap = True; mỗi (pool, block_burn) gọi một lần."""
+def test_kiem_sap_lay_mau_va_bo_nho_dem(monkeypatch, tmp_path):
+    """Bể A sập 50% sau khi tường rút, bể B (neo giá) đứng yên: chỉ A có sap = True; mỗi ứng viên 3 cửa sổ mẫu;
+    chạy lại với cùng file đệm thì không gọi RPC nữa."""
     goi = []
 
     def gia(rpc, pool, tu, den, buoc):
         goi.append(pool)
-        return np.array([10.0, 10 - 6932.0]) if pool == "A" else np.array([10.0, 10.0])
+        return np.array([10 - 6932.0]) if pool == "A" else np.array([10.0, 10.0])
 
     monkeypatch.setattr(q, "_tick_swap", gia)
     uv = pd.DataFrame(dict(pool=["A", "A", "B"], block_burn=[5, 5, 7], tick_lower=[10, 10, 10], tick_upper=[11, 11, 11]))
-    kq = kiem_sap(uv, rpc=None, giay_block=12.0)
-    assert list(kq["sap"]) == [True, True, False] and goi == ["A", "B"]
+    dem = tmp_path / "sap_dem.csv"
+    kq = kiem_sap(uv, rpc=None, giay_block=12.0, dem=dem)
+    assert list(kq["sap"]) == [True, True, False] and goi == ["A"] * 3 + ["B"] * 3
     assert abs(kq["giam_sau"][0] - 0.5) < 1e-3
+    kq2 = kiem_sap(uv, rpc=None, giay_block=12.0, dem=dem)
+    assert len(goi) == 6 and list(kq2["sap"]) == [True, True, False]
+
+
+def test_kiem_sap_khong_co_swap_thi_tai_du_cho_tang_1(monkeypatch):
+    goi = []
+
+    def gia(rpc, pool, tu, den, buoc):
+        goi.append(den - tu)
+        return np.array([10 - 6932.0]) if len(goi) == 4 else np.array([])
+
+    monkeypatch.setattr(q, "_tick_swap", gia)
+    uv = pd.DataFrame(dict(pool=["A"], block_burn=[5], tick_lower=[10], tick_upper=[11], tang=[1]))
+    kq = kiem_sap(uv, rpc=None, giay_block=12.0)
+    assert len(goi) == 4 and bool(kq["sap"][0])
+
+
+def test_xep_tang_theo_nac():
+    class R:
+        def goi(self, m, p):
+            return hex({"A": 1, "B": 60}[p[0]["to"]])
+    uv = pd.DataFrame(dict(pool=["B", "A", "A", "B"], rong=[600, 1, 3, 60], n_khac=[9, 1, 5, 2]))
+    kq = q.xep_tang(uv, R())
+    assert list(kq["tang"]) == [1, 1, 2, 3] and list(kq["rong"]) == [60, 1, 3, 600]

@@ -250,7 +250,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
                    c_A=cfg["c_A"], w=w_A, vi_tri=vi_tri_A, dung_tuong=lich, t_0=cfg.get("t_0"),
                    nguong_victim=cfg.get("withdraw_victim_ratio"), so_buoc_xa=cfg["dump_steps"],
                    so_lat_rut=int(cfg.get("so_lat_rut", 1)))
-    arb = Arbitrageur()
+    arb = Arbitrageur(von=cfg.get("arb_budget"))        # None = vốn vô hạn (hành vi cũ)
     if m_att > 0:
         thuong_att = lambda v: m_att * thuong(v / m_att)
         thuong_att_cam = (lambda v: he_so * thuong_att(v)) if he_so != 1.0 else thuong_att
@@ -348,7 +348,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     pool.log.meta = dict(cfg, seed=seed, Q_eff=Q_eff, subsidy_pending=lich_tra.con_treo(P_cuoi),
                          subsidy_pending_attacker=lich_tra.con_treo(P_cuoi, att.owner),
                          subsidy_clawed=lich_tra.da_thu_hoi, attacker_farm_accounts=m_att, t_rut=att.t_rut,
-                         wall_tick=att.tick_gia, wall_range=(att.tick_lower, att.tick_upper), L_A_eff=L_A_eff, attacker_inventory_left=att.kho, P0=z0 ** 2,
+                         wall_tick=att.tick_gia, wall_range=(att.tick_lower, att.tick_upper), L_A_eff=L_A_eff, attacker_inventory_left=att.kho, P0=z0 ** 2, arb_da_chi=arb.da_chi,
                          dyncap_t_bao_dau=None if tran_dong is None else tran_dong.t_bao_dau,
                          dyncap_so_buoc=0 if tran_dong is None else tran_dong.so_buoc_bat,
                          pe_farmer=MangMeta(pe_farmer), Q_buoc=MangMeta(Q_buoc),

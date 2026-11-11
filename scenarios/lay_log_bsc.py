@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import http.client
 import json
 import os
 import time
@@ -149,16 +150,22 @@ class RPC:
             time.sleep(self.nghi * (1 + 4 * lan))
             self.so_lan += 1
             try:
-                req = urllib.request.Request(self.url, data=body, headers={"Content-Type": "application/json",
-                                                                           "User-Agent": "python-client"})
+                dau = {"Content-Type": "application/json", "User-Agent": "python-client"}
+                if os.environ.get("BSC_RPC_KEY"):               # nhà cung cấp nhận khóa qua header (vd. Blockmachine)
+                    dau["Authorization"] = "Bearer " + os.environ["BSC_RPC_KEY"]
+                req = urllib.request.Request(self.url, data=body, headers=dau)
                 with urllib.request.urlopen(req, timeout=60) as resp:
                     kq = json.loads(resp.read())
             except urllib.error.HTTPError as e:
                 loi = f"HTTP {e.code}"
                 if e.code not in (429, 500, 502, 503, 504):
+                    try:                                        # HTTP 400 thường kèm lý do (vd. giới hạn khoảng block của gói miễn phí)
+                        loi += " " + e.read().decode("utf-8", "replace")[:300]
+                    except OSError:
+                        pass
                     break
                 continue
-            except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
+            except (OSError, http.client.HTTPException, json.JSONDecodeError) as e:   # gồm URLError, Timeout, RemoteDisconnected
                 loi = str(e)
                 continue
             if "result" in kq:
@@ -167,7 +174,7 @@ class RPC:
         raise RuntimeError(f"RPC không trả lời: {loi}")
 
 
-_LOI_KHOANG = ("range", "limit", "exceed", "too many", "too large", "response size", "10000", "10,000")
+_LOI_KHOANG = ("range", "limit", "exceed", "too many", "too large", "response size", "10000", "10,000", "closed connection")
 
 
 def tai_doan(rpc: RPC, pool: str | None, topics: list[str], tu: int, den: int, buoc: int, giu_be: bool = False):
