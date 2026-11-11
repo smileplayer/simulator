@@ -178,6 +178,8 @@ Mốc VWAP giờ `t_0` đã gồm cú xả nên ước thấp độ sập: với
 | Lợi nhuận kẻ tấn công, paper (bài gốc) | 11.924 | 14.532 | 20.488 |
 | **Lợi nhuận tăng thêm so với bán thẳng (`excess`)** | **29** | **299** | **1.092** |
 | Lợi nhuận kẻ tấn công, bản đầy đủ (`c_A` = 0,5) | 5.825 | 9.607 | 13.411 |
+
+> **Sửa 11/11/2026 (chốt lần 12).** Hai dòng lợi nhuận kẻ tấn công ở bảng trên và số 299, 97,8% trong đoạn dưới đo tới mốc sập t_b (đúng cửa sổ của bài gốc); ở 58% lượt giá đã sập ngay bước xả đầu nên lát xả thứ hai không được tính. Đo đủ mọi lát xả (thước đo `dc_*` dùng ở RQ2, RQ3; 300 lượt): lãi gộp tứ phân vị 14.507 / 19.208 / 23.141, lợi tăng thêm 145 / 361 / 850 (CI trung vị 246–655), dương ở 291/300 lượt, theo k = 0,64 / 0,80 / 0,95 là 740 / 515 / 117, bán thẳng thu được 97,6%. Ở phí 0,01% lợi tăng thêm trung vị là 365 (trước ghi 292). Bài báo dùng các số mới này. Các biến thể độ nhạy khác (bỏ neo giá, đổi độ biến động) chưa tính lại theo thước đo mới; kết luận về chúng (lợi tăng thêm về 0 khi bỏ neo) không đổi.
 | Chi phí trợ cấp | 1.214 | 4.722 | 16.497 |
 | Tỷ lệ rò rỉ (paper) | 1,09× | 3,17× | 11,7× |
 | Tỷ lệ rò rỉ (tăng thêm) | 0,006× | 0,057× | 0,34× |
