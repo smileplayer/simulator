@@ -28,6 +28,15 @@ MUC = {
     "attacker_inventory": [15000, 25000, 40000],
 }
 FILE_TO_HOP = THU_MUC_CONFIG / "rq1_tohop.json"
+# Bộ kiểm ngoài mẫu (11/11, theo phản biện "tự khớp"): mức xen kẽ, chưa từng dùng khi hiệu chỉnh, nằm trong miền của MUC.
+MUC_KIEM = {
+    "L_A": [3e8, 5e8, 6.5e8],
+    "k": [0.70, 0.75, 0.90],
+    "sigma": [0.0075, 0.015, 0.0175],
+    "Q": [18000, 30000, 36000],
+    "bg_band": [0.20, 0.30, 0.35],
+    "attacker_inventory": [20000, 30000, 35000],
+}
 
 
 def mang_L27() -> list[tuple[int, ...]]:
@@ -98,11 +107,11 @@ def cau_hinh_bien_the(vu: dict, ten: str = "goc") -> dict:
     return cfg
 
 
-def chay(seeds: int, out: Path, nhanh: bool = False, bien_the: str = "goc") -> None:
+def chay(seeds: int, out: Path, nhanh: bool = False, bien_the: str = "goc", kiem: bool = False) -> None:
     """Chạy mọi (vụ, seed), ghi dần; bỏ qua cặp đã có file. --nhanh: 3 vụ × 1 seed để đo giờ.
     `bien_the`: biến thể độ nhạy (BIEN_THE); "goc" tái lập đúng bộ RQ1."""
     out.mkdir(parents=True, exist_ok=True)
-    ds = json.loads(FILE_TO_HOP.read_text(encoding="utf-8"))
+    ds = to_hop_rq1(MUC_KIEM, "KD_") if kiem else json.loads(FILE_TO_HOP.read_text(encoding="utf-8"))
     if nhanh:
         ds, seeds = ds[:3], 1
     viec = [(vu, s) for vu in ds for s in range(seeds)]
@@ -140,8 +149,11 @@ if __name__ == "__main__":
     ap.add_argument("--nhanh", action="store_true")
     ap.add_argument("--tao", action="store_true", help="ghi lại scenarios/configs/rq1_tohop.json")
     ap.add_argument("--bien_the", default="goc", choices=list(BIEN_THE), help="biến thể độ nhạy RQ1")
+    ap.add_argument("--kiem", action="store_true", help="bộ kiểm ngoài mẫu MUC_KIEM (30 vụ KD_*), mặc định ghi ket_qua/rq1_kiem")
     a = ap.parse_args()
+    if a.kiem and a.out == "ket_qua/rq1_tohop":
+        a.out = "ket_qua/rq1_kiem"
     if a.tao or not FILE_TO_HOP.exists():
         FILE_TO_HOP.write_text(json.dumps(to_hop_rq1(), ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"đã ghi {FILE_TO_HOP}")
-    chay(a.seeds, Path(a.out), a.nhanh, a.bien_the)
+    chay(a.seeds, Path(a.out), a.nhanh, a.bien_the, a.kiem)

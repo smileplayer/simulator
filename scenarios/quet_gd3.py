@@ -30,7 +30,7 @@ from pathlib import Path
 
 from agents.do_rong import l_tren_von
 from engine import amounts_for_liquidity, sqrt_price_at_tick
-from scenarios.batch import MUC, cau_hinh, to_hop_rq1
+from scenarios.batch import MUC, cau_hinh, cau_hinh_bien_the, to_hop_rq1
 from scenarios.hieu_chinh import LV_chia_LA, do_sap
 from scenarios.quet_gd2 import K_NHO, LOAI_VICTIM, loi_nhuan_dia_chi
 from scenarios.run import run_frame
@@ -51,6 +51,7 @@ LUOI_PHI_RR = [(0.0, 0)] + [(a, w0) for a in ALPHA_WA for w0 in (10, 50, 200)]
 LAM_RR = (0.0, 0.5, 1.0)
 LUOI_W_RR = (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000)
 KHOA_RR = ["scenario_id", "alpha", "w0", "lam", "victim_type", "seed"]
+BIEN_THE_GD3 = "goc"   # --bien_the: biến thể môi trường của scenarios.batch.BIEN_THE (f001 = phí 0,01%)
 LUOI_W_GD3 = None      # None → lưới mặc định agents.do_rong.LUOI_W; --w0 nới lưới để victim/LP chọn được w₀ lớn
 
 
@@ -81,7 +82,7 @@ def to_hop_gd3() -> list[dict]:
 def cau_hinh_gd3(vu: dict, alpha: float, w0: int, victim: str, w_A: int = 1, lam: float | None = None) -> dict:
     """Config một lượt GĐ3: vụ + φ + victim tự chọn độ rộng, căn giữa, chi phí theo vốn + 2 LP lành mạnh.
     `w_A` > 1: tường w_A tick đi lên từ tick giá ghim ("tren": cả dải nằm trên đường mua của farmer), vốn cố định."""
-    cfg = cau_hinh(vu)
+    cfg = cau_hinh(vu) if BIEN_THE_GD3 == "goc" else cau_hinh_bien_the(vu, BIEN_THE_GD3)
     z0 = sqrt_price_at_tick(0) * 1.0001 ** 0.25
     cfg.update(phi=None if alpha == 0 else {"alpha": alpha, "w0": w0}, victim_type=victim, w_victim="tu_chon",
                vi_tri_victim="giua", c_V_von=cfg["c_V"] * l_tren_von(1, z0, 0), lp_lanh_manh=LP_LANH_MANH,
@@ -233,11 +234,15 @@ if __name__ == "__main__":
     ap.add_argument("--rui_ro", action="store_true", help="victim tính rủi ro theo khoảng, λ ∈ {0; 0,5; 1}")
     ap.add_argument("--w0", type=int, nargs="+", default=None,
                     help="thay lưới w₀ (vd --w0 1000 2000), nới lưới độ rộng; file ra thêm hậu tố _w0lon")
+    ap.add_argument("--bien_the", default="goc", help="biến thể môi trường (scenarios.batch.BIEN_THE); f001 = phí 0,01%%; file ra thêm hậu tố")
     a = ap.parse_args()
     goc = ("ket_qua/gd3/tomtat_ruiro.csv" if a.rui_ro else "ket_qua/gd3/tomtat_wA.csv" if a.w_A
            else "ket_qua/gd3/tomtat.csv")
     if a.w0:
         dat_w0(a.w0)
         goc = goc.replace(".csv", "_w0lon.csv")
+    if a.bien_the != "goc":
+        BIEN_THE_GD3 = a.bien_the
+        goc = goc.replace(".csv", f"_{a.bien_the}.csv")
     out = a.out or (goc.replace(".csv", "_nhanh.csv") if a.nhanh else goc)
     chay(a.seeds, Path(out), a.nhanh, a.w_A, a.rui_ro)
