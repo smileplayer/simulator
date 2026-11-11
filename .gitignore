@@ -5,3 +5,9 @@ __pycache__/
 .pytest_cache/
 # Log thô của các biến thể độ nhạy (~270 MB) — tái tạo bằng python -m scenarios.batch --bien_the …
 ket_qua/do_nhay/rq1_*/
+# Log thô tải từ chuỗi thật (hàng chục đến hàng trăm MB) — tải lại bằng scenarios.lay_log_bsc / scenarios.quet_tuong_that.
+# Chỉ commit ung_vien.csv.
+ket_qua/that/**/su_kien.csv
+ket_qua/that/**/swap.csv
+ket_qua/that_quet/**/hep.csv
+ket_qua/that_quet/*_nhanh/
