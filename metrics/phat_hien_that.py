@@ -6,6 +6,7 @@
 (thanh khoản hoạt động ngay sau lệnh), giờ không có swap mẫu thì giữ giá trị giờ trước. Rồi phát lại luật
 (`metrics.phat_hien.cac_buoc_bao`) với nhiều bội số m và đo: có báo trong [t_m, t_b) không, sớm hơn t_b bao nhiêu giờ,
 báo mấy lần trước t_m. Ghi `phat_hien_that.csv` và `chuoi_L_gio.csv` vào thư mục `--vao`.
+Bể đối chứng không trợ cấp: `--sach` (không cần --tm, --tb) đếm báo nhầm trên mọi giờ → `bao_nham.csv`.
 
 Giới hạn: swap chỉ là mẫu (≈ 30 giây đầu mỗi giờ) nên L mỗi giờ là một lần chụp; báo trước t_m chưa chắc là báo nhầm,
 vì bể có thể đang có một tường khác (xem cột `tick` trong `chuoi_L_gio.csv`).
@@ -69,6 +70,28 @@ def danh_gia_that(L: pd.Series, h_m: int, h_b: int, m: float = 3.0, N: int = 24)
                 ty_so_tm=ty(h_m) if h_m in L.index else math.nan, ty_so_max=np.nanmax(cac) if cac else math.nan)
 
 
+def bao_nham_sach(L: pd.Series, m: float = 3.0, N: int = 24) -> dict:
+    """Bể đối chứng không có tường: mọi tín hiệu là báo nhầm. Trả `gio_xet` = số giờ đường nền đã đủ N, `so_gio_bao`,
+    `so_dot` = số đợt báo (các giờ báo liền nhau tính một đợt), `ty_le` = so_gio_bao / gio_xet."""
+    bao = cac_buoc_bao(L, m, N)
+    dot = sum(1 for i, t in enumerate(bao) if i == 0 or t - bao[i - 1] > 1)
+    xet = max(0, len(L) - N)
+    return dict(m=m, N=N, gio_xet=xet, so_gio_bao=len(bao), so_dot=dot, ty_le=len(bao) / xet if xet else math.nan)
+
+
+def chay_sach(vao: Path, N: int = 24, cac_m=(1.5, 2.0, 3.0, 5.0, 10.0)) -> pd.DataFrame:
+    """Như `chay` cho bể đối chứng: ghi `chuoi_L_gio.csv` và `bao_nham.csv`; trả bảng báo nhầm theo m."""
+    swap = pd.read_csv(vao / "swap.csv")
+    if swap.empty:
+        raise SystemExit(f"{vao}: swap.csv không có dòng nào (bể không có giao dịch trong đoạn block đã tải).")
+    ch = chuoi_L_that(swap, pd.read_csv(vao / "moc.csv"))
+    ch.to_csv(vao / "chuoi_L_gio.csv", encoding="utf-8-sig")
+    kq = pd.DataFrame([bao_nham_sach(ch["L"], m, N) for m in cac_m])
+    kq.insert(0, "so_tick_khac_nhau", int(ch["tick"].nunique()))
+    kq.to_csv(vao / "bao_nham.csv", index=False, encoding="utf-8-sig")
+    return kq
+
+
 def chay(vao: Path, tm: int, tb: int, N: int = 24, cac_m=(1.5, 2.0, 3.0, 5.0, 10.0)) -> pd.DataFrame:
     """Đọc `swap.csv`, `moc.csv` trong `vao`, ghi `chuoi_L_gio.csv` và `phat_hien_that.csv`; trả bảng đánh giá theo m."""
     swap = pd.read_csv(vao / "swap.csv")
@@ -88,10 +111,18 @@ def chay(vao: Path, tm: int, tb: int, N: int = 24, cac_m=(1.5, 2.0, 3.0, 5.0, 10
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--vao", required=True, help="thư mục có swap.csv, moc.csv")
-    ap.add_argument("--tm", type=int, required=True, help="block dựng tường (t_m của bài gốc)")
-    ap.add_argument("--tb", type=int, required=True, help="block giá sập (t_b của bài gốc)")
+    ap.add_argument("--tm", type=int, default=None, help="block dựng tường (t_m của bài gốc)")
+    ap.add_argument("--tb", type=int, default=None, help="block giá sập (t_b của bài gốc)")
+    ap.add_argument("--sach", action="store_true", help="bể đối chứng không có tường: đếm báo nhầm trên mọi giờ → bao_nham.csv")
     ap.add_argument("--N", type=int, default=24, help="số giờ đường nền")
     a = ap.parse_args()
-    bang = chay(Path(a.vao), a.tm, a.tb, a.N)
-    print(bang.round(2).to_string(index=False))
-    print(f"→ {Path(a.vao) / 'phat_hien_that.csv'}")
+    if a.sach:
+        bang = chay_sach(Path(a.vao), a.N)
+        print(bang.round(4).to_string(index=False))
+        print(f"→ {Path(a.vao) / 'bao_nham.csv'}")
+    else:
+        if a.tm is None or a.tb is None:
+            ap.error("cần --tm và --tb (hoặc --sach cho bể đối chứng)")
+        bang = chay(Path(a.vao), a.tm, a.tb, a.N)
+        print(bang.round(2).to_string(index=False))
+        print(f"→ {Path(a.vao) / 'phat_hien_that.csv'}")

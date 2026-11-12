@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 
-from metrics.phat_hien_that import chuoi_L_that, danh_gia_that, gio_block
+from metrics.phat_hien_that import bao_nham_sach, chuoi_L_that, danh_gia_that, gio_block
 
 MOC = pd.DataFrame({"block": [0, 1000], "ts": [0, 1000 * 3600]})            # 1 block = 1 giờ
 
@@ -35,3 +35,10 @@ def test_danh_gia_that_tuong_doi_cho_khong_bao():
     L = pd.Series([13.0] * 30 + [3.0] * 20)
     r = danh_gia_that(L, 30, 50, m=1.5)
     assert not r["bat"] and r["ty_so_tm"] < 1 and np.isnan(r["som_hon_rut"])
+
+
+def test_bao_nham_sach_dem_gio_va_dot():
+    L = pd.Series([1.0] * 30 + [5.0, 5.0] + [1.0] * 10 + [5.0] + [1.0] * 5)   # hai đợt vọt: 2 giờ và 1 giờ
+    r = bao_nham_sach(L, m=3.0, N=24)
+    assert (r["so_gio_bao"], r["so_dot"], r["gio_xet"]) == (3, 2, len(L) - 24)
+    assert bao_nham_sach(pd.Series([1.0] * 60), m=1.5)["so_gio_bao"] == 0
