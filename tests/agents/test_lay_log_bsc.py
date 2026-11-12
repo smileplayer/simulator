@@ -70,3 +70,46 @@ def test_chay_ghi_va_chay_tiep(tmp_path):
     chay("0xpool", 10, 25, tmp_path, rpc, swap="khong", buoc=4)            # đã xong: không gọi lại, không ghi trùng
     assert rpc.goi_logs == truoc and len((tmp_path / "su_kien.csv").read_text().strip().splitlines()) == 17
     json.loads((tmp_path / "tien_do.json").read_text())
+
+
+def test_het_han_muc_dung_han_khong_chia_doi():
+    import pytest
+    from scenarios.lay_log_bsc import HetHanMuc, tai_doan
+
+    class R:
+        so = 0
+
+        def goi(self, m, p):
+            R.so += 1
+            raise RuntimeError('{"code": -32005, "message": "monthly request limit exceeded, please upgrade"}')
+    with pytest.raises(HetHanMuc):
+        list(tai_doan(R(), "0xp", ["0x0"], 1, 100000, 5000))
+    assert R.so == 1                                   # không chia đôi khoảng block khi lỗi là hết hạn mức
+
+
+def test_429_cho_roi_thu_lai_khong_dung(monkeypatch):
+    import scenarios.lay_log_bsc as L
+    monkeypatch.setattr(L.time, "sleep", lambda s: None)
+
+    class R:
+        so = 0
+
+        def goi(self, m, p):
+            R.so += 1
+            if R.so <= 3:
+                raise RuntimeError("RPC không trả lời: HTTP 429")
+            return []
+    kq = list(L.tai_doan(R(), "0xp", ["0x0"], 1, 10, 5000))
+    assert kq == [(10, [])] and R.so == 4              # 429 ba lần rồi thành công, không bị coi là hết hạn mức
+
+
+def test_429_keo_dai_moi_coi_la_het_han_muc(monkeypatch):
+    import pytest
+    import scenarios.lay_log_bsc as L
+    monkeypatch.setattr(L.time, "sleep", lambda s: None)
+
+    class R:
+        def goi(self, m, p):
+            raise RuntimeError("RPC không trả lời: HTTP 429")
+    with pytest.raises(L.HetHanMuc):
+        list(L.tai_doan(R(), "0xp", ["0x0"], 1, 10, 5000))

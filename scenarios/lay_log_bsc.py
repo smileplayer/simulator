@@ -158,12 +158,15 @@ class RPC:
                     kq = json.loads(resp.read())
             except urllib.error.HTTPError as e:
                 loi = f"HTTP {e.code}"
+                try:                                            # thân phản hồi thường nói rõ lý do (giới hạn khoảng block, hết hạn mức...)
+                    than = e.read().decode("utf-8", "replace")[:300]
+                except OSError:
+                    than = ""
                 if e.code not in (429, 500, 502, 503, 504):
-                    try:                                        # HTTP 400 thường kèm lý do (vd. giới hạn khoảng block của gói miễn phí)
-                        loi += " " + e.read().decode("utf-8", "replace")[:300]
-                    except OSError:
-                        pass
+                    loi += " " + than
                     break
+                if e.code == 429 and than:
+                    loi += " " + than
                 continue
             except (OSError, http.client.HTTPException, json.JSONDecodeError) as e:   # gồm URLError, Timeout, RemoteDisconnected
                 loi = str(e)
@@ -174,6 +177,17 @@ class RPC:
         raise RuntimeError(f"RPC không trả lời: {loi}")
 
 
+class HetHanMuc(RuntimeError):
+    """Node từ chối vì hết hạn mức / khóa không hợp lệ (không phải lỗi khoảng block): dừng hẳn, đổi khóa rồi chạy lại."""
+
+
+# Dấu hiệu hết hạn mức hoặc khóa hỏng; kiểm TRƯỚC _LOI_KHOANG vì thông báo hết hạn mức hay chứa chữ "limit"/"exceed".
+_LOI_HAN_MUC = ("http 401", "http 402", "http 403", "quota", "credit", "monthly", "upgrade", "insufficient",
+                "payment", "unauthorized", "forbidden", "invalid api key")
+# HTTP 429 / "rate limit" thường là giới hạn tốc độ (nhiều cửa sổ chạy cùng lúc): chờ rồi thử lại, chỉ dừng khi kéo dài.
+_LOI_TOC_DO = ("http 429", "rate limit", "too many requests")
+SO_LAN_CHO_TOC_DO = 8
+GIAY_CHO_TOC_DO = 15
 _LOI_KHOANG = ("range", "limit", "exceed", "too many", "too large", "response size", "10000", "10,000", "closed connection")
 
 
@@ -181,7 +195,7 @@ def tai_doan(rpc: RPC, pool: str | None, topics: list[str], tu: int, den: int, b
     """Sinh (block_cuoi_đã_xong, [dòng]) cho từng đoạn trong [tu, den]; node báo lỗi khoảng thì chia đôi `buoc`.
 
     `pool=None`: lấy log của mọi hợp đồng trên chuỗi (quét toàn chuỗi); `giu_be`: thêm cột `pool` = địa chỉ phát log."""
-    b, tran, hong = tu, buoc, 0
+    b, tran, hong, nghen = tu, buoc, 0, 0
     while b <= den:
         e = min(b + buoc - 1, den)
         loc = {"topics": [topics], "fromBlock": hex(b), "toBlock": hex(e)}
@@ -191,6 +205,15 @@ def tai_doan(rpc: RPC, pool: str | None, topics: list[str], tu: int, den: int, b
             logs = rpc.goi("eth_getLogs", [loc])
         except RuntimeError as loi:
             s = str(loi).lower()
+            if any(k in s for k in _LOI_HAN_MUC):
+                raise HetHanMuc(str(loi)) from loi
+            if any(k in s for k in _LOI_TOC_DO):                # chạm giới hạn tốc độ: chờ lâu dần, kéo dài mới coi là hết hạn mức
+                nghen += 1
+                if nghen > SO_LAN_CHO_TOC_DO:
+                    raise HetHanMuc(f"{loi} (bị giới hạn liên tục {nghen - 1} lần)") from loi
+                print(f"  bị giới hạn tốc độ (lần {nghen}/{SO_LAN_CHO_TOC_DO}), chờ {GIAY_CHO_TOC_DO * nghen}s rồi thử lại", flush=True)
+                time.sleep(GIAY_CHO_TOC_DO * nghen)
+                continue
             if any(k in s for k in _LOI_KHOANG) and buoc > 1:   # node từ chối vì khoảng quá rộng / quá nhiều log
                 buoc = max(1, buoc // 2)
                 continue
@@ -199,7 +222,7 @@ def tai_doan(rpc: RPC, pool: str | None, topics: list[str], tu: int, den: int, b
                 raise
             time.sleep(2.0 * hong)
             continue
-        hong = 0
+        hong = nghen = 0
         rows = []
         for lg in logs:
             r = giai_ma(lg)

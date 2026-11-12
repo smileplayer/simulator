@@ -20,6 +20,7 @@ import pandas as pd
 from agents.arb import Arbitrageur
 from agents.base import tick_chua_gia
 from agents.attacker import Attacker
+from agents.san_ngoai import SanNgoai, can_bang
 from agents.farmer import Farmer, thuong_log, thuong_tuyen_tinh
 from agents.do_rong import (
     DO_SAP_PRIOR, LUOI_W, VI_TRI, LPLanhManh, chon_khoang_rui_ro, l_tren_von, tao_phi, w_sao_hinh_hoc,
@@ -111,6 +112,22 @@ class ThiTruongKichBan:
         self.duong.append(gia)
 
 
+class _ThiTruongSan:
+    """Giá ngoài = giá biên của sàn ngoài (cải tiến H); `goc` giữ dòng cú sốc của ThiTruongKichBan."""
+
+    def __init__(self, san: SanNgoai, goc: "ThiTruongKichBan"):
+        self.san, self.goc = san, goc
+
+    @property
+    def soc(self) -> list[float]:
+        """Các cú sốc chuẩn hóa đã rút (cho `ghi`)."""
+        return self.goc.soc
+
+    def external_price(self, t: int) -> float:
+        """P_e = giá biên hiện tại của sàn (token1/token0); không phụ thuộc t."""
+        return self.san.gia
+
+
 def nap_config(ten: str | Path) -> dict:
     """Đọc config JSON; nhận đường dẫn hoặc tên file trong scenarios/configs/."""
     p = Path(ten)
@@ -177,6 +194,16 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     phi = tao_phi(cfg.get("phi"))                         # GĐ3: φ(w) chia phí theo độ rộng; None = pro-rata
     pool = Pool(fee, z0, fee_weight=phi, phat_rut_som=cua_so_phat(defense))   # G: phạt rút sớm (nếu có)
     tt = ThiTruongKichBan(z0 ** 2, cfg["vol_pre"], dong["gia"])
+    # cải tiến H: sàn ngoài độ sâu hữu hạn → giá ngoài nội sinh, không ghim. None = hành vi cũ (giữ từng bit)
+    cfg_san = cfg.get("san_ngoai")
+    san = None if cfg_san is None else SanNgoai(float(cfg_san["do_sau"]), z0 ** 2)
+    if san is not None:
+        if cfg.get("arb_budget") is not None:
+            raise ValueError("san_ngoai chưa hỗ trợ arb_budget")
+        vol_san = {"pre": cfg["vol_pre"], "prep": cfg_san.get("vol_prep", cfg["vol_pre"]),
+                   "post": cfg["vol_post"]}
+        pha_san = "pre"
+        tt = _ThiTruongSan(san, tt)
 
     pool.t = 0
     if cfg.get("bg_band") is not None:                    # nền hữu hạn: vài vị thế lồng nhau trong ±bg_band
@@ -296,24 +323,41 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
                 pool.swap("bg:0", zero_for_one=False, amount_in=v)
             else:
                 pool.swap("bg:0", zero_for_one=True, amount_in=v / pool.sqrt_price ** 2)
+        if san is not None and t > 0:                         # cú sốc ngoại sinh trên sàn ngoài, đầu bước (cùng soc[t] như P_e cũ)
+            san.soc(vol_san[pha_san], tt.goc._soc(t))
         pe_farmer.append(tt.external_price(t))            # P_e farmer thấy (cho phản thực phát lại)
         Q_buoc.append(Q_nay[0])
+        dau_farm = len(pool.log.rows)
         for a in san_tro_cap:
             a.act(t, pool, tt)
+        if san is not None:                                   # chiều bán của lệnh cày: farmer bán token0 trên sàn
+            san.ban0 += (x0 := -sum(r["amount0"] for r in pool.log.rows[dau_farm:]
+                                     if r["kind"] == "swap" and r["amount0"] < 0))
+            san.ban_token0(x0)
         for a in victims:
             a.act(t, pool, tt)
         for a in lp_lm:
             a.act(t, pool, tt)
         da_co_tuong = att.tick_lower is not None
+        if san is not None and not att.dang_xa(t):            # sàn ngoài: kéo bể về giá sàn trước khi kẻ tấn công đặt/giữ tường,
+            can_bang(pool, san)                               # để tường dựng ở tick của giá tham chiếu như kẻ tấn công thật
         att.act(t, pool, tt)
-        if not da_co_tuong and att.tick_lower is not None:   # vừa dựng tường → P_e neo giữa tick tường
-            tt.neo(t, (sqrt_price_at_tick(att.tick_gia) * 1.0001 ** 0.25) ** 2)
-            tt.vol = cfg.get("vol_prep", 0.0)
-        if att.dang_xa(t):                                    # đang xả: giá ngoài đi theo bể, arb nghỉ
-            tt.neo(t, pool.sqrt_price ** 2)
-            tt.vol = cfg["vol_post"]
+        if san is not None:                                   # sàn ngoài: không ghim; chỉ đổi độ biến động theo pha
+            if not da_co_tuong and att.tick_lower is not None:
+                pha_san = "prep"
+            if att.dang_xa(t):                                # đang xả: arb nghỉ, giá sàn giữ nguyên
+                pha_san = "post"
+            else:
+                can_bang(pool, san)
         else:
-            arb.act(t, pool, tt)
+            if not da_co_tuong and att.tick_lower is not None:   # vừa dựng tường → P_e neo giữa tick tường
+                tt.neo(t, (sqrt_price_at_tick(att.tick_gia) * 1.0001 ** 0.25) ** 2)
+                tt.vol = cfg.get("vol_prep", 0.0)
+            if att.dang_xa(t):                                    # đang xả: giá ngoài đi theo bể, arb nghỉ
+                tt.neo(t, pool.sqrt_price ** 2)
+                tt.vol = cfg["vol_post"]
+            else:
+                arb.act(t, pool, tt)
         if (t + 1) % W == 0:                                  # chốt thưởng cuối cửa sổ
             for a in san_tro_cap:
                 if a.v_cua_so > 0:
@@ -341,7 +385,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
                         sqrt_price_after=pool.sqrt_price, tick_after=pool.tick,
                         liquidity_active_after=pool.liquidity)
 
-    if ghi is not None:
+    if ghi is not None and san is None:
         tt.external_price(T - 1)
         ghi["soc"] = list(tt.soc)
     P_cuoi = pool.sqrt_price ** 2
@@ -349,6 +393,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
                          subsidy_pending_attacker=lich_tra.con_treo(P_cuoi, att.owner),
                          subsidy_clawed=lich_tra.da_thu_hoi, attacker_farm_accounts=m_att, t_rut=att.t_rut,
                          wall_tick=att.tick_gia, wall_range=(att.tick_lower, att.tick_upper), L_A_eff=L_A_eff, attacker_inventory_left=att.kho, P0=z0 ** 2, arb_da_chi=arb.da_chi,
+                         **({} if san is None else dict(san_ban0=san.ban0, san_arb0=san.arb0, san_gia_cuoi=san.gia)),
                          dyncap_t_bao_dau=None if tran_dong is None else tran_dong.t_bao_dau,
                          dyncap_so_buoc=0 if tran_dong is None else tran_dong.so_buoc_bat,
                          pe_farmer=MangMeta(pe_farmer), Q_buoc=MangMeta(Q_buoc),
