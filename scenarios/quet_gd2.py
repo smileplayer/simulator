@@ -93,9 +93,10 @@ KHOA_FARM = ["scenario_id", "farm_share", "bp", "victim_type", "seed"]
 KHOA_F = ["scenario_id", "m_LA", "bp", "victim_type", "seed"]
 
 
-def to_hop_k_nho() -> list[dict]:
-    """30 vụ vùng k nhỏ: mảng L27 + 3 vụ log như RQ1, chỉ thay mức k bằng K_NHO; mã vụ tiền tố `KN_`."""
-    return to_hop_rq1({**MUC, "k": K_NHO}, tien_to="KN_")
+def to_hop_k_nho(k_muc: list[float] | None = None) -> list[dict]:
+    """30 vụ vùng k nhỏ: mảng L27 + 3 vụ log như RQ1, chỉ thay mức k bằng `k_muc` (mặc định K_NHO); mã vụ tiền tố `KN_`
+    (`KR_` khi đổi mức, để không trùng khóa với bộ cũ)."""
+    return to_hop_rq1({**MUC, "k": k_muc or K_NHO}, tien_to="KR_" if k_muc else "KN_")
 
 def to_hop_luoi() -> list[dict]:
     """25 ô lưới (σ, Q), mọi yếu tố khác = co_so. Giữ **c_V của co_so** (chi phí vật lý của victim không đổi theo
@@ -310,10 +311,10 @@ def dong_ket_qua(vu: dict, bp: str, victim: str, seed: int, farm_share: float | 
     return r
 
 
-def danh_sach_viec(che_do: str, seeds: int, nhanh: bool = False) -> list[tuple]:
+def danh_sach_viec(che_do: str, seeds: int, nhanh: bool = False, k_muc: list[float] | None = None) -> list[tuple]:
     """Mọi lượt (vu, bp, victim, seed, farm_share, bang) của một chế độ: "chinh", "farm" hoặc "k_nho".
     --nhanh: 2 vụ đầu × 1 seed."""
-    ds = (to_hop_k_nho() if che_do == "k_nho" else to_hop_luoi() if che_do == "luoi"
+    ds = (to_hop_k_nho(k_muc) if che_do == "k_nho" else to_hop_luoi() if che_do == "luoi"
           else json.loads(FILE_TO_HOP.read_text(encoding="utf-8")))
     if nhanh:
         ds, seeds = ds[:2], 1
@@ -340,7 +341,8 @@ def danh_sach_viec(che_do: str, seeds: int, nhanh: bool = False) -> list[tuple]:
 
 
 def chay(seeds: int, out: Path, nhanh: bool = False, farm: bool = False, k_nho: bool = False,
-         luoi: bool = False, bien_the: str = "goc", phat: bool = False, F: bool = False, V: bool = False) -> None:
+         luoi: bool = False, bien_the: str = "goc", phat: bool = False, F: bool = False, V: bool = False,
+         k_muc: list[float] | None = None) -> None:
     """Chạy mọi lượt còn thiếu, ghi nối vào CSV (mỗi lượt một dòng, flush ngay); --nhanh: 2 vụ × 1 seed để đo giờ.
     `farm`: chế độ CH-6; `k_nho`: vùng victim lớn (khóa có `farm_share`)."""
     warnings.filterwarnings("ignore")
@@ -360,7 +362,7 @@ def chay(seeds: int, out: Path, nhanh: bool = False, farm: bool = False, k_nho: 
             return (vu["id"], str(vu["_m_LA"]), bp, vt, str(sd))
         return (vu["id"], bp, vt, str(sd)) if fs is None else (vu["id"], str(fs), bp, vt, str(sd))
 
-    viec = [v for v in danh_sach_viec(che_do, seeds, nhanh) if ma(*v[:5]) not in da_co]
+    viec = [v for v in danh_sach_viec(che_do, seeds, nhanh, k_muc) if ma(*v[:5]) not in da_co]
     print(f"[{che_do}] {len(da_co)} lượt đã có, còn {len(viec)} lượt → {out}")
     t0 = time.time()
     with out.open("a", encoding="utf-8", newline="") as f:
@@ -392,12 +394,14 @@ if __name__ == "__main__":
     nhom.add_argument("--phat", action="store_true", help="cải tiến G: phạt rút sớm + hai cách né (BIEN_PHAP_PHAT)")
     nhom.add_argument("--V", action="store_true", help="W15: độ nhạy cách ước V̂ của nạn nhân thích nghi")
     nhom.add_argument("--F", action="store_true", help="cải tiến F: L_A × M_LA, giữ c_V, BIEN_PHAP_F")
+    ap.add_argument("--k_muc", default=None, help="với --k_nho: các mức k cách nhau dấu phẩy (vd 0.01,0.03,0.05; 13/11: vùng 4 vụ thật có L_V/L_A 2,3–13); ghi tomtat_knho_rat_*.csv")
     ap.add_argument("--bien_the", default="goc", help="biến thể môi trường (scenarios.batch.BIEN_THE); f001 = phí 0,01%%")
     ap.add_argument("--phien", default="v4", help="hậu tố file; v5 (20/10) = thêm L_khac, phí và lợi ròng nạn nhân")
     a = ap.parse_args()
-    che = ("farm_" if a.farm else "knho_" if a.k_nho else "luoi_" if a.luoi else "phat_" if a.phat
+    k_muc = [float(x) for x in a.k_muc.split(",")] if a.k_muc else None
+    che = ("farm_" if a.farm else ("knho_rat_" if k_muc else "knho_") if a.k_nho else "luoi_" if a.luoi else "phat_" if a.phat
            else "F_" if a.F else "V_" if a.V else "")
     bt = "" if a.bien_the == "goc" else f"{a.bien_the}_"
     mac_dinh = f"ket_qua/gd2/tomtat_{che}{bt}{a.phien}.csv"
     out = a.out or (mac_dinh.replace(".csv", "_nhanh.csv") if a.nhanh else mac_dinh)
-    chay(a.seeds, Path(out), a.nhanh, a.farm, a.k_nho, a.luoi, a.bien_the, a.phat, a.F, a.V)
+    chay(a.seeds, Path(out), a.nhanh, a.farm, a.k_nho, a.luoi, a.bien_the, a.phat, a.F, a.V, k_muc)
