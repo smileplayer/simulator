@@ -1,0 +1,17 @@
+2026-11-12 14:06:46 đoạn ket_qua\that\vu\0x5968feac_51108128: RPC không trả lời: HTTP 429
+2026-11-12 14:06:47 đoạn ket_qua\that\vu\0x430d8186_57732067: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429
+2026-11-12 14:06:47 đoạn ket_qua\that\vu\0xa2070173_59148623: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429
+2026-11-12 14:06:57 đoạn ket_qua\that\vu\0x924e62a3_61606030: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429
+2026-11-12 14:08:46 đoạn ket_qua\that\vu\0x430d8186_57732067: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429
+2026-11-12 14:12:21 đoạn ket_qua\that\vu\0x430d8186_57732067: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429
+2026-11-12 14:12:55 đoạn ket_qua\that\vu\0x430d8186_57732067: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429
+2026-11-12 14:14:37 đoạn ket_qua\that\vu\0x430d8186_57732067: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429 {"error":{"code":-32030,"data":{"cost":1,"remaining":0},"message":"insufficient compute units"},"id":1,"jsonrpc":"2.0"}
+2026-11-12 14:25:42 đoạn ket_qua\that\doi_chung\P3_55518497: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429
+2026-11-12 14:25:42 đoạn ket_qua\that\vu\0x924e62a3_60330097: RPC không trả lời: HTTP 429
+2026-11-12 14:25:42 đoạn ket_qua\that\doi_chung\P3_60443700: RPC không trả lời: HTTP 429
+2026-11-12 14:25:44 đoạn ket_qua\that\doi_chung\P4_50593296: RPC không trả lời: HTTP 429
+2026-11-12 14:25:53 đoạn ket_qua\that\vu\0xd317b548_50668851: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429
+2026-11-12 14:25:53 đoạn ket_qua\that\doi_chung\P4_60443700: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429
+2026-11-12 14:25:55 đoạn ket_qua\that\doi_chung\P5_50593296: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429
+2026-11-12 15:24:27 đoạn ket_qua\that\vu\0x985c205b_53101981: HẾT HẠN MỨC / KHÓA HỎNG: RPC không trả lời: HTTP 429 {"error":{"code":-32030,"data":{"cost":1,"remaining":0},"message":"insufficient compute units"},"id":1,"jsonrpc":"2.0"}
+2026-11-13 06:33:46 lịch sử 0xce94aba9: {"code": -32002, "message": "keyless requests are served for the most recent 100 blocks only; block 52439747 is older than that; use an API key for older blocks"}

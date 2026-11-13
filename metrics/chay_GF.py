@@ -61,13 +61,16 @@ def bang_F(df: pd.DataFrame, muc_tieu: str = "loi_tang_them", B: int = 2000) -> 
     return dd, pb
 
 
-def main(gd2: str = "ket_qua/gd2", B: int = 2000) -> list[Path]:
-    """Ghi `bang_GF/G_danh_doi.csv`, `F_danh_doi.csv`, `F_m_chon.csv`, `F_co_dinh.csv` (m = 1, đối chứng)."""
+def main(gd2: str = "ket_qua/gd2", B: int = 2000, bien_the: str = "goc") -> list[Path]:
+    """Ghi `bang_GF/G_danh_doi.csv`, `F_danh_doi.csv`, `F_m_chon.csv`, `F_co_dinh.csv` (m = 1, đối chứng).
+
+    `bien_the` khác "goc" (vd "f001"): đọc `tomtat_{phat,F}_<bien_the>_v5.csv`, ghi `bang_GF_<bien_the>/`."""
     d = Path(gd2)
-    ra = d / "bang_GF"
+    bt = "" if bien_the == "goc" else f"_{bien_the}"
+    ra = d / f"bang_GF{bt}"
     ra.mkdir(parents=True, exist_ok=True)
-    out = {"G_danh_doi": bang_G(pd.read_csv(d / "tomtat_phat_v5.csv"), B)}
-    F = them_cot(pd.read_csv(d / "tomtat_F_v5.csv"))
+    out = {"G_danh_doi": bang_G(pd.read_csv(d / f"tomtat_phat{bt}_v5.csv"), B)}
+    F = them_cot(pd.read_csv(d / f"tomtat_F{bt}_v5.csv"))
     dd1, pb1 = bang_F(F, "loi_tang_them", B)
     dd2, pb2 = bang_F(F, "dc_lai_tong", B)
     out["F_danh_doi"] = pd.concat([dd1, dd2])
@@ -88,6 +91,7 @@ if __name__ == "__main__":
     ap.add_argument("--gd2", default="ket_qua/gd2")
     ap.add_argument("--B", type=int, default=2000)
     ap.add_argument("--nhanh", action="store_true")
+    ap.add_argument("--bien_the", default="goc")
     a = ap.parse_args()
-    for f in main(a.gd2, 200 if a.nhanh else a.B):
+    for f in main(a.gd2, 200 if a.nhanh else a.B, a.bien_the):
         print(f)
