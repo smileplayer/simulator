@@ -10,6 +10,7 @@ Mỗi (vụ, seed) ghi `<id>_s<seed>.csv` (log) + `.meta.json`; chạy lại th�
 from __future__ import annotations
 
 import argparse
+import os
 import itertools
 import json
 import time
@@ -70,7 +71,13 @@ def to_hop_rq1(muc: dict | None = None, tien_to: str = "") -> list[dict]:
 
 
 def cau_hinh(vu: dict, goc: dict | None = None) -> dict:
-    """Config đầy đủ của một vụ = co_so + ghi đè, đã đổi k → c_V."""
+    """Config đầy đủ của một vụ = co_so + ghi đè, đã đổi k → c_V.
+
+    Biến môi trường `MP_BIEN_THE` (vd "f001" = phí 0,01%): khi gọi không kèm `goc`, trả config của biến thể đó, để các script
+    không có cờ `--bien_the` (nhiều nạn nhân, arb vốn hữu hạn, neo giá, sàn ngoài, tìm kiếm tấn công) chạy được ở mức phí khác."""
+    ten = os.environ.get("MP_BIEN_THE", "goc")
+    if goc is None and ten != "goc":
+        return cau_hinh_bien_the(vu, ten)
     cfg = dict(goc if goc is not None else nap_config("co_so"))
     cfg.update({k: v for k, v in vu.items() if k != "id"})
     cfg["scenario_id"] = vu["id"]
@@ -87,6 +94,8 @@ BIEN_THE = {
     "vol_prep": {"vol_prep": "vol_pre"},
     "vol_post": {"vol_post": "vol_pre"},
     "f001": {"fee": 0.0001, "sigma_nhan": 0.04},
+    # luồng nền như log BSC thật (metrics.phan_phoi_that): nhiều lệnh nhỏ, đuôi nặng (σ ln cỡ lệnh 1,7), khối lượng mỗi giờ giữ nguyên
+    "nen_that": {"dat": {"bg_sigma": 1.7}, "nhan": {"bg_rate": 25, "bg_size": 0.04}},
 }
 
 
@@ -103,6 +112,9 @@ def cau_hinh_bien_the(vu: dict, ten: str = "goc") -> dict:
     for k in ("vol_prep", "vol_post"):
         if k in bt:
             cfg[k] = cfg[bt[k]]
+    cfg.update(bt.get("dat", {}))
+    for k, he_so in bt.get("nhan", {}).items():
+        cfg[k] = cfg[k] * he_so
     cfg["bien_the"] = ten
     return cfg
 

@@ -183,7 +183,7 @@ class HetHanMuc(RuntimeError):
 
 # Dấu hiệu hết hạn mức hoặc khóa hỏng; kiểm TRƯỚC _LOI_KHOANG vì thông báo hết hạn mức hay chứa chữ "limit"/"exceed".
 _LOI_HAN_MUC = ("http 401", "http 402", "http 403", "quota", "credit", "monthly", "upgrade", "insufficient",
-                "payment", "unauthorized", "forbidden", "invalid api key")
+                "payment", "unauthorized", "forbidden", "invalid api key", "keyless", "use an api key")
 # HTTP 429 / "rate limit" thường là giới hạn tốc độ (nhiều cửa sổ chạy cùng lúc): chờ rồi thử lại, chỉ dừng khi kéo dài.
 _LOI_TOC_DO = ("http 429", "rate limit", "too many requests")
 SO_LAN_CHO_TOC_DO = 8

@@ -166,7 +166,7 @@ def phat_lai_ban_thang(df, owner: str = "attacker:0", c_A: float | None = None) 
         so = m_att if o == owner else 1.0
         th_o = (lambda v: so * th(v / so)) if so != 1.0 else th
         th_cam = (lambda v: he_so * th_o(v)) if he_so != 1.0 else th_o
-        f = Farmer(o, th_cam, None if Q_tran is None else so * Q_tran, window=W, v_tran=so * Q_t / W)
+        f = Farmer(o, th_cam, None if Q_tran is None else so * Q_tran, window=W, v_tran=so * Q_t / W / int(meta.get("buoc_con", 1) or 1))
         f._cua_so = t // W
         cu = mua_that[(mua_that.owner == o) & (mua_that.t // W == t // W) & (mua_that.index < i)]
         f.v_cua_so = float(cu.amount1.sum())             # khối lượng thật trong cửa sổ trước khi rút tường

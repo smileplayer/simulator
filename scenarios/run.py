@@ -197,6 +197,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     # cải tiến H: sàn ngoài độ sâu hữu hạn → giá ngoài nội sinh, không ghim. None = hành vi cũ (giữ từng bit)
     cfg_san = cfg.get("san_ngoai")
     san = None if cfg_san is None else SanNgoai(float(cfg_san["do_sau"]), z0 ** 2)
+    if san is not None and int(cfg.get("buoc_con", 1)) > 1:
+        raise ValueError("buoc_con > 1 chưa hỗ trợ sàn ngoài (san_ngoai)")
     if san is not None:
         if cfg.get("arb_budget") is not None:
             raise ValueError("san_ngoai chưa hỗ trợ arb_budget")
@@ -206,7 +208,11 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
         tt = _ThiTruongSan(san, tt)
 
     pool.t = 0
-    if cfg.get("bg_band") is not None:                    # nền hữu hạn: vài vị thế lồng nhau trong ±bg_band
+    if cfg.get("bg_vi_the"):                              # nền theo hồ sơ cho sẵn (kịch bản theo vụ thật): [(tick dưới, tick trên, L)]
+        for k, (lo, hi, L_k) in enumerate(cfg["bg_vi_the"]):
+            if L_k > 0:
+                pool.mint(f"bg:{k + 1}", int(lo), int(hi), float(L_k))
+    elif cfg.get("bg_band") is not None:                  # nền hữu hạn: vài vị thế lồng nhau trong ±bg_band
         n_bg = cfg.get("bg_n", 5)
         for k, (lo, hi) in enumerate(dai_nen(z0 ** 2, cfg["bg_band"], n_bg)):
             pool.mint(f"bg:{k + 1}", lo, hi, cfg["L_bg"] / n_bg)
@@ -222,7 +228,10 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
     thuong, Q_tran = _tao_thuong(cfg, Q_eff, Q_nay if tran_dong is not None else None)   # luật nền tảng trả
     he_so = lich_tra.he_so_cam_nhan
     thuong_farmer = (lambda v: he_so * thuong(v)) if he_so != 1.0 else thuong   # farmer chiết khấu δ^D
-    v_buoc = Q_eff / W                                    # farmer rải đều trần qua cửa sổ
+    n_con = int(cfg.get("buoc_con", 1))                   # số vòng mua–bán của farmer và arb trong một bước (bước thời gian mịn)
+    if n_con < 1:
+        raise ValueError("buoc_con phải ≥ 1")
+    v_buoc = Q_eff / W / n_con                            # farmer rải đều trần qua cửa sổ (và qua các vòng trong bước)
     farmers = [Farmer(f"farmer:{k}", thuong_farmer, Q_tran, window=W, v_tran=v_buoc)
                for k in range(cfg["n_farmers"])]
     # kẻ tấn công cũng săn trợ cấp (CH-6 (b)): m tài khoản ảo, phần khối lượng farmer của kẻ tấn công = s khi
@@ -294,7 +303,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
             so_tk = m_att if a.owner == att.owner else 1.0
             if Q_tran is not None:
                 a.Q = so_tk * Q_t
-            a.v_tran = so_tk * Q_t / W
+            a.v_tran = so_tk * Q_t / W / n_con
         for v in victims:
             if isinstance(v, VictimToanTri) and not isinstance(v, VictimThichNghi):
                 v.V = (cfg["n_farmers"] + m_att) * Q_t
@@ -312,7 +321,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
             gia_dau_cua_so = pool.sqrt_price ** 2
         # giao dịch nền: số lệnh Poisson, cỡ log-chuẩn (token1), mua/bán đều — rút đủ cả bước trước khi khớp
         n_lenh = rng_nen.poisson(cfg["bg_rate"])
-        co = cfg["bg_size"] * rng_nen.lognormal(0.0, 0.5, n_lenh)
+        s_nen = cfg.get("bg_sigma", 0.5)                      # σ của ln cỡ lệnh; đổi σ thì giữ nguyên cỡ trung bình
+        co = cfg["bg_size"] * math.exp((0.25 - s_nen ** 2) / 2) * rng_nen.lognormal(0.0, s_nen, n_lenh)
         chieu = rng_nen.random(n_lenh)
         if ghi is not None:
             ghi.setdefault("nen", []).append((t, co, chieu))
@@ -328,6 +338,11 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
         pe_farmer.append(tt.external_price(t))            # P_e farmer thấy (cho phản thực phát lại)
         Q_buoc.append(Q_nay[0])
         dau_farm = len(pool.log.rows)
+        for _ in range(n_con - 1):                            # bước mịn: các vòng mua–bán trước vòng cuối (vòng cuối như cũ, bên dưới)
+            for a in san_tro_cap:
+                a.act(t, pool, tt)
+            if not att.dang_xa(t):                            # pha xả: arb nghỉ như vòng cuối
+                arb.act(t, pool, tt)
         for a in san_tro_cap:
             a.act(t, pool, tt)
         if san is not None:                                   # chiều bán của lệnh cày: farmer bán token0 trên sàn
@@ -342,6 +357,8 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
         if san is not None and not att.dang_xa(t):            # sàn ngoài: kéo bể về giá sàn trước khi kẻ tấn công đặt/giữ tường,
             can_bang(pool, san)                               # để tường dựng ở tick của giá tham chiếu như kẻ tấn công thật
         att.act(t, pool, tt)
+        if not da_co_tuong and att.tick_lower is not None and cfg.get("c_A_ty_le") is not None:
+            att.c_A = cfg["c_A_ty_le"] * (sqrt_price_at_tick(att.tick_gia) * 1.0001 ** 0.25) ** 2   # giá vốn theo giá giữa tick tường (kịch bản theo vụ thật)
         if san is not None:                                   # sàn ngoài: không ghim; chỉ đổi độ biến động theo pha
             if not da_co_tuong and att.tick_lower is not None:
                 pha_san = "prep"
@@ -389,7 +406,7 @@ def run(config: dict, seed: int, ghi: dict | None = None) -> EventLog:
         tt.external_price(T - 1)
         ghi["soc"] = list(tt.soc)
     P_cuoi = pool.sqrt_price ** 2
-    pool.log.meta = dict(cfg, seed=seed, Q_eff=Q_eff, subsidy_pending=lich_tra.con_treo(P_cuoi),
+    pool.log.meta = dict(cfg, c_A=att.c_A, seed=seed, Q_eff=Q_eff, subsidy_pending=lich_tra.con_treo(P_cuoi),
                          subsidy_pending_attacker=lich_tra.con_treo(P_cuoi, att.owner),
                          subsidy_clawed=lich_tra.da_thu_hoi, attacker_farm_accounts=m_att, t_rut=att.t_rut,
                          wall_tick=att.tick_gia, wall_range=(att.tick_lower, att.tick_upper), L_A_eff=L_A_eff, attacker_inventory_left=att.kho, P0=z0 ** 2, arb_da_chi=arb.da_chi,

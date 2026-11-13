@@ -113,3 +113,14 @@ def test_429_keo_dai_moi_coi_la_het_han_muc(monkeypatch):
             raise RuntimeError("RPC không trả lời: HTTP 429")
     with pytest.raises(L.HetHanMuc):
         list(L.tai_doan(R(), "0xp", ["0x0"], 1, 10, 5000))
+
+
+def test_thieu_khoa_api_dung_han_khong_di_tiep():
+    import pytest
+    from scenarios.lay_log_bsc import HetHanMuc, tai_doan
+
+    class R:
+        def goi(self, m, p):
+            raise RuntimeError('{"code": -32002, "message": "keyless requests are served for the most recent 100 blocks only; use an API key for older blocks"}')
+    with pytest.raises(HetHanMuc):
+        list(tai_doan(R(), "0xp", ["0x0"], 1, 100000, 5000))
